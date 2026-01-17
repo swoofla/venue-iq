@@ -148,27 +148,27 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
               <CalendarCheck className="w-5 h-5 text-stone-400" />
               <h3 className="text-lg font-semibold text-stone-900">Select a Day</h3>
             </div>
-            {loading ? (
+{loading ? (
               <div className="text-center py-8 text-stone-500">Loading available dates...</div>
             ) : (
               <div className="space-y-2">
                 {upcomingDates.map((dateOption) => (
-                <button
-                  key={dateOption.day}
-                  onClick={() => setSelectedDay(dateOption)}
-                  className={`w-full p-4 rounded-xl text-left transition-all ${
-                    selectedDay?.day === dateOption.day
-                      ? 'bg-black text-white'
-                      : 'bg-stone-50 hover:bg-stone-100 text-stone-700'
-                  }`}
-                >
-                  <p className="font-medium">{dateOption.day}</p>
-                  <p className={`text-sm ${selectedDay?.day === dateOption.day ? 'text-stone-300' : 'text-stone-500'}`}>
-                    {format(dateOption.date, 'MMMM d, yyyy')}
-                  </p>
-                </button>
-              ))}
-            </div>
+                  <button
+                    key={dateOption.day}
+                    onClick={() => setSelectedDay(dateOption)}
+                    className={`w-full p-4 rounded-xl text-left transition-all ${
+                      selectedDay?.day === dateOption.day
+                        ? 'bg-black text-white'
+                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700'
+                    }`}
+                  >
+                    <p className="font-medium">{dateOption.day}</p>
+                    <p className={`text-sm ${selectedDay?.day === dateOption.day ? 'text-stone-300' : 'text-stone-500'}`}>
+                      {format(dateOption.date, 'MMMM d, yyyy')}
+                    </p>
+                  </button>
+                ))}
+              </div>
             )}
           </motion.div>
         )}
