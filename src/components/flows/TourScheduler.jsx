@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ProgressDots from '../chat/ProgressDots';
 import { CalendarCheck, Clock, User, CheckCircle } from 'lucide-react';
 import { format, addDays, nextTuesday, nextThursday, nextSaturday, nextSunday } from 'date-fns';
+import { base44 } from '@/api/base44Client';
 
-const timeSlots = {
+const fallbackTimeSlots = {
   Tuesday: ['10:00 AM', '2:00 PM', '4:00 PM'],
   Thursday: ['10:00 AM', '2:00 PM', '4:00 PM'],
   Saturday: ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'],
   Sunday: ['12:00 PM', '2:00 PM', '4:00 PM'],
 };
 
-const getUpcomingDates = () => {
+const getFallbackDates = () => {
   const today = new Date();
   return [
-    { day: 'Tuesday', date: nextTuesday(today) },
-    { day: 'Thursday', date: nextThursday(today) },
-    { day: 'Saturday', date: nextSaturday(today) },
-    { day: 'Sunday', date: nextSunday(today) },
+    { day: 'Tuesday', date: nextTuesday(today), slots: fallbackTimeSlots.Tuesday },
+    { day: 'Thursday', date: nextThursday(today), slots: fallbackTimeSlots.Thursday },
+    { day: 'Saturday', date: nextSaturday(today), slots: fallbackTimeSlots.Saturday },
+    { day: 'Sunday', date: nextSunday(today), slots: fallbackTimeSlots.Sunday },
   ].sort((a, b) => a.date - b.date);
 };
 
@@ -35,8 +36,34 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
     guestCount: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [upcomingDates, setUpcomingDates] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingDates = getUpcomingDates();
+  useEffect(() => {
+    async function fetchAvailability() {
+      try {
+        const result = await base44.functions.getHighLevelAvailability({
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        });
+        
+        // Transform HighLevel slots to our format
+        const transformedSlots = result.slots?.map(slot => ({
+          day: format(new Date(slot.date), 'EEEE'),
+          date: new Date(slot.date),
+          slots: slot.times || []
+        })) || [];
+        
+        setUpcomingDates(transformedSlots);
+      } catch (error) {
+        console.log('Using fallback availability - enable backend functions for HighLevel integration');
+        setUpcomingDates(getFallbackDates());
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchAvailability();
+  }, []);
 
   const handleNext = () => {
     if (step === 0 && selectedDay) {
@@ -121,8 +148,11 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
               <CalendarCheck className="w-5 h-5 text-stone-400" />
               <h3 className="text-lg font-semibold text-stone-900">Select a Day</h3>
             </div>
-            <div className="space-y-2">
-              {upcomingDates.map((dateOption) => (
+            {loading ? (
+              <div className="text-center py-8 text-stone-500">Loading available dates...</div>
+            ) : (
+              <div className="space-y-2">
+                {upcomingDates.map((dateOption) => (
                 <button
                   key={dateOption.day}
                   onClick={() => setSelectedDay(dateOption)}
@@ -158,7 +188,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
               {format(selectedDay.date, 'EEEE, MMMM d')}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {timeSlots[selectedDay.day].map((time) => (
+              {selectedDay.slots.map((time) => (
                 <button
                   key={time}
                   onClick={() => setSelectedTime(time)}
