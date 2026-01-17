@@ -2,9 +2,9 @@
  * Fetches available time slots from HighLevel calendar
  */
 export default async function getHighLevelAvailability(data, context) {
-  const { HIGHLEVEL_API_KEY, HIGHLEVEL_CALENDAR_ID } = context.secrets;
+  const { HIGHLEVEL_API_KEY, HIGHLEVEL_TOUR_CALENDAR_ID } = context.secrets;
   
-  if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_CALENDAR_ID) {
+  if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_TOUR_CALENDAR_ID) {
     throw new Error('HighLevel credentials not configured');
   }
 
@@ -12,7 +12,7 @@ export default async function getHighLevelAvailability(data, context) {
   const endDate = data.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const response = await fetch(
-    `https://rest.gohighlevel.com/v1/calendars/${HIGHLEVEL_CALENDAR_ID}/free-slots?startDate=${startDate}&endDate=${endDate}`,
+    `https://rest.gohighlevel.com/v1/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDate}&endDate=${endDate}`,
     {
       method: 'GET',
       headers: {

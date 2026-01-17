@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { format, addDays, addWeeks } from 'date-fns';
+import { base44 } from '@/api/base44Client';
 
 export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, onCancel }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [checkResult, setCheckResult] = useState(null);
+  const [weddingDates, setWeddingDates] = useState(bookedDates);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchWeddingDates() {
+      try {
+        const result = await base44.functions.invoke('getHighLevelWeddingDates', {
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        });
+        setWeddingDates(result.bookedDates || []);
+      } catch (error) {
+        console.log('Using local booked dates - enable backend functions for HighLevel integration');
+        setWeddingDates(bookedDates);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchWeddingDates();
+  }, [bookedDates]);
 
   const checkAvailability = () => {
-    const isBooked = bookedDates.some(d => d.date === selectedDate);
+    const isBooked = weddingDates.some(d => d.date === selectedDate);
     
     if (isBooked) {
       const dateObj = new Date(selectedDate);
@@ -18,7 +39,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
         format(addDays(dateObj, 7), 'yyyy-MM-dd'),
         format(addDays(dateObj, 14), 'yyyy-MM-dd'),
         format(addWeeks(dateObj, -1), 'yyyy-MM-dd'),
-      ].filter(d => !bookedDates.some(bd => bd.date === d));
+      ].filter(d => !weddingDates.some(bd => bd.date === d));
       
       setCheckResult({ available: false, alternatives: alternatives.slice(0, 3) });
     } else {
@@ -37,7 +58,9 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
         <h3 className="text-lg font-semibold text-stone-900">Check Date Availability</h3>
       </div>
 
-      {!checkResult ? (
+      {loading ? (
+        <div className="text-center py-8 text-stone-500">Loading availability...</div>
+      ) : !checkResult ? (
         <>
           <Input
             type="date"
