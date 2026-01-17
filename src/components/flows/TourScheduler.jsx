@@ -169,6 +169,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
                 </button>
               ))}
             </div>
+            )}
           </motion.div>
         )}
 
