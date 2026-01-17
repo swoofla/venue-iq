@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, ChevronLeft, MessageCircle } from 'lucide-react';
 
 const videoOptions = [
-  { id: 'planner', label: 'Meet Our Planner', videoId: 'dQw4w9WgXcQ' },
+  { id: 'planner', label: 'Meet Your Planners', videoId: 'dQw4w9WgXcQ' },
   { id: 'packages', label: 'Learn About Packages', videoId: 'dQw4w9WgXcQ' },
   { id: 'tour', label: 'Quick Mini Tour', videoId: 'dQw4w9WgXcQ' },
 ];
@@ -89,8 +89,8 @@ export default function VideoAskPanel() {
             {/* Content */}
             <div className="absolute inset-0 flex flex-col justify-end p-6">
               <div className="mb-6">
-                <h3 className="text-white text-2xl font-semibold mb-2">Hi, I'm Ellie</h3>
-                <p className="text-white/80 text-sm">Your personal wedding concierge. Let me show you around!</p>
+                <h3 className="text-white text-2xl font-semibold mb-2">Hi, I'm Nadine</h3>
+                <p className="text-white/80 text-sm">Owner and head planner here at Sugar Lake, let me show you around.</p>
               </div>
 
               <div className="space-y-3">
