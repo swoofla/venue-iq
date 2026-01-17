@@ -93,12 +93,15 @@ export default function Home() {
   };
 
   const handleBudgetComplete = async (data) => {
-    await base44.entities.ContactSubmission.create({
+    const submissionData = {
       ...data,
       source: 'budget_calculator',
       name: 'Budget Calculator User',
       email: 'pending@sugar-lake.com',
-    });
+    };
+    
+    await base44.entities.ContactSubmission.create(submissionData);
+    
     setActiveFlow(null);
     addBotMessage(`Based on your budget of $${data.budget.toLocaleString()} and ${data.guestCount} guests, I recommend our ${data.recommendedPackage} package. Would you like to schedule a tour to see the space in person?`);
   };
@@ -109,7 +112,7 @@ export default function Home() {
   };
 
   const handleTourComplete = async (data) => {
-    await base44.entities.ContactSubmission.create({
+    const submissionData = {
       name: data.name,
       email: data.email,
       phone: data.phone,
@@ -118,7 +121,35 @@ export default function Home() {
       tour_date: data.tourDate,
       tour_time: data.tourTime,
       source: 'tour_scheduler',
-    });
+    };
+    
+    // Save to Base44 database
+    await base44.entities.ContactSubmission.create(submissionData);
+    
+    // Sync to HighLevel (only works when backend functions are enabled)
+    try {
+      await base44.functions.createHighLevelContact({
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
+        wedding_date: data.weddingDate,
+        guest_count: data.guestCount,
+        source: 'tour_scheduler'
+      });
+      
+      await base44.functions.createHighLevelAppointment({
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
+        tour_date: data.tourDate,
+        tour_time: data.tourTime,
+        wedding_date: data.weddingDate,
+        guest_count: data.guestCount
+      });
+    } catch (error) {
+      console.log('HighLevel sync will be available once backend functions are enabled');
+    }
+    
     setActiveFlow(null);
     setPreSelectedDate('');
   };
