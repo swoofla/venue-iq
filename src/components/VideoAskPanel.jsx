@@ -74,7 +74,7 @@ export default function VideoAskPanel() {
             <div 
               className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%), url('https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80')`,
+                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%), url('https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/696c146970e7d835d6d4e1eb/d65e09472_planner-image.jpg')`,
               }}
             />
 
