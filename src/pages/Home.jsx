@@ -222,11 +222,15 @@ export default function Home() {
   };
 
   const handleBudgetComplete = async (data) => {
+    const venues = await base44.entities.Venue.list();
+    const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
+    
     const submissionData = {
       ...data,
       source: 'budget_calculator',
       name: 'Budget Calculator User',
       email: 'pending@sugar-lake.com',
+      venue_id: sugarLakeVenue?.id,
     };
     
     await base44.entities.ContactSubmission.create(submissionData);
@@ -241,6 +245,9 @@ export default function Home() {
   };
 
   const handleTourComplete = async (data) => {
+    const venues = await base44.entities.Venue.list();
+    const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
+    
     const submissionData = {
       name: data.name,
       email: data.email,
@@ -250,6 +257,7 @@ export default function Home() {
       tour_date: data.tourDate,
       tour_time: data.tourTime,
       source: 'tour_scheduler',
+      venue_id: sugarLakeVenue?.id,
     };
     
     // Save to Base44 database
