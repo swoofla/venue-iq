@@ -1,6 +1,3 @@
-// getHighLevelAvailability.js - FIXED VERSION
-// Fixes the "all times show as 7:00 PM" and "only 1 slot per day" bugs
-
 Deno.serve(async (req) => {
   try {
     const { startDate, endDate, timezone = 'America/New_York' } = await req.json();
@@ -9,12 +6,9 @@ Deno.serve(async (req) => {
     const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
     
     if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_TOUR_CALENDAR_ID) {
-      return Response.json({ 
-        error: 'HighLevel configuration missing' 
-      }, { status: 500 });
+      return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
     }
 
-    // Get timezone offset for date calculations
     const getTimezoneOffset = (tz) => {
       const offsets = {
         'America/New_York': '-05:00',
@@ -30,25 +24,16 @@ Deno.serve(async (req) => {
     };
 
     const tzOffset = getTimezoneOffset(timezone);
+
+    const now = new Date();
+    const startDateTime = startDate ? new Date(startDate + `T00:00:00${tzOffset}`) : now;
+    const endDateTime = endDate ? new Date(endDate + `T23:59:59${tzOffset}`) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     
-    // Convert date strings to Unix timestamps in MILLISECONDS
-    // IMPORTANT: Include timezone offset to avoid date shifting
-    const startDateTime = new Date(`${startDate}T00:00:00${tzOffset}`);
-    const endDateTime = new Date(`${endDate}T23:59:59${tzOffset}`);
-    
-    console.log('=== getHighLevelAvailability DEBUG ===');
-    console.log('Input startDate:', startDate);
-    console.log('Input endDate:', endDate);
-    console.log('Timezone:', timezone);
-    console.log('TZ Offset:', tzOffset);
-    console.log('Start as millis:', startDateTime.getTime());
-    console.log('End as millis:', endDateTime.getTime());
-    
-    // Call HighLevel V2 API
-    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDateTime.getTime()}&endDate=${endDateTime.getTime()}&timezone=${encodeURIComponent(timezone)}`;
-    
-    console.log('HighLevel URL:', url);
-    
+    const startMillis = startDateTime.getTime();
+    const endMillis = endDateTime.getTime();
+
+    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=${timezone}`;
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -58,97 +43,98 @@ Deno.serve(async (req) => {
         'Accept': 'application/json'
       }
     });
-    
+
+    const rawData = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('HighLevel API error:', response.status, errorText);
-      return Response.json({ 
-        error: `HighLevel API error: ${response.status}`,
-        details: errorText 
-      }, { status: response.status });
+      return Response.json({ error: `HighLevel API error: ${rawData}` }, { status: 500 });
     }
+
+    const data = JSON.parse(rawData);
     
-    const rawData = await response.json();
-    console.log('Raw HighLevel response:', JSON.stringify(rawData).substring(0, 500));
+    const formatTimeInTimezone = (timestamp, tz) => {
+      const date = new Date(parseInt(timestamp));
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true,
+        timeZone: tz
+      });
+    };
     
-    // Transform the response
-    // HighLevel returns: { "2026-01-24": { slots: ["1737727200000", ...] }, "traceId": "..." }
     const transformedSlots = [];
     
-    for (const [dateKey, dateData] of Object.entries(rawData)) {
-      // Skip the traceId key
-      if (dateKey === 'traceId') continue;
+    console.log(`RAW HighLevel response:`, JSON.stringify(data, null, 2));
+    
+    if (data.slots && Array.isArray(data.slots)) {
+      // HighLevel returns slots as an array of { startsAt: timestamp, ... } objects
+      const slotsByDate = {};
       
-      // Make sure dateData has slots array
-      if (!dateData || !Array.isArray(dateData.slots)) {
-        console.log(`Skipping ${dateKey} - no slots array`);
-        continue;
-      }
-      
-      console.log(`Processing ${dateKey} with ${dateData.slots.length} slots`);
-      
-      // Convert each timestamp to human-readable time
-      const times = dateData.slots.map(timestamp => {
-        // timestamp is a string of Unix milliseconds
-        const ts = parseInt(timestamp, 10);
-        const date = new Date(ts);
+      data.slots.forEach(slot => {
+        const timestamp = parseInt(slot.startsAt || slot.start_time || slot.startTime);
+        if (!timestamp) return;
         
-        // FIX: Use toLocaleTimeString with EXPLICIT timezone parameter
-        // This is the key fix - without the timezone, it defaults to server time (UTC)
-        const timeString = date.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: timezone  // <-- CRITICAL: Must pass timezone here!
+        const date = new Date(timestamp);
+        const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        if (!slotsByDate[dateStr]) {
+          slotsByDate[dateStr] = [];
+        }
+        slotsByDate[dateStr].push(timestamp);
+      });
+      
+      // Convert timestamps to formatted times and deduplicate
+      Object.entries(slotsByDate).forEach(([dateStr, timestamps]) => {
+        const times = timestamps.map(ts => formatTimeInTimezone(ts, timezone));
+        const uniqueTimes = [...new Set(times)].sort((a, b) => {
+          const parseTime = (t) => {
+            const [time, period] = t.split(' ');
+            let [hour, min] = time.split(':').map(Number);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            return hour * 60 + min;
+          };
+          return parseTime(a) - parseTime(b);
         });
         
-        console.log(`  Timestamp ${timestamp} -> ${timeString} (in ${timezone})`);
-        return timeString;
+        if (uniqueTimes.length > 0) {
+          transformedSlots.push({
+            date: dateStr,
+            times: uniqueTimes
+          });
+        }
       });
-      
-      // Deduplicate times (remove if same time appears multiple times)
-      const uniqueTimes = [...new Set(times)].sort((a, b) => {
-        const parseTime = (t) => {
-          const [time, period] = t.split(' ');
-          let [hour, min] = time.split(':').map(Number);
-          if (period === 'PM' && hour !== 12) hour += 12;
-          if (period === 'AM' && hour === 12) hour = 0;
-          return hour * 60 + min;
-        };
-        return parseTime(a) - parseTime(b);
-      });
-      
-      console.log(`  Unique times for ${dateKey}: ${uniqueTimes.join(', ')}`);
-      
-      // Add to results
-      transformedSlots.push({
-        date: dateKey,
-        times: uniqueTimes
+    } else if (typeof data === 'object' && !Array.isArray(data)) {
+      // Fallback for older/different API response format
+      Object.entries(data).forEach(([dateKey, dayData]) => {
+        if (dateKey === 'traceId' || !dayData?.slots) return;
+        
+        const times = dayData.slots.map(slotTime => formatTimeInTimezone(slotTime, timezone));
+        
+        const uniqueTimes = [...new Set(times)].sort((a, b) => {
+          const parseTime = (t) => {
+            const [time, period] = t.split(' ');
+            let [hour, min] = time.split(':').map(Number);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            return hour * 60 + min;
+          };
+          return parseTime(a) - parseTime(b);
+        });
+        
+        if (uniqueTimes.length > 0) {
+          transformedSlots.push({
+            date: dateKey,
+            times: uniqueTimes
+          });
+        }
       });
     }
     
-    // Sort by date
     transformedSlots.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    console.log('Transformed slots count:', transformedSlots.length);
-    console.log('First few slots:', JSON.stringify(transformedSlots.slice(0, 3)));
-    
-    return Response.json({ 
-      success: true, 
-      slots: transformedSlots,
-      timezone: timezone,
-      debug: {
-        datesProcessed: transformedSlots.length,
-        startDate: startDate,
-        endDate: endDate
-      }
-    });
-    
+    return Response.json({ success: true, slots: transformedSlots, timezone });
   } catch (error) {
-    console.error('getHighLevelAvailability error:', error);
-    return Response.json({ 
-      error: error.message,
-      stack: error.stack 
-    }, { status: 500 });
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
