@@ -98,6 +98,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const [step, setStep] = useState(0);
   const [pricingConfig, setPricingConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [venueName, setVenueName] = useState('Sugar Lake');
   const [selections, setSelections] = useState({
     guestTier: null,
     dayOfWeek: null,
@@ -116,6 +117,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     extras: 0
   });
   const [submitted, setSubmitted] = useState(false);
+  const [view, setView] = useState('summary'); // 'summary', 'send', 'success'
 
   useEffect(() => {
     async function fetchPricing() {
