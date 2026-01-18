@@ -46,10 +46,15 @@ export default function AdminCalendar() {
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
     queryFn: async () => {
-      console.log('DEBUG: queryFn executing with venueId:', venueId);
-      const result = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
-      console.log('DEBUG: BookedWeddingDate.filter returned:', result);
-      return result;
+      try {
+        console.log('DEBUG: queryFn executing with venueId:', venueId);
+        const result = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
+        console.log('DEBUG: BookedWeddingDate.filter returned:', result);
+        return result;
+      } catch (error) {
+        console.error('DEBUG: BookedWeddingDate.filter error:', error);
+        throw error;
+      }
     },
     enabled: !!venueId
   });
