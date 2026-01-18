@@ -23,7 +23,8 @@ export default function SuperAdmin() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list()
+    queryFn: () => base44.entities.User.list(),
+    enabled: !!user && user.role === 'admin'
   });
 
   if (!user) {
