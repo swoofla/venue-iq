@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
         const times = dayData.slots.map(slotTime => {
-          // Convert to EST explicitly
+          // slotTime is a timestamp in milliseconds
           const slotDateTime = new Date(parseInt(slotTime));
           return slotDateTime.toLocaleTimeString('en-US', { 
             hour: 'numeric', 
@@ -55,19 +55,21 @@ Deno.serve(async (req) => {
         });
         
         if (times.length > 0) {
+          // Don't deduplicate - keep all slots as they are
+          const sortedTimes = times.sort((a, b) => {
+            const parseTime = (t) => {
+              const [time, period] = t.split(' ');
+              let [hour, min] = time.split(':').map(Number);
+              if (period === 'PM' && hour !== 12) hour += 12;
+              if (period === 'AM' && hour === 12) hour = 0;
+              return hour * 60 + min;
+            };
+            return parseTime(a) - parseTime(b);
+          });
+          
           transformedSlots.push({
             date: dateKey,
-            times: [...new Set(times)].sort((a, b) => {
-              // Sort times properly (AM before PM, then by hour)
-              const parseTime = (t) => {
-                const [time, period] = t.split(' ');
-                let [hour, min] = time.split(':').map(Number);
-                if (period === 'PM' && hour !== 12) hour += 12;
-                if (period === 'AM' && hour === 12) hour = 0;
-                return hour * 60 + min;
-              };
-              return parseTime(a) - parseTime(b);
-            })
+            times: sortedTimes
           });
         }
       });
