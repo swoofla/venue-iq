@@ -59,24 +59,25 @@ Deno.serve(async (req) => {
         .slice(0, 3)
     });
 
-    // 2. Format the budget breakdown for the email
-    const budgetBreakdown = formatBudgetBreakdown(budgetData, totalBudget);
-
-    // 3. Send email to the bride
-    const brideEmailSubject = `Your Sugar Lake Wedding Budget Estimate - $${totalBudget.toLocaleString()}`;
-    const brideEmailBody = generateBrideEmail(name, budgetBreakdown, totalBudget, venueName);
-    
-    await base44.integrations.Core.SendEmail({
-      to: email,
-      subject: brideEmailSubject,
-      body: brideEmailBody,
-      from_name: venueName || 'Sugar Lake Weddings'
-    });
-
-    // 4. Send notification to Sugar Lake planners
+    // 4. Send delivery message (email or SMS)
     const plannersEmail = Deno.env.get('SUGAR_LAKE_PLANNERS_EMAIL') || 'info@sugarlakeweddings.com';
+    const budgetBreakdownText = formatBudgetBreakdown(budgetData, totalBudget);
+    
+    if (deliveryPreference === 'email' && email) {
+      const brideEmailSubject = `Your Sugar Lake Wedding Budget Estimate - $${totalBudget.toLocaleString()}`;
+      const brideEmailBody = generateBrideEmail(name, budgetBreakdownText, totalBudget, venueName);
+      
+      await base44.integrations.Core.SendEmail({
+        to: email,
+        subject: brideEmailSubject,
+        body: brideEmailBody,
+        from_name: venueName || 'Sugar Lake Weddings'
+      });
+    }
+
+    // 5. Always send planner notification
     const plannerEmailSubject = `New Budget Quote Request - ${name}`;
-    const plannerEmailBody = generatePlannerEmail(name, email, phone, budgetBreakdown, totalBudget);
+    const plannerEmailBody = generatePlannerEmail(name, email || phone || 'No contact', phone || email || 'No contact', budgetBreakdownText, totalBudget);
     
     await base44.integrations.Core.SendEmail({
       to: plannersEmail,
@@ -85,13 +86,15 @@ Deno.serve(async (req) => {
       from_name: venueName || 'Sugar Lake Weddings'
     });
 
-    // 5. Create/upsert contact in HighLevel with budget custom field
+    // 6. Sync to HighLevel
     const highlevelApiKey = Deno.env.get('HIGHLEVEL_API_KEY');
     const locationId = Deno.env.get('HIGHLEVEL_LOCATION_ID');
 
+    let highlevelContactId = null;
+    let syncStatus = 'pending';
+
     if (highlevelApiKey && locationId) {
       try {
-        // Upsert contact
         const contactResponse = await fetch('https://rest.gohighlevel.com/v2/contacts/upsert', {
           method: 'POST',
           headers: {
@@ -100,10 +103,10 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             locationId,
-            email,
+            email: email || undefined,
+            phone: phone || undefined,
             firstName: name.split(' ')[0],
             lastName: name.split(' ').slice(1).join(' '),
-            phone,
             customFields: {
               budgetEstimate: totalBudget.toString(),
               budgetPackage: budgetData.guestTier,
@@ -112,18 +115,31 @@ Deno.serve(async (req) => {
           })
         });
 
-        if (!contactResponse.ok) {
+        if (contactResponse.ok) {
+          const contactData = await contactResponse.json();
+          highlevelContactId = contactData.contact?.id;
+          syncStatus = 'synced';
+        } else {
           console.error('Failed to create HighLevel contact:', await contactResponse.text());
+          syncStatus = 'failed';
         }
       } catch (hlError) {
-        console.error('HighLevel integration error:', hlError.message);
-        // Don't fail the entire request if HighLevel fails
+        console.error('HighLevel sync error:', hlError.message);
+        syncStatus = 'failed';
       }
     }
 
+    // 7. Update sync status
+    await base44.entities.SavedBudgetEstimate.update(savedEstimate.id, {
+      highlevel_sync_status: syncStatus,
+      highlevel_contact_id: highlevelContactId
+    });
+
     return Response.json({ 
       success: true, 
-      message: 'Budget quote sent successfully',
+      message: 'Budget estimate saved successfully',
+      estimateId: savedEstimate.id,
+      syncStatus: syncStatus,
       contactSubmissionId: contactSubmission.id
     });
   } catch (error) {
