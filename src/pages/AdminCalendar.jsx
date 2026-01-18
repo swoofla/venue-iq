@@ -88,6 +88,19 @@ export default function AdminCalendar() {
     setShowBlockForm(true);
   };
 
+  const handleClearDates = async () => {
+    if (!confirm('Delete all synced wedding dates? You can sync again for a fresh start.')) {
+      return;
+    }
+    try {
+      const response = await base44.functions.invoke('clearSyncedDates', { venue_id: venueId });
+      alert(`Deleted ${response.data.deleted} records`);
+      queryClient.invalidateQueries({ queryKey: ['weddings'] });
+    } catch (error) {
+      alert('Error clearing dates: ' + error.message);
+    }
+  };
+
   const handleFormClose = () => {
     setShowWeddingForm(false);
     setShowBlockForm(false);
