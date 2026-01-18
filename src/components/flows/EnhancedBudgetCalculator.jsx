@@ -36,7 +36,7 @@ const GUEST_TIERS = [
   { id: 'up_to_2', label: 'Just us two 💕', sublabel: 'Elopement Package' },
   { id: 'up_to_20', label: 'Inner Circle', sublabel: 'Intimate gathering (up to 20)' },
   { id: 'up_to_50', label: '50 and Under', sublabel: 'Small celebration (21-50)' },
-  { id: '51_to_120', label: 'Classic Wedding', sublabel: 'Up to 120 guests' }
+  { id: '51_to_120', label: 'Classic Wedding', sublabel: '51-120 guests' }
 ];
 
 const ALL_DAYS = [
