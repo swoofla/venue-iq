@@ -179,9 +179,9 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
                       }`}
                     >
                       <p className="font-medium">{dateOption.day}</p>
-                      <p className={`text-sm ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
-                        {format(dateOption.date, 'MMMM d, yyyy')}
-                      </p>
+                        <p className={`text-sm ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                          {dateOption.displayDate}
+                        </p>
                       <p className={`text-xs mt-1 ${isSelected ? 'text-stone-400' : 'text-stone-400'}`}>
                         {dateOption.slots.length > 0 ? `${dateOption.slots.length} slot${dateOption.slots.length !== 1 ? 's' : ''} available` : 'No slots'}
                       </p>
