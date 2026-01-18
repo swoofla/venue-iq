@@ -35,10 +35,12 @@ export default function Home() {
           // Super admins go to SuperAdmin page
           if (u.role === 'admin' && !u.venue_id) {
             window.location.href = createPageUrl('SuperAdmin');
+            return;
           }
           // Users with venue assignments go to Dashboard
           else if (u.venue_id) {
             window.location.href = createPageUrl('Dashboard');
+            return;
           }
           // Users without venue stay on home
           else {

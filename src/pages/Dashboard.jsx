@@ -42,13 +42,13 @@ export default function Dashboard() {
   });
 
   if (!user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center"><div className="text-center">Loading...</div></div>;
   }
 
   // Super admins (no venue_id) go to SuperAdmin page
   if (user.role === 'admin' && !user.venue_id) {
     window.location.href = createPageUrl('SuperAdmin');
-    return null;
+    return <div className="min-h-screen flex items-center justify-center"><div className="text-center">Redirecting...</div></div>;
   }
 
   // Regular users without venue assignment

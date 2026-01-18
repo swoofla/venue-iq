@@ -26,7 +26,15 @@ export default function SuperAdmin() {
     queryFn: () => base44.entities.User.list()
   });
 
-  if (!user || user.role !== 'admin') {
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  if (user.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
