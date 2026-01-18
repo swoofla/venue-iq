@@ -27,36 +27,36 @@ Deno.serve(async (req) => {
 
     const venue_base = {
         up_to_2: {
-          weekday_peak: { price: 2950 },
-          saturday_nonpeak: { price: 2950 },
-          friday_nonpeak: { price: 2950 },
-          sunday_nonpeak: { price: 2950 },
-          weekday_nonpeak: { price: 2950 }
+          weekday_peak: { price: 2950, per_person: 1475.00 },
+          saturday_non_peak: { price: 2950, per_person: 1475.00 },
+          friday_non_peak: { price: 2950, per_person: 1475.00 },
+          sunday_non_peak: { price: 2950, per_person: 1475.00 },
+          weekday_non_peak: { price: 2950, per_person: 1475.00 }
         },
-        up_to_20: {
-          weekday_peak: { price: 4250 },
-          saturday_nonpeak: { price: 4250 },
-          friday_nonpeak: { price: 4250 },
-          sunday_nonpeak: { price: 4250 },
-          weekday_nonpeak: { price: 4250 }
+        '2_to_20': {
+          weekday_peak: { price: 4250, per_person: 212.50 },
+          saturday_non_peak: { price: 4250, per_person: 212.50 },
+          friday_non_peak: { price: 4250, per_person: 212.50 },
+          sunday_non_peak: { price: 4250, per_person: 212.50 },
+          weekday_non_peak: { price: 4250, per_person: 212.50 }
         },
-        up_to_50: {
-          sunday_peak: { price: 6500 },
-          weekday_peak: { price: 6000 },
-          saturday_nonpeak: { price: 5500 },
-          friday_nonpeak: { price: 5500 },
-          sunday_nonpeak: { price: 5500 },
-          weekday_nonpeak: { price: 5000 }
+        '20_to_50': {
+          sunday_peak: { price: 6500, per_person: 130.00 },
+          weekday_peak: { price: 6000, per_person: 120.00 },
+          saturday_non_peak: { price: 5500, per_person: 110.00 },
+          friday_non_peak: { price: 5500, per_person: 110.00 },
+          sunday_non_peak: { price: 5500, per_person: 110.00 },
+          weekday_non_peak: { price: 5000, per_person: 100.00 }
         },
         '51_to_120': {
-          saturday_peak: { price: 12000 },
-          friday_peak: { price: 11000 },
-          sunday_peak: { price: 9000 },
-          weekday_peak: { price: 7500 },
-          saturday_nonpeak: { price: 7500 },
-          friday_nonpeak: { price: 7500 },
-          sunday_nonpeak: { price: 7500 },
-          weekday_nonpeak: { price: 6500 }
+          saturday_peak: { price: 12000, per_person: 235.29 },
+          friday_peak: { price: 11000, per_person: 215.69 },
+          sunday_peak: { price: 9000, per_person: 176.47 },
+          weekday_peak: { price: 7500, per_person: 147.06 },
+          saturday_non_peak: { price: 7500, per_person: 147.06 },
+          friday_non_peak: { price: 7500, per_person: 147.06 },
+          sunday_non_peak: { price: 7500, per_person: 147.06 },
+          weekday_non_peak: { price: 6500, per_person: 127.45 }
         }
     };
 
