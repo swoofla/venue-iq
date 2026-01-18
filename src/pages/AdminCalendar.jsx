@@ -32,17 +32,6 @@ export default function AdminCalendar() {
 
   const venueId = selectedVenueId || user?.venue_id;
 
-  // DEBUG - remove after fixing
-  React.useEffect(() => {
-    console.log('DEBUG AdminCalendar:', {
-      user: user,
-      userVenueId: user?.venue_id,
-      selectedVenueId: selectedVenueId,
-      finalVenueId: venueId,
-      queryEnabled: !!venueId
-    });
-  }, [user, selectedVenueId, venueId]);
-
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
     queryFn: async () => {
