@@ -9,21 +9,46 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, phone, budgetData, venueName, totalBudget } = await req.json();
+    const { name, email, phone, budgetData, venueName, totalBudget, deliveryPreference } = await req.json();
 
-    if (!name || !email || !phone || !budgetData || !totalBudget) {
+    if (!name || !deliveryPreference || !budgetData || !totalBudget) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Save to ContactSubmission with full budget breakdown
+    // Validate delivery preference
+    if (!['text', 'email'].includes(deliveryPreference)) {
+      return Response.json({ error: 'Invalid delivery preference' }, { status: 400 });
+    }
+
+    // 1. Get venue
     const venues = await base44.entities.Venue.list();
     const sugarlakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
 
+    // 2. Save to SavedBudgetEstimate first (our source of truth)
+    const budgetBreakdown = calculateBudgetBreakdown(budgetData);
+    
+    const savedEstimate = await base44.entities.SavedBudgetEstimate.create({
+      venue_id: sugarlakeVenue?.id,
+      name,
+      email: deliveryPreference === 'email' ? email : null,
+      phone: deliveryPreference === 'text' ? phone : null,
+      delivery_preference: deliveryPreference,
+      total_budget: totalBudget,
+      guest_count: budgetData.guestCount || 0,
+      guest_tier: budgetData.guestTier,
+      day_of_week: budgetData.dayOfWeek,
+      season: budgetData.season,
+      budget_selections: budgetData,
+      budget_breakdown: budgetBreakdown,
+      highlevel_sync_status: 'pending'
+    });
+
+    // 3. Save to ContactSubmission for backward compatibility
     const contactSubmission = await base44.entities.ContactSubmission.create({
       venue_id: sugarlakeVenue?.id,
       name,
-      email,
-      phone,
+      email: email || null,
+      phone: phone || null,
       budget: totalBudget,
       recommended_package: budgetData.guestTier,
       source: 'budget_calculator',
