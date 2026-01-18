@@ -45,11 +45,13 @@ export default function Dashboard() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (user.role === 'admin') {
+  // Super admins (no venue_id) go to SuperAdmin page
+  if (user.role === 'admin' && !user.venue_id) {
     window.location.href = createPageUrl('SuperAdmin');
     return null;
   }
 
+  // Regular users without venue assignment
   if (!user.venue_id) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,6 +63,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Venue admins (have venue_id) can view their dashboard
 
   const now = new Date();
   const next30Days = addDays(now, 30);

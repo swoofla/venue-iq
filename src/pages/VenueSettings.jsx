@@ -36,8 +36,22 @@ export default function VenueSettings() {
     enabled: !!user?.venue_id
   });
 
-  if (!user || !user.venue_id) {
+  if (!user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user.venue_id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+          <p className="text-stone-600 mb-4">You need to be assigned to a venue to access settings.</p>
+          <Link to={createPageUrl(user.role === 'admin' ? 'SuperAdmin' : 'Dashboard')}>
+            <Button>Go Back</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
