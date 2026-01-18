@@ -66,6 +66,9 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
         }) || [];
 
         console.log('DEBUG Frontend: Transformed slots:', transformedSlots);
+        transformedSlots.forEach(slot => {
+          console.log(`${slot.date}: ${slot.slots.length} slots - ${slot.slots.join(', ')}`);
+        });
 
         setUpcomingDates(transformedSlots);
       } catch (error) {
