@@ -1,0 +1,165 @@
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { base44 } from '@/api/base44Client';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+
+export default function SendBudgetForm({ totalBudget, budgetData, venueName, onSuccess, onCancel }) {
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validate
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await base44.functions.invoke('sendBudgetQuote', {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        budgetData,
+        venueName,
+        totalBudget
+      });
+
+      if (response.data.success) {
+        setSubmitted(true);
+        onSuccess(formData);
+      } else {
+        setError('Failed to send budget. Please try again.');
+      }
+    } catch (err) {
+      setError('Error sending budget. Please try again.');
+      console.error('Send budget error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="text-center space-y-4">
+        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <CheckCircle className="w-6 h-6 text-green-600" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-stone-900">Budget Sent!</h3>
+          <p className="text-sm text-stone-600 mt-1">
+            We've sent your ${totalBudget.toLocaleString()} estimate to {formData.email} and our planning team.
+          </p>
+          <p className="text-sm text-stone-600 mt-2">
+            Expect to hear from us within 24 hours to discuss your vision.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 mb-4">
+        <p className="text-sm text-stone-700">
+          We'll send a copy of your <span className="font-semibold">${totalBudget.toLocaleString()}</span> estimate to you and our planning team at {venueName}.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">
+          Full Name *
+        </label>
+        <Input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Your full name"
+          disabled={loading}
+          className="w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">
+          Email Address *
+        </label>
+        <Input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="your@email.com"
+          disabled={loading}
+          className="w-full"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-stone-700 mb-2">
+          Phone Number *
+        </label>
+        <Input
+          type="tel"
+          name="phone"
+          value={formData.phone}
+          onChange={handleChange}
+          placeholder="(555) 123-4567"
+          disabled={loading}
+          className="w-full"
+        />
+      </div>
+
+      {error && (
+        <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          className="flex-1 rounded-full"
+        >
+          Back
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="flex-1 rounded-full bg-black hover:bg-stone-800"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            'Send Budget'
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+}
