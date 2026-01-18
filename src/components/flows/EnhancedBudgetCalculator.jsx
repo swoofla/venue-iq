@@ -403,11 +403,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       setStep(step + 1);
     } else {
       setSubmitted(true);
-      onComplete({
-        ...selections,
-        totalBudget,
-        guestCount: GUEST_COUNTS[selections.guestTier]
-      });
     }
   };
 
