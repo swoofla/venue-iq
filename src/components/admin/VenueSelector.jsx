@@ -10,7 +10,7 @@ export default function VenueSelector({ onVenueSelected, user }) {
   
   const { data: venues = [] } = useQuery({
     queryKey: ['allVenues'],
-    queryFn: () => base44.asServiceRole.entities.Venue.list()
+    queryFn: () => base44.entities.Venue.list()
   });
 
   if (!user || user.role !== 'admin' || user.venue_id) {
