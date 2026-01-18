@@ -1,6 +1,6 @@
 Deno.serve(async (req) => {
   try {
-    const { startDate, endDate } = await req.json();
+    const { startDate, endDate, timezone = 'America/New_York' } = await req.json();
     
     const HIGHLEVEL_API_KEY = Deno.env.get('HIGHLEVEL_API_KEY');
     const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
@@ -9,14 +9,30 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
     }
 
+    const getTimezoneOffset = (tz) => {
+      const offsets = {
+        'America/New_York': '-05:00',
+        'America/Chicago': '-06:00',
+        'America/Denver': '-07:00',
+        'America/Phoenix': '-07:00',
+        'America/Los_Angeles': '-08:00',
+        'America/Anchorage': '-09:00',
+        'Pacific/Honolulu': '-10:00',
+        'America/Puerto_Rico': '-04:00'
+      };
+      return offsets[tz] || '-05:00';
+    };
+
+    const tzOffset = getTimezoneOffset(timezone);
+
     const now = new Date();
-    const startDateTime = startDate ? new Date(startDate + 'T00:00:00-05:00') : now;
-    const endDateTime = endDate ? new Date(endDate + 'T23:59:59-05:00') : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const startDateTime = startDate ? new Date(startDate + `T00:00:00${tzOffset}`) : now;
+    const endDateTime = endDate ? new Date(endDate + `T23:59:59${tzOffset}`) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     
     const startMillis = startDateTime.getTime();
     const endMillis = endDateTime.getTime();
 
-    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=America/New_York`;
+    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=${timezone}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -36,22 +52,14 @@ Deno.serve(async (req) => {
 
     const data = JSON.parse(rawData);
     
-    // Helper function to extract time from ISO 8601 string with timezone
-    const formatTimeEST = (isoString) => {
-      // Parse ISO 8601 string like "2026-01-24T10:00:00-05:00"
-      // Extract the time part before the timezone offset
-      const timeMatch = isoString.match(/T(\d{2}):(\d{2}):/);
-      if (!timeMatch) return '7:00 PM';
-      
-      let hours = parseInt(timeMatch[1]);
-      const minutes = timeMatch[2];
-      
-      // Format as 12-hour time
-      const period = hours >= 12 ? 'PM' : 'AM';
-      let displayHours = hours % 12;
-      if (displayHours === 0) displayHours = 12;
-      
-      return `${displayHours}:${minutes} ${period}`;
+    const formatTimeInTimezone = (timestamp, tz) => {
+      const date = new Date(parseInt(timestamp));
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true,
+        timeZone: tz
+      });
     };
     
     const transformedSlots = [];
@@ -62,23 +70,8 @@ Deno.serve(async (req) => {
       Object.entries(data).forEach(([dateKey, dayData]) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
-        console.log(`\nDate ${dateKey}:`);
-        console.log(`  Raw slots array:`, dayData.slots);
-        console.log(`  Slot count: ${dayData.slots.length}`);
-        console.log(`  First slot - type: ${typeof dayData.slots[0]}, value: ${dayData.slots[0]}`);
+        const times = dayData.slots.map(slotTime => formatTimeInTimezone(slotTime, timezone));
         
-        const times = dayData.slots.map((slotTime, idx) => {
-          const timestamp = parseInt(slotTime);
-          const date = new Date(timestamp);
-          const dateMs = new Date(parseInt(slotTime) * 1000);
-          console.log(`  Slot ${idx}: raw="${slotTime}" -> int=${timestamp} -> UTC=${date.toUTCString()} | if-seconds=${dateMs.toUTCString()}`);
-          
-          const formatted = formatTimeEST(slotTime);
-          console.log(`    Formatted: ${formatted}`);
-          return formatted;
-        });
-        
-        // Remove duplicates and sort
         const uniqueTimes = [...new Set(times)].sort((a, b) => {
           const parseTime = (t) => {
             const [time, period] = t.split(' ');
@@ -89,8 +82,6 @@ Deno.serve(async (req) => {
           };
           return parseTime(a) - parseTime(b);
         });
-        
-        console.log(`DEBUG: Date ${dateKey} unique times:`, uniqueTimes);
         
         if (uniqueTimes.length > 0) {
           transformedSlots.push({
@@ -103,7 +94,7 @@ Deno.serve(async (req) => {
     
     transformedSlots.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    return Response.json({ success: true, slots: transformedSlots });
+    return Response.json({ success: true, slots: transformedSlots, timezone });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
