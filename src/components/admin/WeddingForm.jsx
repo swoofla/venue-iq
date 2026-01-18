@@ -27,8 +27,16 @@ export default function WeddingForm({ date, wedding, onClose }) {
   }, []);
 
   const saveMutation = useMutation({
-    mutationFn: (data) => {
-      const dataWithVenue = { ...data, venue_id: user?.venue_id };
+    mutationFn: async (data) => {
+      if (!user?.venue_id) {
+        const currentUser = await base44.auth.me();
+        const dataWithVenue = { ...data, venue_id: currentUser.venue_id };
+        if (wedding) {
+          return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
+        }
+        return base44.entities.BookedWeddingDate.create(dataWithVenue);
+      }
+      const dataWithVenue = { ...data, venue_id: user.venue_id };
       if (wedding) {
         return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
       }
@@ -42,6 +50,7 @@ export default function WeddingForm({ date, wedding, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!user) return;
     saveMutation.mutate(formData);
   };
 
