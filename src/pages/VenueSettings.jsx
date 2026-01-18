@@ -151,7 +151,7 @@ function PackagesManager({ packages, venueId }) {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.VenuePackage.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['packages'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['packages', venueId] })
   });
 
   return (
