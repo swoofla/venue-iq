@@ -32,17 +32,12 @@ export default function Home() {
       if (isAuth) {
         base44.auth.me().then(u => {
           setUser(u);
-          // Super admins go to SuperAdmin page
-          if (u.role === 'admin' && !u.venue_id) {
-            window.location.href = createPageUrl('SuperAdmin');
-            return;
-          }
           // Users with venue assignments go to Dashboard
-          else if (u.venue_id) {
+          if (u.venue_id) {
             window.location.href = createPageUrl('Dashboard');
             return;
           }
-          // Users without venue stay on home
+          // Super admins and users without venue can access chatbot
           else {
             setLoading(false);
           }
