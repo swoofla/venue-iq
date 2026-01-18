@@ -3,56 +3,74 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Calendar, Home, Settings, BookOpen, Package } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
 import VenueAnalytics from '@/components/dashboard/VenueAnalytics';
 import IndustryBenchmarks from '@/components/dashboard/IndustryBenchmarks';
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown';
+import VenueSelector from '@/components/admin/VenueSelector';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [searchParams] = useSearchParams();
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser);
-  }, []);
+    base44.auth.me().then(u => {
+      setUser(u);
+      const paramVenueId = searchParams.get('venue_id');
+      if (paramVenueId) {
+        setSelectedVenueId(paramVenueId);
+      }
+    });
+  }, [searchParams]);
+
+  const venueId = selectedVenueId || user?.venue_id;
 
   const { data: venue } = useQuery({
-    queryKey: ['venue', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.Venue.get(user.venue_id) : null,
-    enabled: !!user?.venue_id
+    queryKey: ['venue', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.Venue.get(venueId) : null,
+    enabled: !!venueId
   });
 
   const { data: weddings = [] } = useQuery({
-    queryKey: ['weddings', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.BookedWeddingDate.filter({ venue_id: user.venue_id }) : [],
-    enabled: !!user?.venue_id
+    queryKey: ['weddings', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId }) : [],
+    enabled: !!venueId
   });
 
   const { data: submissions = [] } = useQuery({
-    queryKey: ['submissions', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.ContactSubmission.filter({ venue_id: user.venue_id }) : [],
-    enabled: !!user?.venue_id
+    queryKey: ['submissions', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.ContactSubmission.filter({ venue_id: venueId }) : [],
+    enabled: !!venueId
   });
 
   const { data: packages = [] } = useQuery({
-    queryKey: ['packages', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.VenuePackage.filter({ venue_id: user.venue_id }) : [],
-    enabled: !!user?.venue_id
+    queryKey: ['packages', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.VenuePackage.filter({ venue_id: venueId }) : [],
+    enabled: !!venueId
   });
 
   if (!user) {
     return <div className="min-h-screen flex items-center justify-center"><div className="text-center">Loading...</div></div>;
   }
 
-  // Super admins (no venue_id) go to SuperAdmin page
-  if (user.role === 'admin' && !user.venue_id) {
-    window.location.href = createPageUrl('SuperAdmin');
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-center">Redirecting...</div></div>;
-  }
-
-  // Regular users without venue assignment
-  if (!user.venue_id) {
+  if (!venueId) {
+    if (user.role === 'admin' && !user.venue_id) {
+      return (
+        <div className="min-h-screen bg-stone-50">
+          <div className="border-b border-stone-200 bg-white">
+            <div className="max-w-7xl mx-auto px-4 py-4">
+              <h1 className="text-2xl font-semibold">Dashboard</h1>
+            </div>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -100,6 +118,8 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
+        
         {/* Quick Stats */}
         <div className="grid md:grid-cols-3 gap-6">
           <div className="bg-white border border-stone-200 rounded-xl p-6">
@@ -136,19 +156,19 @@ export default function Dashboard() {
         <div>
           <h2 className="text-xl font-semibold text-stone-900 mb-4">Quick Actions</h2>
           <div className="grid md:grid-cols-2 gap-6">
-          <Link to={createPageUrl('AdminCalendar')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
+          <Link to={createPageUrl('AdminCalendar') + (selectedVenueId ? `?venue_id=${selectedVenueId}` : '')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
             <Calendar className="w-8 h-8 mb-3 text-stone-700" />
             <h3 className="text-lg font-semibold mb-1">Wedding Calendar</h3>
             <p className="text-stone-600 text-sm">View and manage wedding bookings</p>
           </Link>
 
-          <Link to={createPageUrl('AdminWeddings')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
+          <Link to={createPageUrl('AdminWeddings') + (selectedVenueId ? `?venue_id=${selectedVenueId}` : '')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
             <BookOpen className="w-8 h-8 mb-3 text-stone-700" />
             <h3 className="text-lg font-semibold mb-1">Weddings List</h3>
             <p className="text-stone-600 text-sm">View all booked weddings</p>
           </Link>
 
-          <Link to={createPageUrl('VenueSettings')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
+          <Link to={createPageUrl('VenueSettings') + (selectedVenueId ? `?venue_id=${selectedVenueId}` : '')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
             <Settings className="w-8 h-8 mb-3 text-stone-700" />
             <h3 className="text-lg font-semibold mb-1">Venue Settings</h3>
             <p className="text-stone-600 text-sm">Manage packages and chatbot training</p>
