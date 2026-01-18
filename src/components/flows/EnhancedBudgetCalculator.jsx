@@ -504,19 +504,23 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
           {view === 'send' && (
             <motion.div key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <button 
-                onClick={() => setView('summary')}
-                className="flex items-center gap-2 text-stone-600 hover:text-stone-900 mb-6 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Summary
-              </button>
               <SendBudgetForm 
                 totalBudget={totalBudget} 
                 budgetData={selections}
                 venueName={venueName}
-                onSuccess={() => setView('summary')}
+                onSuccess={(data) => {
+                  onComplete({
+                    ...selections,
+                    totalBudget,
+                    guestCount: GUEST_COUNTS[selections.guestTier],
+                    ...data
+                  });
+                }}
                 onCancel={() => setView('summary')}
+                onEditBudget={() => {
+                  setSubmitted(false);
+                  setStep(0);
+                }}
               />
             </motion.div>
           )}
