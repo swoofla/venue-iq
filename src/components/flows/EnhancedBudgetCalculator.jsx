@@ -11,11 +11,11 @@ const AVAILABILITY_RULES = {
     peak: ['weekday'],
     nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
   },
-  up_to_20: {
+  '2_to_20': {
     peak: ['weekday'],
     nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
   },
-  up_to_50: {
+  '20_to_50': {
     peak: ['sunday', 'weekday'],
     nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
   },
@@ -27,15 +27,15 @@ const AVAILABILITY_RULES = {
 
 const GUEST_COUNTS = {
   up_to_2: 2,
-  up_to_20: 15,
-  up_to_50: 35,
+  '2_to_20': 15,
+  '20_to_50': 35,
   '51_to_120': 85
 };
 
 const GUEST_TIERS = [
   { id: 'up_to_2', label: 'Just us two 💕', sublabel: 'Elopement Package' },
-  { id: 'up_to_20', label: 'Inner Circle', sublabel: 'Intimate gathering (up to 20)' },
-  { id: 'up_to_50', label: '50 and Under', sublabel: 'Small celebration (21-50)' },
+  { id: '2_to_20', label: 'Inner Circle', sublabel: 'Intimate gathering (2-20)' },
+  { id: '20_to_50', label: '50 and Under', sublabel: 'Small celebration (21-50)' },
   { id: '51_to_120', label: 'Classic Wedding', sublabel: '51-120 guests' }
 ];
 
