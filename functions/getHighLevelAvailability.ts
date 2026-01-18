@@ -36,22 +36,22 @@ Deno.serve(async (req) => {
 
     const data = JSON.parse(rawData);
     
-    // Helper function to convert ISO 8601 string with timezone to EST time string
+    // Helper function to extract time from ISO 8601 string with timezone
     const formatTimeEST = (isoString) => {
       // Parse ISO 8601 string like "2026-01-24T10:00:00-05:00"
-      const date = new Date(isoString);
+      // Extract the time part before the timezone offset
+      const timeMatch = isoString.match(/T(\d{2}):(\d{2}):/);
+      if (!timeMatch) return '7:00 PM';
       
-      // Get hours and minutes in the timezone offset specified (already in EST in this case)
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2];
       
       // Format as 12-hour time
       const period = hours >= 12 ? 'PM' : 'AM';
       let displayHours = hours % 12;
       if (displayHours === 0) displayHours = 12;
-      const displayMinutes = minutes.toString().padStart(2, '0');
       
-      return `${displayHours}:${displayMinutes} ${period}`;
+      return `${displayHours}:${minutes} ${period}`;
     };
     
     const transformedSlots = [];
