@@ -241,7 +241,7 @@ export default function Home() {
   const handleBudgetComplete = async (data) => {
     const venues = await base44.entities.Venue.list();
     const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-    
+
     const submissionData = {
       ...data,
       source: 'budget_calculator',
@@ -249,10 +249,9 @@ export default function Home() {
       email: 'pending@sugar-lake.com',
       venue_id: sugarLakeVenue?.id,
     };
-    
+
     await base44.entities.ContactSubmission.create(submissionData);
-    
-    setActiveFlow(null);
+
     addBotMessage(`Your estimated budget is $${(data.totalBudget || 0).toLocaleString()}. Would you like to schedule a tour to see our venue in person?`);
   };
 
