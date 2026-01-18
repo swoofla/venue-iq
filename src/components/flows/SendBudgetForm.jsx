@@ -148,14 +148,14 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
 
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-2">
-              Full Name *
+              First Name *
             </label>
             <Input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Your full name"
+              placeholder="Your first name"
               disabled={loading}
               className="w-full"
             />
