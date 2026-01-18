@@ -273,9 +273,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         question: 'What time of year are you considering?',
         key: 'season',
         type: 'season',
-        restriction: selections.guestTier && ['up_to_2', 'up_to_20'].includes(selections.guestTier)
+        restriction: selections.guestTier && ['up_to_2', '2_to_20'].includes(selections.guestTier)
           ? '⚠️ Note: Peak season (May-Oct) is only available on weekdays for this package.'
-          : selections.guestTier === 'up_to_50'
+          : selections.guestTier === '20_to_50'
           ? '⚠️ Note: Peak season (May-Oct) is only available Sunday or weekdays for this package.'
           : null
       },
