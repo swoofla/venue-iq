@@ -38,8 +38,40 @@ Deno.serve(async (req) => {
       return Response.json({ error: `HighLevel API error: ${error}` }, { status: 500 });
     }
 
-    const slots = await response.json();
-    return Response.json({ success: true, slots: slots });
+    const data = await response.json();
+    
+    // Transform HighLevel response into our format
+    const transformedSlots = [];
+    
+    if (data.data && Array.isArray(data.data)) {
+      // Group slots by date
+      const slotsByDate = {};
+      
+      data.data.forEach(slot => {
+        const slotDateTime = new Date(parseInt(slot.startTime));
+        const dateKey = slotDateTime.toISOString().split('T')[0];
+        
+        if (!slotsByDate[dateKey]) {
+          slotsByDate[dateKey] = {
+            date: dateKey,
+            times: []
+          };
+        }
+        
+        const timeStr = slotDateTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        slotsByDate[dateKey].times.push(timeStr);
+      });
+      
+      // Convert to array
+      Object.values(slotsByDate).forEach(daySlots => {
+        transformedSlots.push({
+          date: daySlots.date,
+          times: [...new Set(daySlots.times)].sort()
+        });
+      });
+    }
+    
+    return Response.json({ success: true, slots: transformedSlots });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
