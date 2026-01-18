@@ -9,7 +9,7 @@ import { base44 } from '@/api/base44Client';
 export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, onCancel }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [checkResult, setCheckResult] = useState(null);
-  const [weddingDates, setWeddingDates] = useState(bookedDates);
+  const [availableDates, setAvailableDates] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,10 +19,10 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
           startDate: new Date().toISOString().split('T')[0],
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         });
-        setWeddingDates(result.bookedDates || []);
+        setAvailableDates(result.availableDates || []);
       } catch (error) {
-        console.log('Using local booked dates - enable backend functions for HighLevel integration');
-        setWeddingDates(bookedDates);
+        console.log('Using fallback - enable backend functions for HighLevel integration');
+        setAvailableDates([]);
       } finally {
         setLoading(false);
       }
@@ -31,17 +31,38 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
   }, [bookedDates]);
 
   const checkAvailability = () => {
-    const isBooked = weddingDates.some(d => d.date === selectedDate);
+    const isAvailable = availableDates.includes(selectedDate);
+    const dateObj = new Date(selectedDate);
+    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 5 || dateObj.getDay() === 6; // Sun, Fri, Sat
     
-    if (isBooked) {
-      const dateObj = new Date(selectedDate);
-      const alternatives = [
-        format(addDays(dateObj, 7), 'yyyy-MM-dd'),
-        format(addDays(dateObj, 14), 'yyyy-MM-dd'),
-        format(addWeeks(dateObj, -1), 'yyyy-MM-dd'),
-      ].filter(d => !weddingDates.some(bd => bd.date === d));
+    if (!isAvailable) {
+      // Find nearest available dates
+      let alternatives = [];
       
-      setCheckResult({ available: false, alternatives: alternatives.slice(0, 3) });
+      if (isWeekend) {
+        // For weekend dates, prioritize weekend alternatives
+        for (let offset of [7, -7, 14, -14, 21, -21]) {
+          const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
+          const altDateObj = new Date(altDate);
+          const isAltWeekend = altDateObj.getDay() === 0 || altDateObj.getDay() === 5 || altDateObj.getDay() === 6;
+          
+          if (isAltWeekend && availableDates.includes(altDate) && !alternatives.includes(altDate)) {
+            alternatives.push(altDate);
+            if (alternatives.length >= 2) break;
+          }
+        }
+      } else {
+        // For weekday dates, include any nearby available dates
+        for (let offset of [1, -1, 2, -2, 3, -3, 7, -7]) {
+          const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
+          if (availableDates.includes(altDate) && !alternatives.includes(altDate)) {
+            alternatives.push(altDate);
+            if (alternatives.length >= 2) break;
+          }
+        }
+      }
+      
+      setCheckResult({ available: false, alternatives: alternatives.slice(0, 2) });
     } else {
       setCheckResult({ available: true, date: selectedDate });
     }
@@ -117,7 +138,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
           </div>
           <h4 className="text-lg font-semibold text-stone-900 mb-2 text-center">Date Not Available</h4>
           <p className="text-stone-600 mb-4 text-center text-sm">
-            Unfortunately, {format(new Date(selectedDate), 'MMMM d, yyyy')} is already booked. Here are some nearby alternatives:
+            Unfortunately there is a wedding already booked on {format(new Date(selectedDate), 'MMMM d, yyyy')}, however it looks like these dates around it are available:
           </p>
           <div className="space-y-2 mb-4">
             {checkResult.alternatives.map((date) => (
