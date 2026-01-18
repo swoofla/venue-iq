@@ -38,6 +38,8 @@ Deno.serve(async (req) => {
       if (!calendarId || !venueId) {
         return Response.json({ error: 'calendarId and venueId required' }, { status: 400 });
       }
+      
+      console.log(`[SYNC DEBUG] Starting sync for venueId: ${venueId}, calendarId: ${calendarId}`);
 
       // Fetch events from the selected calendar
       const eventsResponse = await fetch(
@@ -94,10 +96,13 @@ Deno.serve(async (req) => {
         }
       }
 
+      console.log(`[SYNC DEBUG] Successfully synced ${syncedDates.length} dates for venueId: ${venueId}`);
+      
       return Response.json({ 
         success: true, 
         syncedCount: syncedDates.length,
-        syncedDates 
+        syncedDates,
+        venueId 
       });
     }
 
