@@ -219,7 +219,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       console.log('Tier pricing object:', tierPricing);
       
       if (tierPricing) {
-        const key = `${selections.dayOfWeek}_${selections.season}`;
+        const seasonKey = selections.season === 'peak' ? 'peak' : 'non_peak';
+        const key = `${selections.dayOfWeek}_${seasonKey}`;
         console.log('Looking for price key:', key);
         
         const priceEntry = tierPricing[key];
