@@ -35,46 +35,59 @@ Deno.serve(async (req) => {
     }
 
     const data = JSON.parse(rawData);
+    
+    // Helper function to convert UTC timestamp to EST time string
+    const formatTimeEST = (timestamp) => {
+      const date = new Date(parseInt(timestamp));
+      // Get UTC hours and minutes
+      const utcHours = date.getUTCHours();
+      const utcMinutes = date.getUTCMinutes();
+      
+      // Convert to EST (UTC - 5 hours)
+      let estHours = utcHours - 5;
+      if (estHours < 0) estHours += 24;
+      
+      // Format as 12-hour time
+      const period = estHours >= 12 ? 'PM' : 'AM';
+      let displayHours = estHours % 12;
+      if (displayHours === 0) displayHours = 12;
+      const displayMinutes = utcMinutes.toString().padStart(2, '0');
+      
+      return `${displayHours}:${displayMinutes} ${period}`;
+    };
+    
     const transformedSlots = [];
     
     if (typeof data === 'object' && !Array.isArray(data)) {
       Object.entries(data).forEach(([dateKey, dayData]) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
-        console.log(`DEBUG: Date ${dateKey} - Raw slots from HighLevel:`, dayData.slots);
+        console.log(`DEBUG: Date ${dateKey} raw slots:`, dayData.slots);
         
         const times = dayData.slots.map(slotTime => {
-          // slotTime is a timestamp in milliseconds
-          const timestamp = parseInt(slotTime);
-          const slotDateTime = new Date(timestamp);
-          const formatted = slotDateTime.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit',
-            hour12: true,
-            timeZone: 'America/New_York'
-          });
-          console.log(`  Slot timestamp ${timestamp} -> ${formatted}`);
+          const formatted = formatTimeEST(slotTime);
+          console.log(`DEBUG: ${slotTime} -> ${formatted}`);
           return formatted;
         });
         
-        console.log(`DEBUG: Date ${dateKey} converted to ${times.length} times:`, times);
+        // Remove duplicates and sort
+        const uniqueTimes = [...new Set(times)].sort((a, b) => {
+          const parseTime = (t) => {
+            const [time, period] = t.split(' ');
+            let [hour, min] = time.split(':').map(Number);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            return hour * 60 + min;
+          };
+          return parseTime(a) - parseTime(b);
+        });
         
-        if (times.length > 0) {
-          // Don't deduplicate - keep all slots as they are
-          const sortedTimes = times.sort((a, b) => {
-            const parseTime = (t) => {
-              const [time, period] = t.split(' ');
-              let [hour, min] = time.split(':').map(Number);
-              if (period === 'PM' && hour !== 12) hour += 12;
-              if (period === 'AM' && hour === 12) hour = 0;
-              return hour * 60 + min;
-            };
-            return parseTime(a) - parseTime(b);
-          });
-          
+        console.log(`DEBUG: Date ${dateKey} unique times:`, uniqueTimes);
+        
+        if (uniqueTimes.length > 0) {
           transformedSlots.push({
             date: dateKey,
-            times: sortedTimes
+            times: uniqueTimes
           });
         }
       });
