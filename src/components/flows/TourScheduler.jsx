@@ -50,17 +50,21 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
         console.log('DEBUG Frontend: Raw result from backend:', result.data);
 
         const transformedSlots = result.data.slots?.map(slot => {
-          // Parse date as EST to avoid timezone shifts
-          const dateObj = new Date(slot.date + 'T12:00:00-05:00');
+          // Parse the YYYY-MM-DD string
+          const [year, month, day] = slot.date.split('-').map(Number);
+          // Get the day of week name
+          const dateObj = new Date(year, month - 1, day);
+          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+          const displayDate = dateObj.toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric'
+          });
+          
           return {
-            day: dateObj.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' }),
+            day: dayName,
             date: slot.date, // Keep as string YYYY-MM-DD to avoid timezone issues
-            displayDate: dateObj.toLocaleDateString('en-US', { 
-              month: 'long', 
-              day: 'numeric', 
-              year: 'numeric',
-              timeZone: 'America/New_York'
-            }),
+            displayDate: displayDate,
             slots: slot.times || []
           };
         }) || [];
