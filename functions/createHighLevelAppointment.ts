@@ -13,6 +13,24 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
     }
 
+    const timezone = data.timezone || 'America/New_York';
+
+    const getTimezoneOffset = (tz) => {
+      const offsets = {
+        'America/New_York': '-05:00',
+        'America/Chicago': '-06:00',
+        'America/Denver': '-07:00',
+        'America/Phoenix': '-07:00',
+        'America/Los_Angeles': '-08:00',
+        'America/Anchorage': '-09:00',
+        'Pacific/Honolulu': '-10:00',
+        'America/Puerto_Rico': '-04:00'
+      };
+      return offsets[tz] || '-05:00';
+    };
+
+    const tzOffset = getTimezoneOffset(timezone);
+
     // First, create or get the contact using V2 API
     const contactResponse = await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
       method: 'POST',
@@ -41,16 +59,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Failed to get contact ID' }, { status: 500 });
     }
 
-    // Build start and end times with EST timezone
+    // Build start and end times with venue timezone
     const time24 = convertTo24Hour(data.tour_time);
-    const startTimeISO = `${data.tour_date}T${time24}-05:00`;
+    const startTimeISO = `${data.tour_date}T${time24}${tzOffset}`;
     
     // End time is 1 hour later
     const [hours, minutes] = time24.split(':').map(Number);
     const endHours = (hours + 1).toString().padStart(2, '0');
-    const endTimeISO = `${data.tour_date}T${endHours}:${minutes.toString().padStart(2, '0')}:00-05:00`;
+    const endTimeISO = `${data.tour_date}T${endHours}:${minutes.toString().padStart(2, '0')}:00${tzOffset}`;
 
-    console.log('DEBUG: Appointment times:', { startTimeISO, endTimeISO });
+    console.log('DEBUG: Appointment times:', { startTimeISO, endTimeISO, timezone });
 
     // Create the appointment using CORRECT V2 endpoint
     const appointmentData = {
@@ -60,12 +78,10 @@ Deno.serve(async (req) => {
       title: `Venue Tour - ${data.name}`,
       startTime: startTimeISO,
       endTime: endTimeISO,
-      timezone: 'America/New_York',
+      timezone: timezone,
       appointmentStatus: 'confirmed',
       notes: `Wedding Date: ${data.wedding_date || 'TBD'}\nGuest Count: ${data.guest_count || 'TBD'}\nSource: Virtual Planner`
     };
-
-    console.log('DEBUG: Appointment payload:', JSON.stringify(appointmentData, null, 2));
 
     // CORRECT ENDPOINT: /calendars/events/appointments (NOT /calendars/{id}/appointments)
     const appointmentResponse = await fetch('https://services.leadconnectorhq.com/calendars/events/appointments', {
@@ -80,7 +96,6 @@ Deno.serve(async (req) => {
     });
 
     const responseText = await appointmentResponse.text();
-    console.log('DEBUG: Appointment response:', responseText);
 
     if (!appointmentResponse.ok) {
       return Response.json({ error: `HighLevel API error: ${responseText}` }, { status: 500 });
@@ -89,7 +104,6 @@ Deno.serve(async (req) => {
     const appointment = JSON.parse(responseText);
     return Response.json({ success: true, appointmentId: appointment.id, contactId });
   } catch (error) {
-    console.log('DEBUG: Error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
