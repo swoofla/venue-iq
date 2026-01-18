@@ -106,10 +106,24 @@ Deno.serve(async (req) => {
         return timeString;
       });
       
+      // Deduplicate times (remove if same time appears multiple times)
+      const uniqueTimes = [...new Set(times)].sort((a, b) => {
+        const parseTime = (t) => {
+          const [time, period] = t.split(' ');
+          let [hour, min] = time.split(':').map(Number);
+          if (period === 'PM' && hour !== 12) hour += 12;
+          if (period === 'AM' && hour === 12) hour = 0;
+          return hour * 60 + min;
+        };
+        return parseTime(a) - parseTime(b);
+      });
+      
+      console.log(`  Unique times for ${dateKey}: ${uniqueTimes.join(', ')}`);
+      
       // Add to results
       transformedSlots.push({
         date: dateKey,
-        times: times
+        times: uniqueTimes
       });
     }
     
