@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Calendar, Home, CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { format } from 'date-fns';
 import WeddingForm from '../components/admin/WeddingForm';
+import VenueSelector from '../components/admin/VenueSelector';
 
 export default function AdminWeddings() {
   const [showForm, setShowForm] = useState(false);

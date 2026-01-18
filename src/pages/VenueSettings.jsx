@@ -7,42 +7,68 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
+import VenueSelector from '../components/admin/VenueSelector';
 
 export default function VenueSettings() {
   const [user, setUser] = useState(null);
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setUser);
-  }, []);
+    base44.auth.me().then(u => {
+      setUser(u);
+      const paramVenueId = searchParams.get('venue_id');
+      if (paramVenueId) {
+        setSelectedVenueId(paramVenueId);
+      }
+    });
+  }, [searchParams]);
+
+  // Use selectedVenueId if super admin, otherwise use user's venue_id
+  const venueId = selectedVenueId || user?.venue_id;
 
   const { data: venue } = useQuery({
-    queryKey: ['venue', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.Venue.get(user.venue_id) : null,
-    enabled: !!user?.venue_id
+    queryKey: ['venue', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.Venue.get(venueId) : null,
+    enabled: !!venueId
   });
 
   const { data: packages = [] } = useQuery({
-    queryKey: ['packages', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.VenuePackage.filter({ venue_id: user.venue_id }, 'sort_order') : [],
-    enabled: !!user?.venue_id
+    queryKey: ['packages', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.VenuePackage.filter({ venue_id: venueId }, 'sort_order') : [],
+    enabled: !!venueId
   });
 
   const { data: knowledge = [] } = useQuery({
-    queryKey: ['knowledge', user?.venue_id],
-    queryFn: () => user?.venue_id ? base44.entities.VenueKnowledge.filter({ venue_id: user.venue_id }) : [],
-    enabled: !!user?.venue_id
+    queryKey: ['knowledge', venueId],
+    queryFn: () => venueId ? base44.asServiceRole.entities.VenueKnowledge.filter({ venue_id: venueId }) : [],
+    enabled: !!venueId
   });
 
   if (!user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (!user.venue_id) {
+  if (!venueId) {
+    if (user.role === 'admin' && !user.venue_id) {
+      return (
+        <div className="min-h-screen bg-white">
+          <div className="border-b border-stone-200">
+            <div className="max-w-7xl mx-auto px-4 py-4">
+              <h1 className="text-2xl font-semibold">Venue Settings</h1>
+            </div>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -75,6 +101,8 @@ export default function VenueSettings() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
+        
         <Tabs defaultValue="packages">
           <TabsList>
             <TabsTrigger value="packages">
@@ -96,19 +124,19 @@ export default function VenueSettings() {
           </TabsList>
 
           <TabsContent value="packages" className="mt-6">
-            <PackagesManager packages={packages} venueId={user.venue_id} />
+            <PackagesManager packages={packages} venueId={venueId} />
           </TabsContent>
 
           <TabsContent value="calendar" className="mt-6">
-            <GoogleCalendarSync venueId={user.venue_id} />
+            <GoogleCalendarSync venueId={venueId} />
           </TabsContent>
 
           <TabsContent value="chatbot" className="mt-6">
-            <ChatbotTraining knowledge={knowledge} venueId={user.venue_id} />
+            <ChatbotTraining knowledge={knowledge} venueId={venueId} />
           </TabsContent>
 
           <TabsContent value="transcripts" className="mt-6">
-            <TranscriptUpload venueId={user.venue_id} />
+            <TranscriptUpload venueId={venueId} />
           </TabsContent>
         </Tabs>
       </div>
