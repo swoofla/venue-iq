@@ -51,6 +51,47 @@ const ALL_SEASONS = [
   { id: 'nonpeak', label: 'Non-Peak Season (November - April)' }
 ];
 
+// Helper function to safely parse JSON if it's a string
+const safeJsonParse = (data) => {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error('Failed to parse JSON string:', e);
+      return null;
+    }
+  }
+  return data;
+};
+
+// Helper function to get nested data from config
+const getConfigField = (config, fieldName) => {
+  if (!config) return null;
+  
+  // Try direct access first (root level)
+  if (config[fieldName] !== undefined) {
+    return safeJsonParse(config[fieldName]);
+  }
+  
+  // Try inside pricing_data wrapper
+  if (config.pricing_data) {
+    const pricingData = safeJsonParse(config.pricing_data);
+    if (pricingData && pricingData[fieldName] !== undefined) {
+      return safeJsonParse(pricingData[fieldName]);
+    }
+  }
+  
+  // Try inside data wrapper
+  if (config.data) {
+    const data = safeJsonParse(config.data);
+    if (data && data[fieldName] !== undefined) {
+      return safeJsonParse(data[fieldName]);
+    }
+  }
+  
+  return null;
+};
+
 export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel }) {
   const [step, setStep] = useState(0);
   const [pricingConfig, setPricingConfig] = useState(null);
@@ -78,11 +119,32 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     async function fetchPricing() {
       try {
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
-        console.log('Fetched pricing configs:', configs); // Debug log
+        
+        // DIAGNOSTIC: Log the raw response to see exact structure
+        console.log('=== PRICING CONFIG DEBUG ===');
+        console.log('Raw configs array:', configs);
+        
         if (configs.length > 0) {
-          // Store the entire config record - fields are at root level
-          setPricingConfig(configs[0]);
-          console.log('Set pricing config:', configs[0]); // Debug log
+          const rawConfig = configs[0];
+          console.log('Raw config object:', rawConfig);
+          console.log('Config keys:', Object.keys(rawConfig));
+          
+          // Log each key and its type/value
+          Object.keys(rawConfig).forEach(key => {
+            const value = rawConfig[key];
+            console.log(`  ${key}: [${typeof value}]`, 
+              typeof value === 'string' && value.length > 100 
+                ? value.substring(0, 100) + '...' 
+                : value
+            );
+          });
+          
+          // Check for venue_base in different locations
+          console.log('Looking for venue_base...');
+          console.log('  Direct (rawConfig.venue_base):', rawConfig.venue_base);
+          console.log('  In pricing_data:', rawConfig.pricing_data?.venue_base);
+          
+          setPricingConfig(rawConfig);
         }
       } catch (error) {
         console.error('Failed to load pricing:', error);
@@ -108,52 +170,69 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     return ALL_SEASONS;
   };
 
-  // Get category options based on tier
+  // Get category options based on tier - UPDATED to use helper function
   const getOptionsForCategory = (category) => {
     if (!pricingConfig || !selections.guestTier) return [];
-    const categoryData = pricingConfig[category];
-    console.log(`Getting options for ${category}:`, categoryData); // Debug log
-    if (!categoryData) return [];
+    
+    const categoryData = getConfigField(pricingConfig, category);
+    console.log(`Getting ${category} options:`, categoryData);
+    
+    if (!categoryData) {
+      console.log(`  No data found for ${category}`);
+      return [];
+    }
     
     // Handle object structure keyed by tier ID
     if (categoryData[selections.guestTier]) {
+      console.log(`  Found options for tier ${selections.guestTier}:`, categoryData[selections.guestTier]);
       return categoryData[selections.guestTier];
     }
     
     // Handle array structure with guest_tier field
     if (Array.isArray(categoryData)) {
       const tierData = categoryData.find(t => t.guest_tier === selections.guestTier);
+      console.log(`  Found array data for tier:`, tierData);
       return tierData?.options || [];
     }
     
+    console.log(`  Could not find options for tier ${selections.guestTier}`);
     return [];
   };
 
-  // Calculate running total
+  // Calculate running total - UPDATED to use helper function
   const calculateTotal = () => {
     if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
     const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
 
-    // Base venue price
-    const venueBase = pricingConfig.venue_base;
-    console.log('Venue base data:', venueBase); // Debug log
-    console.log('Selected tier:', selections.guestTier); // Debug log
-    console.log('Selected day:', selections.dayOfWeek); // Debug log
-    console.log('Selected season:', selections.season); // Debug log
+    // Base venue price - use helper function
+    const venueBase = getConfigField(pricingConfig, 'venue_base');
     
-    if (venueBase && venueBase[selections.guestTier] && selections.dayOfWeek && selections.season) {
+    console.log('=== CALCULATE TOTAL DEBUG ===');
+    console.log('Venue base data:', venueBase);
+    console.log('Selected tier:', selections.guestTier);
+    console.log('Selected day:', selections.dayOfWeek);
+    console.log('Selected season:', selections.season);
+    
+    if (venueBase && selections.guestTier && selections.dayOfWeek && selections.season) {
       const tierPricing = venueBase[selections.guestTier];
-      const key = `${selections.dayOfWeek}_${selections.season}`;
-      console.log('Looking for price key:', key); // Debug log
-      console.log('Tier pricing data:', tierPricing); // Debug log
+      console.log('Tier pricing object:', tierPricing);
       
-      const priceEntry = tierPricing[key];
-      console.log('Found price entry:', priceEntry); // Debug log
-      
-      if (priceEntry?.price) {
-        total += priceEntry.price;
-        console.log('Added base price:', priceEntry.price); // Debug log
+      if (tierPricing) {
+        const key = `${selections.dayOfWeek}_${selections.season}`;
+        console.log('Looking for price key:', key);
+        
+        const priceEntry = tierPricing[key];
+        console.log('Found price entry:', priceEntry);
+        
+        if (priceEntry?.price) {
+          total += priceEntry.price;
+          console.log('Added base price:', priceEntry.price);
+        } else if (typeof priceEntry === 'number') {
+          // Handle case where price is stored directly as number
+          total += priceEntry;
+          console.log('Added base price (direct number):', priceEntry);
+        }
       }
     }
 
@@ -176,7 +255,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     });
 
     total += selections.extras || 0;
-    console.log('Total calculated:', total); // Debug log
+    console.log('TOTAL CALCULATED:', total);
     return total;
   };
 
@@ -467,10 +546,18 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             </div>
           )}
 
-          {selections.guestTier && selections.dayOfWeek && selections.season && totalBudget > 0 && (
+          {currentOptions.length === 0 && currentStep.type === 'category' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+              <p className="text-amber-800">⚠️ Options not found for {currentStep.title}. Check console for debug info.</p>
+            </div>
+          )}
+
+          {selections.guestTier && selections.dayOfWeek && selections.season && (
             <div className="mt-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
               <p className="text-sm text-stone-600">Running total:</p>
-              <p className="text-2xl font-bold text-stone-900">${totalBudget.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-stone-900">
+                {totalBudget > 0 ? `$${totalBudget.toLocaleString()}` : 'Calculating...'}
+              </p>
             </div>
           )}
         </motion.div>
