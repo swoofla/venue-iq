@@ -8,7 +8,7 @@ import ChatMessage from '@/components/chat/ChatMessage';
 import TypingIndicator from '@/components/chat/TypingIndicator';
 import QuickActions from '@/components/chat/QuickActions';
 import ChatInput from '@/components/chat/ChatInput';
-import BudgetCalculator from '@/components/flows/BudgetCalculator';
+import EnhancedBudgetCalculator from '@/components/flows/EnhancedBudgetCalculator';
 import AvailabilityChecker from '@/components/flows/AvailabilityChecker';
 import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
