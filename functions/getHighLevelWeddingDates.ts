@@ -56,9 +56,11 @@ Deno.serve(async (req) => {
       currentStart = new Date(chunkEnd.getTime() + 1);
     }
     
+    // Filter out traceId and extract actual date keys
+    const dateKeys = Object.keys(allSlots || {}).filter(key => key !== 'traceId');
+    
     // Dates WITH slots are AVAILABLE (no wedding booked)
-    // Dates WITHOUT slots are BOOKED
-    const availableDates = Object.keys(allSlots || {}).filter(date => 
+    const availableDates = dateKeys.filter(date => 
       allSlots[date] && allSlots[date].slots && allSlots[date].slots.length > 0
     );
 
