@@ -463,7 +463,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           {view === 'summary' && (
             <motion.div key="summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <h3 className="text-xl font-semibold text-stone-900 mb-6">Your Budget Estimate</h3>
-              
+
               <div className="bg-stone-50 rounded-xl p-6 mb-6">
                 <BudgetSummaryBreakdown 
                   selections={selections} 
@@ -479,15 +479,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
               </div>
 
               <p className="text-stone-600 text-sm mb-6">
-                This is an estimate based on your selections. Ready to see the venue in person?
+                This is an estimate based on your selections.
               </p>
 
               <div className="space-y-3">
-                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: GUEST_COUNTS[selections.guestTier] })} className="w-full rounded-full bg-black hover:bg-stone-800">
-                  Schedule a Tour
+                <Button onClick={() => setView('send')} className="w-full rounded-full bg-black hover:bg-stone-800">
+                  Save Budget
                 </Button>
-                <Button onClick={() => setView('send')} variant="outline" className="w-full rounded-full">
-                  Send Budget
+                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: GUEST_COUNTS[selections.guestTier] })} variant="outline" className="w-full rounded-full">
+                  Schedule a Tour
                 </Button>
                 <button 
                   onClick={() => {
