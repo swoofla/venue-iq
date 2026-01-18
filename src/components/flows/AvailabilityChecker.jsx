@@ -15,13 +15,17 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
   useEffect(() => {
     async function fetchWeddingDates() {
       try {
-        const result = await base44.functions.invoke('getHighLevelWeddingDates', {
-          startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        });
-        setAvailableDates(result.availableDates || []);
+        const [booked, blocked] = await Promise.all([
+          base44.entities.BookedWeddingDate.list(),
+          base44.entities.BlockedDate.list()
+        ]);
+        const unavailableDates = [
+          ...booked.map(b => b.date),
+          ...blocked.map(b => b.date)
+        ];
+        setAvailableDates(unavailableDates);
       } catch (error) {
-        console.log('Using fallback - enable backend functions for HighLevel integration');
+        console.error('Error fetching dates:', error);
         setAvailableDates([]);
       } finally {
         setLoading(false);
@@ -33,10 +37,10 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
   const checkAvailability = () => {
     // Parse date in UTC to avoid timezone shifting
     const dateObj = new Date(selectedDate + 'T00:00:00');
-    const isAvailable = availableDates.includes(selectedDate);
+    const isUnavailable = availableDates.includes(selectedDate);
     const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 5 || dateObj.getDay() === 6; // Sun, Fri, Sat
     
-    if (!isAvailable) {
+    if (isUnavailable) {
       // Find nearest available dates
       let alternatives = [];
       
@@ -46,8 +50,8 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
           const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
           const altDateObj = new Date(altDate);
           const isAltWeekend = altDateObj.getDay() === 0 || altDateObj.getDay() === 5 || altDateObj.getDay() === 6;
-          
-          if (isAltWeekend && availableDates.includes(altDate) && !alternatives.includes(altDate)) {
+
+          if (isAltWeekend && !availableDates.includes(altDate) && !alternatives.includes(altDate)) {
             alternatives.push(altDate);
             if (alternatives.length >= 2) break;
           }
@@ -56,7 +60,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
         // For weekday dates, include any nearby available dates
         for (let offset of [1, -1, 2, -2, 3, -3, 7, -7]) {
           const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
-          if (availableDates.includes(altDate) && !alternatives.includes(altDate)) {
+          if (!availableDates.includes(altDate) && !alternatives.includes(altDate)) {
             alternatives.push(altDate);
             if (alternatives.length >= 2) break;
           }
