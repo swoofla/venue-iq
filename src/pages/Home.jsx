@@ -25,6 +25,10 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [activeFlow, setActiveFlow] = useState(null);
   const [preSelectedDate, setPreSelectedDate] = useState('');
+  const [awaitingPlannerContact, setAwaitingPlannerContact] = useState(false);
+  const [originalQuestion, setOriginalQuestion] = useState('');
+  const [leadName, setLeadName] = useState('');
+  const [leadPhone, setLeadPhone] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -78,6 +82,64 @@ export default function Home() {
     setMessages(prev => [...prev, { id: Date.now(), text, isBot: false }]);
     
     const lowerText = text.toLowerCase();
+
+    if (awaitingPlannerContact) {
+      if (lowerText.includes('yes')) {
+        addBotMessage("Great! What's your full name and phone number so a planner can reach out to you?");
+        setAwaitingPlannerContact('collect_details');
+      } else if (lowerText.includes('no')) {
+        addBotMessage("No problem! Let me know if there's anything else I can help with.");
+        setAwaitingPlannerContact(false);
+        setOriginalQuestion('');
+        setLeadName('');
+        setLeadPhone('');
+      } else {
+        addBotMessage("Please respond with 'yes' or 'no'.");
+      }
+      return;
+    }
+
+    if (awaitingPlannerContact === 'collect_details') {
+      const phoneMatch = lowerText.match(/(\d[\d\s\-]+)/);
+      let currentName = leadName;
+      let currentPhone = leadPhone;
+      let email = user?.email || undefined;
+
+      if (!currentName && text.length > 5 && !phoneMatch) {
+        currentName = text.trim();
+        setLeadName(currentName);
+      }
+
+      if (phoneMatch && phoneMatch[1]) {
+        currentPhone = phoneMatch[1].replace(/\s|-/g, '');
+        setLeadPhone(currentPhone);
+      }
+
+      if (currentName && currentPhone) {
+        addBotMessage("Thank you! I'm sending your request to the Sugar Lake planners now.");
+        
+        try {
+          await base44.functions.invoke('createHighLevelLeadAndNotify', {
+            name: currentName,
+            phone: currentPhone,
+            email: email,
+            question: originalQuestion
+          });
+          addBotMessage("Your information has been sent! A planner will be in touch shortly.");
+        } catch (error) {
+          console.error("Failed to send lead to HighLevel:", error);
+          addBotMessage("I had trouble sending your information. Please try again or contact us directly at (216) 616-1598.");
+        }
+
+        setAwaitingPlannerContact(false);
+        setOriginalQuestion('');
+        setLeadName('');
+        setLeadPhone('');
+      } else {
+        addBotMessage("Please tell me your full name and phone number. For example: 'My name is John Doe and my number is 123-456-7890'.");
+      }
+      return;
+    }
     
     if (lowerText.includes('budget') || lowerText.includes('cost') || lowerText.includes('price')) {
       addBotMessage("Great question! Let me help you figure out the perfect package for your budget. I'll walk you through our budget calculator.");
@@ -107,17 +169,24 @@ export default function Home() {
           const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
           
           const response = await base44.integrations.Core.InvokeLLM({
-            prompt: `You are a helpful wedding venue chatbot assistant. Answer the user's question using the venue knowledge base provided. If the information isn't in the knowledge base, provide a helpful general response and suggest they schedule a tour or contact the venue directly.
-
-Venue Knowledge Base:
-${knowledgeContext}
-
-User Question: ${text}
-
-Provide a warm, professional response.`,
+            prompt: `You are a helpful wedding venue chatbot assistant for Sugar Lake. Answer the user's question ONLY using the provided "Venue Knowledge Base". Do NOT make up answers.
+            If you CANNOT answer the question confidently and completely using ONLY the provided knowledge base, then respond with exactly "OUT_OF_SCOPE".
+            
+            Venue Knowledge Base:
+            ${knowledgeContext}
+            
+            User Question: ${text}
+            
+            Provide a warm, professional response.`,
           });
           
-          setMessages(prev => [...prev, { id: Date.now(), text: response, isBot: true }]);
+          if (response === "OUT_OF_SCOPE") {
+            setOriginalQuestion(text);
+            addBotMessage("This question would be better to ask one of the planners at Sugar Lake, should I put you in touch with one of them now?");
+            setAwaitingPlannerContact(true);
+          } else {
+            setMessages(prev => [...prev, { id: Date.now(), text: response, isBot: true }]);
+          }
         } catch (error) {
           setMessages(prev => [...prev, { id: Date.now(), text: "Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?", isBot: true }]);
         }
