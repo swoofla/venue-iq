@@ -1,6 +1,5 @@
-// getHighLevelAvailability.js - FIXED VERSION v2
-// Fixes the "all times show as 7:00 PM" bug with MANUAL timezone conversion
-// (Deno doesn't support toLocaleTimeString timezone option reliably)
+// getHighLevelAvailability.js - FIXED VERSION v3
+// With extensive debugging to trace timezone conversion
 
 Deno.serve(async (req) => {
   try {
@@ -15,74 +14,108 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    // Timezone offsets in HOURS from UTC
-    // Note: These are standard time offsets. For full DST support, 
-    // you'd need to check the date and adjust accordingly.
-    const getTimezoneOffsetHours = (tz) => {
-      const offsets = {
-        'America/New_York': -5,      // EST (winter) / -4 EDT (summer)
-        'America/Chicago': -6,       // CST (winter) / -5 CDT (summer)
-        'America/Denver': -7,        // MST (winter) / -6 MDT (summer)
-        'America/Phoenix': -7,       // MST (no DST)
-        'America/Los_Angeles': -8,   // PST (winter) / -7 PDT (summer)
-        'America/Anchorage': -9,     // AKST (winter) / -8 AKDT (summer)
-        'Pacific/Honolulu': -10,     // HST (no DST)
-        'America/Puerto_Rico': -4    // AST (no DST)
-      };
-      return offsets[tz] ?? -5;
+    console.log('========================================');
+    console.log('getHighLevelAvailability v3 STARTING');
+    console.log('========================================');
+    console.log('Input timezone:', timezone);
+
+    // Timezone offsets in HOURS from UTC (negative = behind UTC)
+    const TIMEZONE_OFFSETS = {
+      'America/New_York': -5,
+      'America/Chicago': -6,
+      'America/Denver': -7,
+      'America/Phoenix': -7,
+      'America/Los_Angeles': -8,
+      'America/Anchorage': -9,
+      'Pacific/Honolulu': -10,
+      'America/Puerto_Rico': -4
     };
 
-    // Get string offset for ISO dates (e.g., "-05:00")
-    const getTimezoneOffsetString = (tz) => {
-      const hours = getTimezoneOffsetHours(tz);
+    const offsetHours = TIMEZONE_OFFSETS[timezone];
+    console.log('Offset hours for', timezone, ':', offsetHours);
+    
+    if (offsetHours === undefined) {
+      console.log('WARNING: Unknown timezone, defaulting to -5 (Eastern)');
+    }
+    
+    const finalOffset = offsetHours ?? -5;
+    console.log('Using offset:', finalOffset);
+
+    // MANUAL timezone conversion function with debug logging
+    const formatTimeInTimezone = (timestampMs) => {
+      console.log('  --- formatTimeInTimezone ---');
+      console.log('  Input timestamp (ms):', timestampMs);
+      console.log('  Input timestamp type:', typeof timestampMs);
+      
+      // Ensure it's a number
+      const tsNum = Number(timestampMs);
+      console.log('  As number:', tsNum);
+      
+      if (isNaN(tsNum)) {
+        console.log('  ERROR: timestamp is NaN!');
+        return 'Invalid Time';
+      }
+      
+      // Create UTC date
+      const utcDate = new Date(tsNum);
+      console.log('  UTC Date object:', utcDate.toISOString());
+      console.log('  UTC Hours:', utcDate.getUTCHours());
+      console.log('  UTC Minutes:', utcDate.getUTCMinutes());
+      
+      // Calculate local time by applying offset
+      // UTC-5 means local = UTC - 5 hours
+      // So we ADD a negative offset (which subtracts hours)
+      const offsetMs = finalOffset * 60 * 60 * 1000;
+      console.log('  Offset in ms:', offsetMs);
+      
+      const localTimeMs = tsNum + offsetMs;
+      console.log('  Local time ms:', localTimeMs);
+      
+      const localDate = new Date(localTimeMs);
+      console.log('  Local Date object (treated as UTC):', localDate.toISOString());
+      
+      // Use UTC methods on the shifted date to get "local" time
+      const hours = localDate.getUTCHours();
+      const minutes = localDate.getUTCMinutes();
+      console.log('  Local hours (from UTC methods):', hours);
+      console.log('  Local minutes:', minutes);
+      
+      // Format as 12-hour time
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12; // Convert 0 to 12
+      const minuteStr = String(minutes).padStart(2, '0');
+      
+      const result = `${hour12}:${minuteStr} ${period}`;
+      console.log('  RESULT:', result);
+      console.log('  --- end formatTimeInTimezone ---');
+      
+      return result;
+    };
+
+    // Build date range for API call
+    const getOffsetString = (hours) => {
       const absHours = Math.abs(hours);
       const sign = hours >= 0 ? '+' : '-';
       return `${sign}${String(absHours).padStart(2, '0')}:00`;
     };
-
-    // MANUAL timezone conversion function
-    // Converts Unix timestamp (ms) to formatted time string in target timezone
-    const formatTimeInTimezone = (timestampMs, tz) => {
-      const offsetHours = getTimezoneOffsetHours(tz);
-      
-      // Create UTC date from timestamp
-      const utcDate = new Date(timestampMs);
-      
-      // Apply timezone offset to get local time
-      // We add the offset (which is negative for US timezones) to shift from UTC
-      const localTimeMs = timestampMs + (offsetHours * 60 * 60 * 1000);
-      const localDate = new Date(localTimeMs);
-      
-      // Extract hours and minutes using UTC methods 
-      // (since we've already shifted the time, UTC methods give us "local" values)
-      const hours = localDate.getUTCHours();
-      const minutes = localDate.getUTCMinutes();
-      
-      // Format as 12-hour time with AM/PM
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12; // Convert 0 to 12 for midnight
-      const minuteStr = String(minutes).padStart(2, '0');
-      
-      return `${hour12}:${minuteStr} ${period}`;
-    };
-
-    const tzOffsetString = getTimezoneOffsetString(timezone);
     
-    // Convert date strings to Unix timestamps in MILLISECONDS
+    const tzOffsetString = getOffsetString(finalOffset);
+    console.log('TZ offset string:', tzOffsetString);
+    
     const startDateTime = new Date(`${startDate}T00:00:00${tzOffsetString}`);
     const endDateTime = new Date(`${endDate}T23:59:59${tzOffsetString}`);
     
-    console.log('=== getHighLevelAvailability DEBUG v2 ===');
-    console.log('Input:', { startDate, endDate, timezone });
-    console.log('Offset hours:', getTimezoneOffsetHours(timezone));
-    console.log('Offset string:', tzOffsetString);
+    console.log('Start date string:', startDate);
+    console.log('End date string:', endDate);
+    console.log('Start as ISO:', startDateTime.toISOString());
+    console.log('End as ISO:', endDateTime.toISOString());
     console.log('Start millis:', startDateTime.getTime());
     console.log('End millis:', endDateTime.getTime());
     
     // Call HighLevel V2 API
     const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDateTime.getTime()}&endDate=${endDateTime.getTime()}&timezone=${encodeURIComponent(timezone)}`;
     
-    console.log('HighLevel URL:', url);
+    console.log('HighLevel API URL:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -94,9 +127,11 @@ Deno.serve(async (req) => {
       }
     });
     
+    console.log('HighLevel response status:', response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('HighLevel API error:', response.status, errorText);
+      console.error('HighLevel API error:', errorText);
       return Response.json({ 
         error: `HighLevel API error: ${response.status}`,
         details: errorText 
@@ -104,31 +139,36 @@ Deno.serve(async (req) => {
     }
     
     const rawData = await response.json();
-    console.log('Raw HighLevel response keys:', Object.keys(rawData));
+    console.log('Raw response keys:', Object.keys(rawData));
+    console.log('Raw response (first 1000 chars):', JSON.stringify(rawData).substring(0, 1000));
     
     // Transform the response
-    // HighLevel returns: { "2026-01-24": { slots: ["1737727200000", ...] }, "traceId": "..." }
     const transformedSlots = [];
     
     for (const [dateKey, dateData] of Object.entries(rawData)) {
-      // Skip non-date keys like traceId
+      // Skip non-date keys
       if (dateKey === 'traceId' || !dateData || !Array.isArray(dateData.slots)) {
+        console.log(`Skipping key "${dateKey}" - not a date with slots`);
         continue;
       }
       
-      console.log(`Processing date ${dateKey}: ${dateData.slots.length} slots`);
+      console.log(`\n=== Processing date: ${dateKey} ===`);
+      console.log(`Raw slots array:`, JSON.stringify(dateData.slots));
+      console.log(`Number of slots: ${dateData.slots.length}`);
       
-      // Convert each timestamp to human-readable time using MANUAL conversion
-      const times = dateData.slots.map(timestamp => {
-        const ts = parseInt(timestamp, 10);
-        const timeString = formatTimeInTimezone(ts, timezone);
+      const times = [];
+      
+      for (let i = 0; i < dateData.slots.length; i++) {
+        const rawTimestamp = dateData.slots[i];
+        console.log(`\nSlot ${i + 1}:`);
+        console.log(`  Raw value: "${rawTimestamp}"`);
+        console.log(`  Type: ${typeof rawTimestamp}`);
         
-        // Debug: also show what UTC would be
-        const utcDate = new Date(ts);
-        console.log(`  ${timestamp} -> UTC: ${utcDate.toISOString()} -> Local (${timezone}): ${timeString}`);
-        
-        return timeString;
-      });
+        const timeString = formatTimeInTimezone(rawTimestamp);
+        times.push(timeString);
+      }
+      
+      console.log(`\nFinal times for ${dateKey}:`, times);
       
       transformedSlots.push({
         date: dateKey,
@@ -139,11 +179,11 @@ Deno.serve(async (req) => {
     // Sort by date
     transformedSlots.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    console.log('=== RESULT ===');
-    console.log('Total dates with slots:', transformedSlots.length);
-    if (transformedSlots.length > 0) {
-      console.log('Sample:', transformedSlots[0]);
-    }
+    console.log('\n========================================');
+    console.log('FINAL RESULT');
+    console.log('========================================');
+    console.log('Total dates:', transformedSlots.length);
+    console.log('Slots:', JSON.stringify(transformedSlots, null, 2));
     
     return Response.json({ 
       success: true, 
@@ -152,7 +192,8 @@ Deno.serve(async (req) => {
     });
     
   } catch (error) {
-    console.error('getHighLevelAvailability error:', error);
+    console.error('FATAL ERROR:', error);
+    console.error('Stack:', error.stack);
     return Response.json({ 
       error: error.message,
       stack: error.stack 
