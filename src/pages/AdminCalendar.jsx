@@ -151,6 +151,9 @@ export default function AdminCalendar() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button onClick={handleClearDates} variant="outline" className="gap-2 text-red-600 hover:text-red-700">
+                🗑️ Clear All Synced Dates
+              </Button>
               <Link to={createPageUrl('AdminWeddings')}>
                 <Button variant="outline" className="gap-2">
                   <List className="w-4 h-4" />
