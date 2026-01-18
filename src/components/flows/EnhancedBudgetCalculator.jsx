@@ -74,16 +74,23 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   };
 
   const calculateTotal = () => {
-    if (!pricingConfig || !selections.guestTier || !selections.dayOfWeek || !selections.peakSeason) return 0;
+    if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
 
     // Base venue price
     const guestCount = parseInt(selections.guestTier.split('_')[1]) || 2;
     const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
-    if (basePriceObj && selections.dayOfWeek) {
-      const key = `${selections.dayOfWeek}_${selections.peakSeason}`;
-      const price = basePriceObj[key]?.price || 0;
-      total += price;
+    if (basePriceObj) {
+      // Handle flat-price tiers (up_to_2, 2_to_20) that don't vary by day/season
+      if (selections.guestTier === 'up_to_2' || selections.guestTier === '2_to_20') {
+        total += basePriceObj.price || 0;
+      } 
+      // Handle tiers that vary by day of week and peak/non-peak season
+      else if (selections.dayOfWeek && selections.peakSeason) {
+        const key = `${selections.dayOfWeek}_${selections.peakSeason}`;
+        const price = basePriceObj[key]?.price || 0;
+        total += price;
+      }
     }
 
     // Per-person multiplied services (spirits, catering)
