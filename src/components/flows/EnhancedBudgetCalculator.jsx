@@ -116,7 +116,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const categoryData = pricingConfig[category];
     if (Array.isArray(categoryData)) {
       const tierData = categoryData.find(t => t.guest_tier === selections.guestTier);
-      return tierData?.options || [];
+      return tierData?.options || [{ key: 'None', label: 'None', price: 0 }];
     }
     return [];
   };
