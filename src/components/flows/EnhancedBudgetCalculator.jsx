@@ -74,14 +74,14 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   };
 
   const calculateTotal = () => {
-    if (!pricingConfig || !selections.guestTier) return 0;
+    if (!pricingConfig || !selections.guestTier || !selections.dayOfWeek || !selections.peakSeason) return 0;
     let total = 0;
 
     // Base venue price
     const guestCount = parseInt(selections.guestTier.split('_')[1]) || 2;
     const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
     if (basePriceObj && selections.dayOfWeek) {
-      const key = `${selections.dayOfWeek}_${selections.peakSeason || 'peak'}`;
+      const key = `${selections.dayOfWeek}_${selections.peakSeason}`;
       const price = basePriceObj[key]?.price || 0;
       total += price;
     }
