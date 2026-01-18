@@ -31,8 +31,9 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
   }, [bookedDates]);
 
   const checkAvailability = () => {
+    // Parse date in UTC to avoid timezone shifting
+    const dateObj = new Date(selectedDate + 'T00:00:00');
     const isAvailable = availableDates.includes(selectedDate);
-    const dateObj = new Date(selectedDate);
     const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 5 || dateObj.getDay() === 6; // Sun, Fri, Sat
     
     if (!isAvailable) {
@@ -150,7 +151,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
                 }}
                 className="w-full p-3 bg-stone-50 hover:bg-stone-100 rounded-xl text-sm font-medium text-stone-700 transition-colors text-left"
               >
-                {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                {format(new Date(date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
               </button>
             ))}
           </div>
