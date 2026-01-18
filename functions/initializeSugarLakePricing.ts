@@ -18,14 +18,8 @@ Deno.serve(async (req) => {
           per_person: 1475,
         },
         '2_to_20': {
-          saturday_peak: { price: 12000, per_person: 235.29 },
-          friday_peak: { price: 11000, per_person: 215.69 },
-          sunday_peak: { price: 9000, per_person: 176.47 },
-          weekday_peak: { price: 7500, per_person: 147.06 },
-          saturday_non_peak: { price: 7500, per_person: 147.06 },
-          friday_non_peak: { price: 7500, per_person: 147.06 },
-          sunday_non_peak: { price: 7500, per_person: 147.06 },
-          weekday_non_peak: { price: 6500, per_person: 127.45 },
+          price: 4250,
+          per_person: 212.50,
         },
         '20_to_50': {
           sunday_peak: { price: 6500, per_person: 130 },
