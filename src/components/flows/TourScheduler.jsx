@@ -42,27 +42,34 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
   useEffect(() => {
     async function fetchAvailability() {
       try {
-        const response = await base44.functions.invoke('getHighLevelAvailability', {
+        const result = await base44.functions.invoke('getHighLevelAvailability', {
           startDate: new Date().toISOString().split('T')[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         });
-        
-        const result = response.data;
-        
-        console.log('DEBUG Frontend: Raw result from backend:', result);
-        
-        const transformedSlots = result.slots?.map(slot => ({
-          day: format(new Date(slot.date), 'EEEE'),
-          date: new Date(slot.date),
-          slots: slot.times || []
-        })) || [];
-        
+
+        console.log('DEBUG Frontend: Raw result from backend:', result.data);
+
+        const transformedSlots = result.data.slots?.map(slot => {
+          // Parse date as EST to avoid timezone shifts
+          const dateObj = new Date(slot.date + 'T12:00:00-05:00');
+          return {
+            day: dateObj.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' }),
+            date: slot.date, // Keep as string YYYY-MM-DD to avoid timezone issues
+            displayDate: dateObj.toLocaleDateString('en-US', { 
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric',
+              timeZone: 'America/New_York'
+            }),
+            slots: slot.times || []
+          };
+        }) || [];
+
         console.log('DEBUG Frontend: Transformed slots:', transformedSlots);
-        
+
         setUpcomingDates(transformedSlots);
       } catch (error) {
         console.log('DEBUG Frontend: Error:', error);
-        console.log('Using fallback availability - enable backend functions for HighLevel integration');
         setUpcomingDates(getFallbackDates());
       } finally {
         setLoading(false);
