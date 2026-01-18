@@ -11,11 +11,24 @@ import WeddingForm from '../components/admin/WeddingForm';
 export default function AdminWeddings() {
   const [showForm, setShowForm] = useState(false);
   const [editingWedding, setEditingWedding] = useState(null);
+  const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
 
+  // Get current user
+  React.useEffect(() => {
+    base44.auth.me().then(setUser);
+  }, []);
+
   const { data: weddings = [] } = useQuery({
-    queryKey: ['weddings'],
-    queryFn: () => base44.entities.BookedWeddingDate.list('-date')
+    queryKey: ['weddings', user?.venue_id],
+    queryFn: () => user?.venue_id ? base44.entities.BookedWeddingDate.filter({ venue_id: user.venue_id }, '-date') : [],
+    enabled: !!user?.venue_id
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: ['venue', user?.venue_id],
+    queryFn: () => user?.venue_id ? base44.entities.Venue.get(user.venue_id) : null,
+    enabled: !!user?.venue_id
   });
 
   const deleteWeddingMutation = useMutation({
@@ -32,6 +45,22 @@ export default function AdminWeddings() {
     grand_estate: 'Grand Estate'
   };
 
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user.venue_id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+          <p className="text-stone-600 mb-4">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
+          <Button onClick={() => base44.auth.logout()}>Logout</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="border-b border-stone-200">
@@ -39,7 +68,10 @@ export default function AdminWeddings() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Calendar className="w-6 h-6" />
-              <h1 className="text-2xl font-semibold">Weddings List</h1>
+              <div>
+                <h1 className="text-2xl font-semibold">Weddings List</h1>
+                {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
+              </div>
             </div>
             <div className="flex gap-2">
               <Link to={createPageUrl('AdminCalendar')}>

@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function WeddingForm({ date, wedding, onClose }) {
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
     date: wedding?.date || date || '',
     couple_name: wedding?.couple_name || '',
@@ -21,12 +22,17 @@ export default function WeddingForm({ date, wedding, onClose }) {
 
   const queryClient = useQueryClient();
 
+  React.useEffect(() => {
+    base44.auth.me().then(setUser);
+  }, []);
+
   const saveMutation = useMutation({
     mutationFn: (data) => {
+      const dataWithVenue = { ...data, venue_id: user?.venue_id };
       if (wedding) {
-        return base44.entities.BookedWeddingDate.update(wedding.id, data);
+        return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
       }
-      return base44.entities.BookedWeddingDate.create(data);
+      return base44.entities.BookedWeddingDate.create(dataWithVenue);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['weddings']);

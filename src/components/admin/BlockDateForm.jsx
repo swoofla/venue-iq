@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export default function BlockDateForm({ date, onClose }) {
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
     date: date || '',
     reason: ''
@@ -12,8 +13,12 @@ export default function BlockDateForm({ date, onClose }) {
 
   const queryClient = useQueryClient();
 
+  React.useEffect(() => {
+    base44.auth.me().then(setUser);
+  }, []);
+
   const saveMutation = useMutation({
-    mutationFn: (data) => base44.entities.BlockedDate.create(data),
+    mutationFn: (data) => base44.entities.BlockedDate.create({ ...data, venue_id: user?.venue_id }),
     onSuccess: () => {
       queryClient.invalidateQueries(['blocked']);
       onClose();
