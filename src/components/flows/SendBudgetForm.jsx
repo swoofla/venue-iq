@@ -16,30 +16,45 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
     setError('');
   };
 
+  const [deliveryPreference, setDeliveryPreference] = React.useState('email');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate
-    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
-      setError('Please fill in all fields');
+    if (!formData.name.trim()) {
+      setError('Please enter your name');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError('Please enter a valid email address');
+    if (deliveryPreference === 'email' && !formData.email.trim()) {
+      setError('Please enter your email address');
       return;
+    }
+
+    if (deliveryPreference === 'text' && !formData.phone.trim()) {
+      setError('Please enter your phone number');
+      return;
+    }
+
+    if (deliveryPreference === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError('Please enter a valid email address');
+        return;
+      }
     }
 
     setLoading(true);
     try {
       const response = await base44.functions.invoke('sendBudgetQuote', {
         name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
+        email: formData.email || null,
+        phone: formData.phone || null,
         budgetData,
         venueName,
-        totalBudget
+        totalBudget,
+        deliveryPreference
       });
 
       if (response.data.success) {
