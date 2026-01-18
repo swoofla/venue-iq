@@ -246,7 +246,7 @@ function PackageForm({ venueId, package: pkg, onClose }) {
       return base44.entities.VenuePackage.create(dataWithVenue);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['packages']);
+      queryClient.invalidateQueries({ queryKey: ['packages', venueId] });
       onClose();
     }
   });
