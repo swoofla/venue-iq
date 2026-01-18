@@ -20,33 +20,49 @@ Deno.serve(async (req) => {
     const startMillis = startDateTime.getTime();
     const endMillis = endDateTime.getTime();
 
-    const response = await fetch(
-      `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_WEDDING_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=America/New_York`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
-          'Version': '2021-07-28',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+
+
+    // API limits date range to 31 days, so we need to query in chunks
+    const allSlots = {};
+    let currentStart = startDateTime;
+    
+    while (currentStart < endDateTime) {
+      const chunkEnd = new Date(Math.min(
+        currentStart.getTime() + 30 * 24 * 60 * 60 * 1000,
+        endDateTime.getTime()
+      ));
+      
+      const chunkStartMillis = currentStart.getTime();
+      const chunkEndMillis = chunkEnd.getTime();
+      
+      const chunkResponse = await fetch(
+        `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_WEDDING_CALENDAR_ID}/free-slots?startDate=${chunkStartMillis}&endDate=${chunkEndMillis}&timezone=America/New_York`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         }
+      );
+      
+      if (chunkResponse.ok) {
+        const chunkData = await chunkResponse.json();
+        Object.assign(allSlots, chunkData);
       }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      return Response.json({ error: `HighLevel API error: ${error}` }, { status: 500 });
+      
+      currentStart = new Date(chunkEnd.getTime() + 1);
     }
-
-    const slotsData = await response.json();
     
     // Dates WITH slots are AVAILABLE (no wedding booked)
     // Dates WITHOUT slots are BOOKED
-    const availableDates = Object.keys(slotsData || {}).filter(date => 
-      slotsData[date] && slotsData[date].slots && slotsData[date].slots.length > 0
+    const availableDates = Object.keys(allSlots || {}).filter(date => 
+      allSlots[date] && allSlots[date].slots && allSlots[date].slots.length > 0
     );
 
-    return Response.json({ success: true, availableDates, rawSlots: slotsData });
+    return Response.json({ success: true, availableDates, rawSlots: allSlots });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
