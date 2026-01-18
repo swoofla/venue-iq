@@ -22,9 +22,11 @@ Deno.serve(async (req) => {
 
 
 
-    // Fetch all events/appointments in the calendar
+    // Fetch all events/appointments in the calendar  
+    const HIGHLEVEL_LOCATION_ID = Deno.env.get('HIGHLEVEL_LOCATION_ID');
+    
     const eventsResponse = await fetch(
-      `https://services.leadconnectorhq.com/calendars/events?calendarId=${HIGHLEVEL_WEDDING_CALENDAR_ID}&startTime=${startMillis}&endTime=${endMillis}`,
+      `https://services.leadconnectorhq.com/calendars/events?locationId=${HIGHLEVEL_LOCATION_ID}&calendarId=${HIGHLEVEL_WEDDING_CALENDAR_ID}&startTime=${startMillis}&endTime=${endMillis}`,
       {
         method: 'GET',
         headers: {
