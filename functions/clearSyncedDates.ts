@@ -19,16 +19,19 @@ Deno.serve(async (req) => {
     // Get all synced dates for this venue
     const dates = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
     
-    // Delete each one with longer delay to avoid rate limit
+    // Delete in batches of 10 in parallel to avoid timeout
     let deleted = 0;
-    for (const date of dates) {
-      try {
-        await base44.asServiceRole.entities.BookedWeddingDate.delete(date.id);
-        deleted++;
-      } catch (e) {
-        console.error(`Failed to delete ${date.id}:`, e);
-      }
-      await new Promise(resolve => setTimeout(resolve, 200));
+    const batchSize = 10;
+    for (let i = 0; i < dates.length; i += batchSize) {
+      const batch = dates.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(date => 
+          base44.asServiceRole.entities.BookedWeddingDate.delete(date.id)
+            .then(() => { deleted++; })
+            .catch(e => console.error(`Failed to delete ${date.id}:`, e))
+        )
+      );
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     return Response.json({ success: true, deleted });
