@@ -19,11 +19,12 @@ Deno.serve(async (req) => {
     // Get all synced dates for this venue
     const dates = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
     
-    // Delete each one
+    // Delete each one with delay to avoid rate limit
     let deleted = 0;
     for (const date of dates) {
       await base44.asServiceRole.entities.BookedWeddingDate.delete(date.id);
       deleted++;
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     return Response.json({ success: true, deleted });
