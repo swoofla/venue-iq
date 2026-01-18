@@ -31,7 +31,7 @@ export default function AdminWeddings() {
 
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId }, '-date') : [],
+    queryFn: () => venueId ? base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId }, 'date') : [],
     enabled: !!venueId
   });
 
