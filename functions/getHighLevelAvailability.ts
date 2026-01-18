@@ -45,14 +45,19 @@ Deno.serve(async (req) => {
         
         const times = dayData.slots.map(slotTime => {
           // slotTime is a timestamp in milliseconds
-          const slotDateTime = new Date(parseInt(slotTime));
-          return slotDateTime.toLocaleTimeString('en-US', { 
+          const timestamp = parseInt(slotTime);
+          const slotDateTime = new Date(timestamp);
+          const formatted = slotDateTime.toLocaleTimeString('en-US', { 
             hour: 'numeric', 
             minute: '2-digit',
             hour12: true,
             timeZone: 'America/New_York'
           });
+          console.log(`  Slot timestamp ${timestamp} -> ${formatted}`);
+          return formatted;
         });
+        
+        console.log(`DEBUG: Date ${dateKey} converted to ${times.length} times:`, times);
         
         if (times.length > 0) {
           // Don't deduplicate - keep all slots as they are
