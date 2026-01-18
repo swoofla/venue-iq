@@ -93,55 +93,91 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 mb-4">
-        <p className="text-sm text-stone-700">
-          We'll send a copy of your <span className="font-semibold">${totalBudget.toLocaleString()}</span> estimate to you and our planning team at {venueName}.
-        </p>
-      </div>
+            <p className="text-sm text-stone-700">
+              We'll send a copy of your <span className="font-semibold">${totalBudget.toLocaleString()}</span> estimate to you and our planning team at {venueName}.
+            </p>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-stone-700 mb-2">
-          Full Name *
-        </label>
-        <Input
-          type="text"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          placeholder="Your full name"
-          disabled={loading}
-          className="w-full"
-        />
-      </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-stone-700 mb-3">
+              How would you like to receive your estimate? *
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeliveryPreference('email')}
+                disabled={loading}
+                className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  deliveryPreference === 'email'
+                    ? 'border-black bg-black text-white'
+                    : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+                }`}
+              >
+                📧 Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryPreference('text')}
+                disabled={loading}
+                className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                  deliveryPreference === 'text'
+                    ? 'border-black bg-black text-white'
+                    : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'
+                }`}
+              >
+                💬 SMS
+              </button>
+            </div>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-stone-700 mb-2">
-          Email Address *
-        </label>
-        <Input
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder="your@email.com"
-          disabled={loading}
-          className="w-full"
-        />
-      </div>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-2">
+              Full Name *
+            </label>
+            <Input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Your full name"
+              disabled={loading}
+              className="w-full"
+            />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-stone-700 mb-2">
-          Phone Number *
-        </label>
-        <Input
-          type="tel"
-          name="phone"
-          value={formData.phone}
-          onChange={handleChange}
-          placeholder="(555) 123-4567"
-          disabled={loading}
-          className="w-full"
-        />
-      </div>
+          {deliveryPreference === 'email' && (
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">
+                Email Address *
+              </label>
+              <Input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="your@email.com"
+                disabled={loading}
+                className="w-full"
+              />
+            </div>
+          )}
+
+          {deliveryPreference === 'text' && (
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">
+                Phone Number *
+              </label>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="(555) 123-4567"
+                disabled={loading}
+                className="w-full"
+              />
+            </div>
+          )}
 
       {error && (
         <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
