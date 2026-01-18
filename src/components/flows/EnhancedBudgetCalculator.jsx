@@ -210,7 +210,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
   const currentStep = steps[step];
   const canContinue = selections[currentStep.key] !== null && selections[currentStep.key] !== undefined && selections[currentStep.key] !== '';
-  const totalBudget = calculateTotal();
+  const totalBudget = calculateTotal() || 0;
 
   const handleSelect = (value) => {
     setSelections(prev => ({
