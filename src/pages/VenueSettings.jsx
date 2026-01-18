@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
+import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
 
 export default function VenueSettings() {
   const [user, setUser] = useState(null);
@@ -80,6 +81,10 @@ export default function VenueSettings() {
               <Package className="w-4 h-4 mr-2" />
               Packages
             </TabsTrigger>
+            <TabsTrigger value="calendar">
+              <Calendar className="w-4 h-4 mr-2" />
+              Google Calendar
+            </TabsTrigger>
             <TabsTrigger value="chatbot">
               <MessageSquare className="w-4 h-4 mr-2" />
               Chatbot Training
@@ -92,6 +97,10 @@ export default function VenueSettings() {
 
           <TabsContent value="packages" className="mt-6">
             <PackagesManager packages={packages} venueId={user.venue_id} />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-6">
+            <GoogleCalendarSync venueId={user.venue_id} />
           </TabsContent>
 
           <TabsContent value="chatbot" className="mt-6">
