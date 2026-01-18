@@ -22,49 +22,46 @@ Deno.serve(async (req) => {
 
 
 
-    // API limits date range to 31 days, so we need to query in chunks
-    const allSlots = {};
-    let currentStart = startDateTime;
-    
-    while (currentStart < endDateTime) {
-      const chunkEnd = new Date(Math.min(
-        currentStart.getTime() + 30 * 24 * 60 * 60 * 1000,
-        endDateTime.getTime()
-      ));
-      
-      const chunkStartMillis = currentStart.getTime();
-      const chunkEndMillis = chunkEnd.getTime();
-      
-      const chunkResponse = await fetch(
-        `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_WEDDING_CALENDAR_ID}/free-slots?startDate=${chunkStartMillis}&endDate=${chunkEndMillis}&timezone=America/New_York`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
-            'Version': '2021-07-28',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
+    // Fetch all events/appointments in the calendar
+    const eventsResponse = await fetch(
+      `https://services.leadconnectorhq.com/calendars/events?calendarId=${HIGHLEVEL_WEDDING_CALENDAR_ID}&startDate=${startMillis}&endDate=${endMillis}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
-      );
-      
-      if (chunkResponse.ok) {
-        const chunkData = await chunkResponse.json();
-        Object.assign(allSlots, chunkData);
       }
-      
-      currentStart = new Date(chunkEnd.getTime() + 1);
-    }
-    
-    // Filter out traceId and extract actual date keys
-    const dateKeys = Object.keys(allSlots || {}).filter(key => key !== 'traceId');
-    
-    // Dates WITH slots are AVAILABLE (no wedding booked)
-    const availableDates = dateKeys.filter(date => 
-      allSlots[date] && allSlots[date].slots && allSlots[date].slots.length > 0
     );
 
-    return Response.json({ success: true, availableDates, rawSlots: allSlots });
+    if (!eventsResponse.ok) {
+      const error = await eventsResponse.text();
+      return Response.json({ error: `HighLevel API error: ${error}` }, { status: 500 });
+    }
+
+    const eventsData = await eventsResponse.json();
+    const events = eventsData.events || [];
+    
+    // Extract booked dates from events (dates that have appointments)
+    const bookedDates = events.map(event => {
+      const eventDate = new Date(event.startTime);
+      return eventDate.toISOString().split('T')[0];
+    });
+    
+    // Generate all dates in range
+    const allDates = [];
+    let currentDate = new Date(startDateTime);
+    while (currentDate <= endDateTime) {
+      allDates.push(currentDate.toISOString().split('T')[0]);
+      currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+    }
+    
+    // Dates WITHOUT appointments are AVAILABLE
+    const availableDates = allDates.filter(date => !bookedDates.includes(date));
+
+    return Response.json({ success: true, availableDates, bookedDates, totalDays: allDates.length });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
