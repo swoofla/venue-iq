@@ -122,9 +122,14 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   useEffect(() => {
     async function fetchPricing() {
       try {
+        const venues = await base44.entities.Venue.list();
+        const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
+        if (sugarLakeVenue) {
+          setVenueName(sugarLakeVenue.name);
+        }
+
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
 
-        // DIAGNOSTIC: Log the raw response to see exact structure
         console.log('=== PRICING CONFIG DEBUG ===');
         console.log('Raw configs array:', configs);
 
@@ -133,7 +138,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           console.log('Raw config object:', rawConfig);
           console.log('Config keys:', Object.keys(rawConfig));
 
-          // Log each key and its type/value
           Object.keys(rawConfig).forEach((key) => {
             const value = rawConfig[key];
             console.log(`  ${key}: [${typeof value}]`,
@@ -143,7 +147,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             );
           });
 
-          // Check for venue_base in different locations
           console.log('Looking for venue_base...');
           console.log('  Direct (rawConfig.venue_base):', rawConfig.venue_base);
           console.log('  In pricing_data:', rawConfig.pricing_data?.venue_base);
