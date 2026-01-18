@@ -272,9 +272,9 @@ export default function Home() {
     // Save to Base44 database
     await base44.entities.ContactSubmission.create(submissionData);
 
-    // Sync to HighLevel (only works when backend functions are enabled)
+    // Sync to HighLevel
     try {
-      await base44.functions.createHighLevelContact({
+      const contactRes = await base44.functions.invoke('createHighLevelContact', {
         email: data.email,
         name: data.name,
         phone: data.phone,
@@ -282,8 +282,9 @@ export default function Home() {
         guest_count: data.guestCount,
         source: 'tour_scheduler'
       });
+      console.log('Contact created:', contactRes.data);
 
-      await base44.functions.createHighLevelAppointment({
+      const appointmentRes = await base44.functions.invoke('createHighLevelAppointment', {
         email: data.email,
         name: data.name,
         phone: data.phone,
@@ -292,8 +293,9 @@ export default function Home() {
         wedding_date: data.weddingDate,
         guest_count: data.guestCount
       });
+      console.log('Appointment created:', appointmentRes.data);
     } catch (error) {
-      console.log('HighLevel sync will be available once backend functions are enabled');
+      console.error('HighLevel sync error:', error.response?.data || error.message);
     }
   };
 
