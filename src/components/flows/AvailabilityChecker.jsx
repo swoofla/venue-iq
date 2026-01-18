@@ -115,7 +115,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
           </div>
           <h4 className="text-lg font-semibold text-stone-900 mb-2">Great News!</h4>
           <p className="text-stone-600 mb-4">
-            {format(new Date(checkResult.date), 'MMMM d, yyyy')} is available!
+            {format(new Date(checkResult.date + 'T00:00:00'), 'MMMM d, yyyy')} is available!
           </p>
           <div className="flex gap-2">
             <Button onClick={onCancel} variant="outline" className="flex-1 rounded-full">
@@ -139,7 +139,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
           </div>
           <h4 className="text-lg font-semibold text-stone-900 mb-2 text-center">Date Not Available</h4>
           <p className="text-stone-600 mb-4 text-center text-sm">
-            Unfortunately there is a wedding already booked on {format(new Date(selectedDate), 'MMMM d, yyyy')}, however it looks like these dates around it are available:
+            Unfortunately there is a wedding already booked on {format(new Date(selectedDate + 'T00:00:00'), 'MMMM d, yyyy')}, however it looks like these dates around it are available:
           </p>
           <div className="space-y-2 mb-4">
             {checkResult.alternatives.map((date) => (
