@@ -110,9 +110,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     });
 
     // Extras
-    total += selections.extras;
+    total += (selections.extras || 0);
 
-    return total;
+    return Math.max(0, total);
   };
 
   const steps = [
