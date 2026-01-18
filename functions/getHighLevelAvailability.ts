@@ -9,16 +9,26 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
     }
 
-    const start = startDate || new Date().toISOString().split('T')[0];
-    const end = endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Convert dates to Unix timestamps in milliseconds
+    const now = new Date();
+    const startDateTime = startDate ? new Date(startDate) : now;
+    const endDateTime = endDate ? new Date(endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    startDateTime.setHours(0, 0, 0, 0);
+    endDateTime.setHours(23, 59, 59, 999);
+    
+    const startMillis = startDateTime.getTime();
+    const endMillis = endDateTime.getTime();
 
     const response = await fetch(
-      `https://rest.gohighlevel.com/v1/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${start}&endDate=${end}`,
+      `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=America/New_York`,
       {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       }
     );
