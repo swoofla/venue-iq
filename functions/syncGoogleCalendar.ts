@@ -54,18 +54,17 @@ Deno.serve(async (req) => {
 
       // Create BookedWeddingDate entries from calendar events
       const syncedDates = [];
+      const bookingsToCreate = [];
+      
       for (const event of events) {
         const eventDate = event.start?.date || event.start?.dateTime;
         if (!eventDate) continue;
 
-        // Parse the date
         const dateStr = eventDate.split('T')[0];
-
-        // Extract couple name and details from event title and description
         const title = event.summary || 'Wedding Booking';
         const description = event.description || '';
 
-        const booking = {
+        bookingsToCreate.push({
           venue_id: venueId,
           date: dateStr,
           couple_name: title,
@@ -73,13 +72,25 @@ Deno.serve(async (req) => {
           phone: '',
           guest_count: null,
           notes: description
-        };
+        });
+      }
 
+      // Batch create to avoid rate limits
+      if (bookingsToCreate.length > 0) {
         try {
-          const created = await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
-          syncedDates.push({ id: created.id, date: dateStr, couple_name: title });
+          const created = await base44.asServiceRole.entities.BookedWeddingDate.bulkCreate(bookingsToCreate);
+          syncedDates.push(...created.map(c => ({ id: c.id, date: c.date, couple_name: c.couple_name })));
         } catch (error) {
-          console.log(`Skipped duplicate or invalid date: ${dateStr}`);
+          console.log(`Bulk create error: ${error.message}`);
+          // Fallback: try creating individually for partial success
+          for (const booking of bookingsToCreate) {
+            try {
+              const created = await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
+              syncedDates.push({ id: created.id, date: created.date, couple_name: created.couple_name });
+            } catch (e) {
+              console.log(`Skipped: ${booking.date}`);
+            }
+          }
         }
       }
 
