@@ -462,33 +462,72 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4 text-center">
+        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
 
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8 text-green-600" />
-        </div>
-        <h3 className="text-xl font-semibold text-stone-900 mb-2">Your Budget Estimate</h3>
-        
-        <div className="bg-stone-50 rounded-xl p-6 mb-4 text-left">
-          <div className="text-4xl font-bold text-stone-900 mb-4 text-center">
-            ${totalBudget.toLocaleString()}
-          </div>
-          <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
-            <p><span className="font-semibold">Package:</span> {GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label}</p>
-            <p><span className="font-semibold">Day:</span> {ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label}</p>
-            <p><span className="font-semibold">Season:</span> {ALL_SEASONS.find((s) => s.id === selections.season)?.label}</p>
-          </div>
-        </div>
+        <AnimatePresence mode="wait">
+          {view === 'summary' && (
+            <motion.div key="summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <h3 className="text-xl font-semibold text-stone-900 mb-6">Your Budget Estimate</h3>
+              
+              <div className="bg-stone-50 rounded-xl p-6 mb-6">
+                <BudgetSummaryBreakdown 
+                  selections={selections} 
+                  totalBudget={totalBudget}
+                  onEditCategory={(categoryKey) => {
+                    const stepIndex = steps.findIndex(s => s.key === categoryKey);
+                    if (stepIndex !== -1) {
+                      setSubmitted(false);
+                      setStep(stepIndex);
+                    }
+                  }}
+                />
+              </div>
 
-        <p className="text-stone-600 mb-4 text-sm normal-case">This is an estimate based on your selections. Would you like to schedule a private tour of Sugar Lake?
+              <p className="text-stone-600 text-sm mb-6">
+                This is an estimate based on your selections. Ready to see the venue in person?
+              </p>
 
-        </p>
+              <div className="space-y-3">
+                <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
+                  Schedule a Tour
+                </Button>
+                <Button onClick={() => setView('send')} variant="outline" className="w-full rounded-full">
+                  Send Budget
+                </Button>
+                <button 
+                  onClick={() => {
+                    setSubmitted(false);
+                    setStep(0);
+                  }}
+                  className="w-full py-2 text-center text-stone-600 hover:text-stone-900 transition-colors text-sm font-medium"
+                >
+                  ← Edit Budget
+                </button>
+              </div>
+            </motion.div>
+          )}
 
-        <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
-          Schedule a Tour
-        </Button>
-      </motion.div>);
-
+          {view === 'send' && (
+            <motion.div key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <button 
+                onClick={() => setView('summary')}
+                className="flex items-center gap-2 text-stone-600 hover:text-stone-900 mb-6 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Summary
+              </button>
+              <SendBudgetForm 
+                totalBudget={totalBudget} 
+                budgetData={selections}
+                venueName={venueName}
+                onSuccess={() => setView('summary')}
+                onCancel={() => setView('summary')}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
   }
 
   return (
