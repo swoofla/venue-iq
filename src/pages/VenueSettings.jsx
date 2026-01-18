@@ -38,6 +38,11 @@ export default function VenueSettings() {
     enabled: !!venueId
   });
 
+  const updateVenueMutation = useMutation({
+    mutationFn: (data) => base44.entities.Venue.update(venueId, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['venue', venueId] })
+  });
+
   const { data: packages = [] } = useQuery({
     queryKey: ['packages', venueId],
     queryFn: () => venueId ? base44.entities.VenuePackage.filter({ venue_id: venueId }) : [],
@@ -102,6 +107,27 @@ export default function VenueSettings() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
+
+        {venue && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <h3 className="font-semibold text-blue-900 mb-3">Venue Timezone</h3>
+            <select
+              value={venue.timezone || 'America/New_York'}
+              onChange={(e) => updateVenueMutation.mutate({ timezone: e.target.value })}
+              className="w-full px-4 py-3 bg-white border-2 border-stone-200 rounded-xl focus:border-black focus:outline-none"
+            >
+              <option value="America/New_York">Eastern Time (ET)</option>
+              <option value="America/Chicago">Central Time (CT)</option>
+              <option value="America/Denver">Mountain Time (MT)</option>
+              <option value="America/Phoenix">Arizona (no DST)</option>
+              <option value="America/Los_Angeles">Pacific Time (PT)</option>
+              <option value="America/Anchorage">Alaska Time (AKT)</option>
+              <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+              <option value="America/Puerto_Rico">Atlantic Time (AT)</option>
+            </select>
+            <p className="text-sm text-blue-800 mt-2">All tour availability and times will display in this timezone</p>
+          </div>
+        )}
         
         <Tabs defaultValue="packages">
           <TabsList>
