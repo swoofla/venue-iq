@@ -54,7 +54,7 @@ export default function Home() {
 
   const { data: bookedDates = [] } = useQuery({
     queryKey: ['bookedDates'],
-    queryFn: () => base44.entities.BookedDate.list(),
+    queryFn: () => base44.entities.BookedWeddingDate.list(),
   });
 
   const { data: venueKnowledge = [] } = useQuery({
