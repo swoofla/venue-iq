@@ -24,7 +24,7 @@ const getFallbackDates = () => {
   ].sort((a, b) => a.date - b.date);
 };
 
-export default function TourScheduler({ preSelectedDate, onComplete, onCancel }) {
+export default function TourScheduler({ preSelectedDate, venue, onComplete, onCancel }) {
   const [step, setStep] = useState(0);
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTime, setSelectedTime] = useState('');
@@ -44,7 +44,8 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
       try {
         const result = await base44.functions.invoke('getHighLevelAvailability', {
           startDate: new Date().toISOString().split('T')[0],
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          timezone: venue?.timezone || 'America/New_York'
         });
 
         console.log('DEBUG Frontend: Raw result from backend:', result.data);
@@ -83,7 +84,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
       }
     }
     fetchAvailability();
-  }, []);
+  }, [venue?.timezone]);
 
   const handleNext = () => {
     if (step === 0 && selectedDay) {
@@ -99,6 +100,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
       ...formData,
       tourDate: selectedDay.date,
       tourTime: selectedTime,
+      timezone: venue?.timezone || 'America/New_York'
     });
   };
 
