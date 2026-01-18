@@ -320,7 +320,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           </div>
 
           {/* Budget preview */}
-          {step > 2 && totalBudget > 0 && (
+          {step >= 2 && totalBudget > 0 && (
             <div className="mt-6 p-4 bg-stone-50 rounded-lg">
               <p className="text-sm text-stone-600">Estimated Total so far:</p>
               <p className="text-2xl font-bold text-stone-900">${totalBudget.toLocaleString()}</p>
