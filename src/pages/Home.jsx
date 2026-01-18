@@ -247,7 +247,7 @@ export default function Home() {
     await base44.entities.ContactSubmission.create(submissionData);
     
     setActiveFlow(null);
-    addBotMessage(`Based on your budget of $${data.budget.toLocaleString()} and ${data.guestCount} guests, I recommend our ${data.recommendedPackage} package. Would you like to schedule a tour to see the space in person?`);
+    addBotMessage(`Your estimated budget is $${(data.totalBudget || 0).toLocaleString()}. Would you like to schedule a tour to see our venue in person?`);
   };
 
   const handleAvailabilityTour = (date) => {
