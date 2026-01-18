@@ -112,7 +112,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-stone-500">Date</p>
-              <p className="font-medium text-stone-900">{format(selectedDay.date, 'EEEE, MMM d')}</p>
+                <p className="font-medium text-stone-900">{selectedDay.day}, {selectedDay.displayDate}</p>
             </div>
             <div>
               <p className="text-stone-500">Time</p>
