@@ -14,14 +14,28 @@ Deno.serve(async (req) => {
     const pricingData = {
       venue_base: {
         up_to_2: {
-          price: 2950,
-          per_person: 1475,
+          saturday_peak: { price: 2950, per_person: 1475 },
+          friday_peak: { price: 2950, per_person: 1475 },
+          sunday_peak: { price: 2950, per_person: 1475 },
+          weekday_peak: { price: 2950, per_person: 1475 },
+          saturday_non_peak: { price: 2950, per_person: 1475 },
+          friday_non_peak: { price: 2950, per_person: 1475 },
+          sunday_non_peak: { price: 2950, per_person: 1475 },
+          weekday_non_peak: { price: 2950, per_person: 1475 },
         },
         '2_to_20': {
-          price: 4250,
-          per_person: 212.50,
+          saturday_peak: null,
+          friday_peak: null,
+          sunday_peak: null,
+          weekday_peak: { price: 4250, per_person: 212.50 },
+          saturday_non_peak: { price: 4250, per_person: 212.50 },
+          friday_non_peak: { price: 4250, per_person: 212.50 },
+          sunday_non_peak: { price: 4250, per_person: 212.50 },
+          weekday_non_peak: { price: 4250, per_person: 212.50 },
         },
         '20_to_50': {
+          saturday_peak: null,
+          friday_peak: null,
           sunday_peak: { price: 6500, per_person: 130 },
           weekday_peak: { price: 6000, per_person: 120 },
           saturday_non_peak: { price: 5500, per_person: 110 },
