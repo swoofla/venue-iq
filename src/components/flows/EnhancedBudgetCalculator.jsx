@@ -78,8 +78,11 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     async function fetchPricing() {
       try {
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
+        console.log('Fetched pricing configs:', configs); // Debug log
         if (configs.length > 0) {
+          // Store the entire config record - fields are at root level
           setPricingConfig(configs[0]);
+          console.log('Set pricing config:', configs[0]); // Debug log
         }
       } catch (error) {
         console.error('Failed to load pricing:', error);
@@ -108,15 +111,21 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   // Get category options based on tier
   const getOptionsForCategory = (category) => {
     if (!pricingConfig || !selections.guestTier) return [];
-    const categoryData = pricingConfig.pricing_data?.[category];
+    const categoryData = pricingConfig[category];
+    console.log(`Getting options for ${category}:`, categoryData); // Debug log
     if (!categoryData) return [];
+    
+    // Handle object structure keyed by tier ID
     if (categoryData[selections.guestTier]) {
       return categoryData[selections.guestTier];
     }
+    
+    // Handle array structure with guest_tier field
     if (Array.isArray(categoryData)) {
       const tierData = categoryData.find(t => t.guest_tier === selections.guestTier);
       return tierData?.options || [];
     }
+    
     return [];
   };
 
@@ -127,12 +136,24 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
 
     // Base venue price
-    const venueBase = pricingConfig.pricing_data?.venue_base?.[selections.guestTier];
-    if (venueBase && selections.dayOfWeek && selections.season) {
+    const venueBase = pricingConfig.venue_base;
+    console.log('Venue base data:', venueBase); // Debug log
+    console.log('Selected tier:', selections.guestTier); // Debug log
+    console.log('Selected day:', selections.dayOfWeek); // Debug log
+    console.log('Selected season:', selections.season); // Debug log
+    
+    if (venueBase && venueBase[selections.guestTier] && selections.dayOfWeek && selections.season) {
+      const tierPricing = venueBase[selections.guestTier];
       const key = `${selections.dayOfWeek}_${selections.season}`;
-      const priceEntry = venueBase[key];
+      console.log('Looking for price key:', key); // Debug log
+      console.log('Tier pricing data:', tierPricing); // Debug log
+      
+      const priceEntry = tierPricing[key];
+      console.log('Found price entry:', priceEntry); // Debug log
+      
       if (priceEntry?.price) {
         total += priceEntry.price;
+        console.log('Added base price:', priceEntry.price); // Debug log
       }
     }
 
@@ -155,6 +176,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     });
 
     total += selections.extras || 0;
+    console.log('Total calculated:', total); // Debug log
     return total;
   };
 
