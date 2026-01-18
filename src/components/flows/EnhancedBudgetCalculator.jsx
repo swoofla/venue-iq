@@ -7,10 +7,10 @@ import { DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
 
 // Fixed: Use correct tier keys that match pricing data
 const GUEST_TIERS = {
-  'up_to_2': 'Just us two 💕',
-  '2_to_20': 'The Inner Circle (up to 20)',
-  '20_to_50': 'Small celebration (21-50)',
-  '51_to_120': 'Classic wedding (51-120)',
+  'up_to_2': '2',
+  '2_to_20': '2-20',
+  '20_to_50': '50 and under',
+  '51_to_120': '51-120',
 };
 
 const DAYS_OF_WEEK = {
@@ -35,12 +35,15 @@ const GUEST_COUNTS = {
 
 // Define which day/season combinations are N/A for each tier
 const UNAVAILABLE_COMBINATIONS = {
+  '2_to_20': [
+    { day: 'saturday', season: 'peak' },
+    { day: 'friday', season: 'peak' },
+    { day: 'sunday', season: 'peak' },
+  ],
   '20_to_50': [
     { day: 'saturday', season: 'peak' },
     { day: 'friday', season: 'peak' },
   ],
-  // up_to_2 and 2_to_20 are flat rate - no day/season restrictions
-  // 51_to_120 has all combinations available
 };
 
 export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel }) {
@@ -128,19 +131,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
     const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
     
-    if (basePriceObj) {
-      // Flat-price tier (only up_to_2) doesn't vary by day/season
-      if (selections.guestTier === 'up_to_2') {
-        total += basePriceObj.price || 0;
-      } 
-      // Variable tiers need day and season
-      else if (selections.dayOfWeek && selections.season) {
-        const key = `${selections.dayOfWeek}_${selections.season}`;
-        const priceEntry = basePriceObj[key];
-        // Only add if price exists and is not null (N/A)
-        if (priceEntry?.price !== null && priceEntry?.price !== undefined) {
-          total += priceEntry.price;
-        }
+    if (basePriceObj && selections.dayOfWeek && selections.season) {
+      const key = `${selections.dayOfWeek}_${selections.season}`;
+      const priceEntry = basePriceObj[key];
+      // Only add if price exists and is not null (N/A)
+      if (priceEntry?.price !== null && priceEntry?.price !== undefined) {
+        total += priceEntry.price;
       }
     }
 
@@ -184,9 +180,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       },
     ];
 
-    // For flat-rate tiers (only up_to_2), skip day/season selection
-    const needsDaySeasonSteps = selections.guestTier && 
-      selections.guestTier !== 'up_to_2';
+    // All tiers need day/season selection
+    const needsDaySeasonSteps = selections.guestTier;
 
     if (needsDaySeasonSteps) {
       baseSteps.push(
