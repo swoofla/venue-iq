@@ -46,7 +46,7 @@ export default function AdminWeddings() {
     onSuccess: () => queryClient.invalidateQueries(['weddings'])
   });
 
-  const upcomingWeddings = weddings.filter(w => new Date(w.date) >= new Date());
+  const upcomingWeddings = weddings.filter(w => new Date(w.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date));
   const pastWeddings = weddings.filter(w => new Date(w.date) < new Date());
 
   const packageNames = {
