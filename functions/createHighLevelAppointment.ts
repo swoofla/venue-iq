@@ -53,22 +53,26 @@ Deno.serve(async (req) => {
 
     // Create the appointment
     const appointmentDateTime = new Date(`${data.tour_date}T${convertTo24Hour(data.tour_time)}`);
+    const endDateTime = new Date(appointmentDateTime.getTime() + 60 * 60 * 1000);
+    const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
 
     const appointmentData = {
       locationId: HIGHLEVEL_LOCATION_ID,
       contactId: contactId,
+      calendarId: HIGHLEVEL_TOUR_CALENDAR_ID,
       title: `Venue Tour - ${data.name}`,
-      startTime: appointmentDateTime.toISOString(),
-      endTime: new Date(appointmentDateTime.getTime() + 60 * 60 * 1000).toISOString(),
-      appointmentStatus: 'confirmed',
+      selectedSlot: appointmentDateTime.toISOString(),
+      selectedTimezone: 'America/New_York',
+      endTime: endDateTime.toISOString(),
       notes: `Wedding Date: ${data.wedding_date || 'TBD'}\nGuest Count: ${data.guest_count || 'TBD'}\nSource: Virtual Planner`
     };
 
-    const appointmentResponse = await fetch('https://rest.gohighlevel.com/v1/appointments/', {
+    const appointmentResponse = await fetch('https://rest.gohighlevel.com/v1/calendars/appointments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Version': '2021-07-28'
       },
       body: JSON.stringify(appointmentData)
     });
