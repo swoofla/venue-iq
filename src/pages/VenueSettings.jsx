@@ -34,19 +34,19 @@ export default function VenueSettings() {
 
   const { data: venue } = useQuery({
     queryKey: ['venue', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.Venue.get(venueId) : null,
+    queryFn: () => venueId ? base44.entities.Venue.get(venueId) : null,
     enabled: !!venueId
   });
 
   const { data: packages = [] } = useQuery({
     queryKey: ['packages', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.VenuePackage.filter({ venue_id: venueId }, 'sort_order') : [],
+    queryFn: () => venueId ? base44.entities.VenuePackage.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
   });
 
   const { data: knowledge = [] } = useQuery({
     queryKey: ['knowledge', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.VenueKnowledge.filter({ venue_id: venueId }) : [],
+    queryFn: () => venueId ? base44.entities.VenueKnowledge.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
   });
 
