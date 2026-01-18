@@ -429,7 +429,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
               const optionKey = option.key !== undefined ? option.key : option.label;
               const isSelected = selections[currentStep.key] === optionKey;
               const displayLabel = option.label || optionKey;
-              const displayPrice = option.price !== undefined ? ` - $${option.price.toLocaleString()}` : '';
+              const displayPrice = option.price !== undefined ? ` - $${option.price.toLocaleString()}${option.price_type === 'per_person' ? ' (per person)' : ''}` : '';
               
               // Check if this specific option is unavailable
               const isOptionUnavailable = currentStep.key === 'season' && 
