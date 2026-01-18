@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Phone } from 'lucide-react';
+import { createPageUrl } from '../utils';
 
 import ChatMessage from '@/components/chat/ChatMessage';
 import TypingIndicator from '@/components/chat/TypingIndicator';
@@ -32,7 +33,7 @@ export default function Home() {
         base44.auth.me().then(u => {
           setUser(u);
           // Redirect logged-in users to Dashboard
-          window.location.href = '/Dashboard';
+          window.location.href = createPageUrl('Dashboard');
         });
       } else {
         setLoading(false);
