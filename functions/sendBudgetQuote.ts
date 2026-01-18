@@ -148,6 +148,37 @@ Deno.serve(async (req) => {
   }
 });
 
+function calculateBudgetBreakdown(budgetData) {
+  const breakdown = {};
+  
+  const labels = {
+    guestTier: 'Package',
+    dayOfWeek: 'Day of Week',
+    season: 'Season',
+    spirits: 'Spirits & Beverages',
+    planning: 'Planning Services',
+    catering: 'Catering',
+    photography: 'Photography',
+    florals: 'Florals',
+    decor: 'Decorations',
+    entertainment: 'Entertainment',
+    videography: 'Videography',
+    desserts: 'Desserts',
+    linens: 'Table Linens',
+    tableware: 'Tableware',
+    extras: 'Extras Budget'
+  };
+
+  Object.entries(budgetData).forEach(([key, value]) => {
+    if (value && key !== 'totalBudget' && key !== 'guestCount') {
+      const label = labels[key] || key;
+      breakdown[key] = value;
+    }
+  });
+
+  return breakdown;
+}
+
 function formatBudgetBreakdown(budgetData, totalBudget) {
   const lines = [];
   
