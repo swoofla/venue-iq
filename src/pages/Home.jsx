@@ -14,7 +14,7 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VideoAskPanel from '@/components/VideoAskPanel';
 
-const WELCOME_MESSAGE = "Welcome to Sugar Lake Weddings, we're glad to have you. How can we help you envision your perfect day here?";
+const WELCOME_MESSAGE = "Welcome to VenueIQ, we're glad to have you. How can we help you envision your perfect day here?";
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -190,7 +190,7 @@ export default function Home() {
       {/* Header */}
       <header className="bg-black text-white px-6 py-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-xl font-light tracking-wide">sugar lake weddings</h1>
+          <h1 className="text-xl font-light tracking-wide">venueiq</h1>
           <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
         </div>
       </header>

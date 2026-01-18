@@ -1,17 +1,17 @@
 import AdminCalendar from './pages/AdminCalendar';
 import AdminWeddings from './pages/AdminWeddings';
+import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import SuperAdmin from './pages/SuperAdmin';
-import Dashboard from './pages/Dashboard';
 import VenueSettings from './pages/VenueSettings';
 
 
 export const PAGES = {
     "AdminCalendar": AdminCalendar,
     "AdminWeddings": AdminWeddings,
+    "Dashboard": Dashboard,
     "Home": Home,
     "SuperAdmin": SuperAdmin,
-    "Dashboard": Dashboard,
     "VenueSettings": VenueSettings,
 }
 
