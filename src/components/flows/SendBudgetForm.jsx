@@ -58,7 +58,7 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
       });
 
       if (response.data.success) {
-        setSubmitted(true);
+        setStep(1);
         onSuccess(formData);
       } else {
         setError('Failed to send budget. Please try again.');
@@ -71,20 +71,36 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
     }
   };
 
-  if (submitted) {
+  // Confirmation screen
+  if (step === 1) {
     return (
       <div className="text-center space-y-4">
         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
           <CheckCircle className="w-6 h-6 text-green-600" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-stone-900">Budget Sent!</h3>
+          <h3 className="text-lg font-semibold text-stone-900">Budget Saved!</h3>
           <p className="text-sm text-stone-600 mt-1">
-            We've sent your ${totalBudget.toLocaleString()} estimate to {formData.email} and our planning team.
+            Check your {deliveryPreference === 'email' ? 'email' : 'texts'} for your ${totalBudget.toLocaleString()} estimate.
           </p>
-          <p className="text-sm text-stone-600 mt-2">
-            Expect to hear from us within 24 hours to discuss your vision.
-          </p>
+        </div>
+
+        <div className="space-y-2 pt-4">
+          <Button onClick={() => onSuccess({ ...formData, totalBudget })} className="w-full rounded-full bg-black hover:bg-stone-800">
+            Schedule a Tour
+          </Button>
+          <Button onClick={onCancel} variant="outline" className="w-full rounded-full">
+            Back to Chat
+          </Button>
+          <button
+            onClick={() => {
+              setStep(0);
+              onEditBudget?.();
+            }}
+            className="w-full py-2 text-stone-600 hover:text-stone-900 text-sm font-medium transition-colors"
+          >
+            ← Edit Budget
+          </button>
         </div>
       </div>
     );
