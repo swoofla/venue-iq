@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Home, List } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from './utils';
+import { createPageUrl } from '../utils';
 import CalendarView from '../components/admin/CalendarView';
 import WeddingForm from '../components/admin/WeddingForm';
 import BlockDateForm from '../components/admin/BlockDateForm';
