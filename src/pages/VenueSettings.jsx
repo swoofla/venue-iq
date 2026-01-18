@@ -342,7 +342,7 @@ function ChatbotTraining({ knowledge, venueId }) {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.VenueKnowledge.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['knowledge'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
   });
 
   return (
