@@ -53,6 +53,11 @@ export default function Home() {
     queryFn: () => base44.entities.BookedDate.list(),
   });
 
+  const { data: venueKnowledge = [] } = useQuery({
+    queryKey: ['venueKnowledge'],
+    queryFn: () => base44.entities.VenueKnowledge.filter({ is_active: true }),
+  });
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -87,7 +92,38 @@ export default function Home() {
       addBotMessage("We have three beautiful packages designed to fit different wedding styles and sizes. Take a look:");
       setTimeout(() => setActiveFlow('packages'), 1500);
     } else {
-      addBotMessage("Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?");
+      // Check knowledge base for relevant answer
+      const relevantKnowledge = venueKnowledge.find(k => 
+        lowerText.includes(k.question.toLowerCase()) || 
+        k.question.toLowerCase().includes(lowerText)
+      );
+
+      if (relevantKnowledge) {
+        addBotMessage(relevantKnowledge.answer);
+      } else {
+        // Use AI to provide intelligent response with context
+        setIsTyping(true);
+        try {
+          const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
+          
+          const response = await base44.integrations.Core.InvokeLLM({
+            prompt: `You are a helpful wedding venue chatbot assistant. Answer the user's question using the venue knowledge base provided. If the information isn't in the knowledge base, provide a helpful general response and suggest they schedule a tour or contact the venue directly.
+
+Venue Knowledge Base:
+${knowledgeContext}
+
+User Question: ${text}
+
+Provide a warm, professional response.`,
+          });
+          
+          setMessages(prev => [...prev, { id: Date.now(), text: response, isBot: true }]);
+        } catch (error) {
+          setMessages(prev => [...prev, { id: Date.now(), text: "Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?", isBot: true }]);
+        }
+        setIsTyping(false);
+        return;
+      }
     }
   };
 

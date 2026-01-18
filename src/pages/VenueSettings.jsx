@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import TranscriptUpload from '../components/admin/TranscriptUpload';
 
 export default function VenueSettings() {
   const [user, setUser] = useState(null);
@@ -83,6 +84,10 @@ export default function VenueSettings() {
               <MessageSquare className="w-4 h-4 mr-2" />
               Chatbot Training
             </TabsTrigger>
+            <TabsTrigger value="transcripts">
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Transcripts
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="packages" className="mt-6">
@@ -91,6 +96,10 @@ export default function VenueSettings() {
 
           <TabsContent value="chatbot" className="mt-6">
             <ChatbotTraining knowledge={knowledge} venueId={user.venue_id} />
+          </TabsContent>
+
+          <TabsContent value="transcripts" className="mt-6">
+            <TranscriptUpload venueId={user.venue_id} />
           </TabsContent>
         </Tabs>
       </div>
