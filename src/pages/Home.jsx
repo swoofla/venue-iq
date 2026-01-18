@@ -37,6 +37,7 @@ export default function Home() {
     base44.entities.Venue.list().then(venues => {
       const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
       if (sugarLakeVenue) {
+        setVenueId(sugarLakeVenue.id);
         setVenueName(sugarLakeVenue.name);
         setMessages([{ id: 1, text: getWelcomeMessage(sugarLakeVenue.name), isBot: true }]);
       }
