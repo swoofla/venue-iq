@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import ProgressDots from '../chat/ProgressDots';
-import { DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
+import BudgetSummaryBreakdown from './BudgetSummaryBreakdown';
+import SendBudgetForm from './SendBudgetForm';
+import { DollarSign, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
 // AVAILABILITY RULES - Controls which day/season combos are valid per tier
 const AVAILABILITY_RULES = {
