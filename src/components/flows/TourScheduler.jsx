@@ -166,8 +166,8 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
             ) : (
               <div className="space-y-2">
                 {upcomingDates.map((dateOption) => {
-                  const dateKey = dateOption.date.toISOString();
-                  const isSelected = selectedDay?.date.toISOString() === dateKey;
+                  const dateKey = dateOption.date;
+                  const isSelected = selectedDay?.date === dateKey;
                   return (
                     <button
                       key={dateKey}
