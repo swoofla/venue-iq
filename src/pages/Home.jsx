@@ -16,6 +16,8 @@ import VideoAskPanel from '@/components/VideoAskPanel';
 const WELCOME_MESSAGE = "Welcome to Sugar Lake Weddings, we're glad to have you. How can we help you envision your perfect day here?";
 
 export default function Home() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([
     { id: 1, text: WELCOME_MESSAGE, isBot: true }
   ]);
@@ -23,6 +25,20 @@ export default function Home() {
   const [activeFlow, setActiveFlow] = useState(null);
   const [preSelectedDate, setPreSelectedDate] = useState('');
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    base44.auth.isAuthenticated().then(isAuth => {
+      if (isAuth) {
+        base44.auth.me().then(u => {
+          setUser(u);
+          // Redirect logged-in users to Dashboard
+          window.location.href = '/Dashboard';
+        });
+      } else {
+        setLoading(false);
+      }
+    });
+  }, []);
 
   const { data: bookedDates = [] } = useQuery({
     queryKey: ['bookedDates'],
@@ -163,6 +179,10 @@ export default function Home() {
     setActiveFlow(null);
     setPreSelectedDate('');
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
