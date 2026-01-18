@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { base44 } from '@/api/base44Client';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
-export default function SendBudgetForm({ totalBudget, budgetData, venueName, onSuccess, onCancel }) {
+export default function SendBudgetForm({ totalBudget, budgetData, venueName, onSuccess, onCancel, onEditBudget }) {
+  const [step, setStep] = useState(0); // 0: form, 1: confirmation
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
