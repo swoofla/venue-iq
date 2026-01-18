@@ -90,7 +90,7 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
     setSubmitted(true);
     onComplete({
       ...formData,
-      tourDate: format(selectedDay.date, 'yyyy-MM-dd'),
+      tourDate: selectedDay.date,
       tourTime: selectedTime,
     });
   };
