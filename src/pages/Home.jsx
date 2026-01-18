@@ -256,7 +256,7 @@ export default function Home() {
   const handleTourComplete = async (data) => {
     const venues = await base44.entities.Venue.list();
     const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-    
+
     const submissionData = {
       name: data.name,
       email: data.email,
@@ -268,10 +268,10 @@ export default function Home() {
       source: 'tour_scheduler',
       venue_id: sugarLakeVenue?.id,
     };
-    
+
     // Save to Base44 database
     await base44.entities.ContactSubmission.create(submissionData);
-    
+
     // Sync to HighLevel (only works when backend functions are enabled)
     try {
       await base44.functions.createHighLevelContact({
@@ -282,7 +282,7 @@ export default function Home() {
         guest_count: data.guestCount,
         source: 'tour_scheduler'
       });
-      
+
       await base44.functions.createHighLevelAppointment({
         email: data.email,
         name: data.name,
@@ -295,9 +295,6 @@ export default function Home() {
     } catch (error) {
       console.log('HighLevel sync will be available once backend functions are enabled');
     }
-    
-    setActiveFlow(null);
-    setPreSelectedDate('');
   };
 
   const handlePackageTour = (packageName) => {
