@@ -220,10 +220,10 @@ export default function SendBudgetForm({ totalBudget, budgetData, venueName, onS
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Sending...
+              Saving...
             </>
           ) : (
-            'Send Budget'
+            'Save & Send Budget'
           )}
         </Button>
       </div>
