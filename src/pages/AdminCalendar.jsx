@@ -46,28 +46,22 @@ export default function AdminCalendar() {
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
     queryFn: async () => {
-      try {
-        console.log('DEBUG: queryFn executing with venueId:', venueId);
-        const result = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
-        console.log('DEBUG: BookedWeddingDate.filter returned:', result);
-        return result;
-      } catch (error) {
-        console.error('DEBUG: BookedWeddingDate.filter error:', error);
-        throw error;
-      }
+      if (!venueId) return [];
+      const result = await base44.entities.BookedWeddingDate.filter({ venue_id: venueId });
+      return result;
     },
     enabled: !!venueId
   });
 
   const { data: blocked = [] } = useQuery({
     queryKey: ['blocked', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.BlockedDate.filter({ venue_id: venueId }) : [],
+    queryFn: () => venueId ? base44.entities.BlockedDate.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
   });
 
   const { data: venue } = useQuery({
     queryKey: ['venue', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.Venue.get(venueId) : null,
+    queryFn: () => venueId ? base44.entities.Venue.get(venueId) : null,
     enabled: !!venueId
   });
 
