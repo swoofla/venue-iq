@@ -58,22 +58,25 @@ Deno.serve(async (req) => {
     
     const transformedSlots = [];
     
+    console.log(`RAW HighLevel response:`, JSON.stringify(data, null, 2));
+    
     if (typeof data === 'object' && !Array.isArray(data)) {
       Object.entries(data).forEach(([dateKey, dayData]) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
-        const debugMsg = `\nDEBUG: Date ${dateKey} raw slots: ${JSON.stringify(dayData.slots)}\nDEBUG: First slot type: ${typeof dayData.slots[0]}, value: ${dayData.slots[0]}\n`;
-        Deno.stderr.writeTextSync(debugMsg);
+        console.log(`\nDate ${dateKey}:`);
+        console.log(`  Raw slots array:`, dayData.slots);
+        console.log(`  Slot count: ${dayData.slots.length}`);
+        console.log(`  First slot - type: ${typeof dayData.slots[0]}, value: ${dayData.slots[0]}`);
         
         const times = dayData.slots.map((slotTime, idx) => {
           const timestamp = parseInt(slotTime);
           const date = new Date(timestamp);
           const dateMs = new Date(parseInt(slotTime) * 1000);
-          const detailMsg = `DEBUG: Slot ${idx} - raw: ${slotTime}, as int: ${timestamp}, as ms UTC: ${date.toUTCString()}, as sec UTC: ${dateMs.toUTCString()}\n`;
-          Deno.stderr.writeTextSync(detailMsg);
+          console.log(`  Slot ${idx}: raw="${slotTime}" -> int=${timestamp} -> UTC=${date.toUTCString()} | if-seconds=${dateMs.toUTCString()}`);
           
           const formatted = formatTimeEST(slotTime);
-          Deno.stderr.writeTextSync(`DEBUG: ${slotTime} -> ${formatted}\n`);
+          console.log(`    Formatted: ${formatted}`);
           return formatted;
         });
         
