@@ -340,8 +340,9 @@ export default function Home() {
           {isTyping && <TypingIndicator />}
 
           {/* Active Flow Components */}
-          {activeFlow === 'budget' && (
-            <BudgetCalculator
+          {activeFlow === 'budget' && venueId && (
+            <EnhancedBudgetCalculator
+              venueId={venueId}
               onComplete={handleBudgetComplete}
               onCancel={closeFlow}
             />
