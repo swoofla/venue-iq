@@ -488,7 +488,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
               </p>
 
               <div className="space-y-3">
-                <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
+                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: GUEST_COUNTS[selections.guestTier] })} className="w-full rounded-full bg-black hover:bg-stone-800">
                   Schedule a Tour
                 </Button>
                 <Button onClick={() => setView('send')} variant="outline" className="w-full rounded-full">
