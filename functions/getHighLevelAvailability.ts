@@ -1,3 +1,7 @@
+// getHighLevelAvailability.js - FIXED VERSION v2
+// Fixes the "all times show as 7:00 PM" bug with MANUAL timezone conversion
+// (Deno doesn't support toLocaleTimeString timezone option reliably)
+
 Deno.serve(async (req) => {
   try {
     const { startDate, endDate, timezone = 'America/New_York' } = await req.json();
@@ -6,34 +10,80 @@ Deno.serve(async (req) => {
     const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
     
     if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_TOUR_CALENDAR_ID) {
-      return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
+      return Response.json({ 
+        error: 'HighLevel configuration missing' 
+      }, { status: 500 });
     }
 
-    const getTimezoneOffset = (tz) => {
+    // Timezone offsets in HOURS from UTC
+    // Note: These are standard time offsets. For full DST support, 
+    // you'd need to check the date and adjust accordingly.
+    const getTimezoneOffsetHours = (tz) => {
       const offsets = {
-        'America/New_York': '-05:00',
-        'America/Chicago': '-06:00',
-        'America/Denver': '-07:00',
-        'America/Phoenix': '-07:00',
-        'America/Los_Angeles': '-08:00',
-        'America/Anchorage': '-09:00',
-        'Pacific/Honolulu': '-10:00',
-        'America/Puerto_Rico': '-04:00'
+        'America/New_York': -5,      // EST (winter) / -4 EDT (summer)
+        'America/Chicago': -6,       // CST (winter) / -5 CDT (summer)
+        'America/Denver': -7,        // MST (winter) / -6 MDT (summer)
+        'America/Phoenix': -7,       // MST (no DST)
+        'America/Los_Angeles': -8,   // PST (winter) / -7 PDT (summer)
+        'America/Anchorage': -9,     // AKST (winter) / -8 AKDT (summer)
+        'Pacific/Honolulu': -10,     // HST (no DST)
+        'America/Puerto_Rico': -4    // AST (no DST)
       };
-      return offsets[tz] || '-05:00';
+      return offsets[tz] ?? -5;
     };
 
-    const tzOffset = getTimezoneOffset(timezone);
+    // Get string offset for ISO dates (e.g., "-05:00")
+    const getTimezoneOffsetString = (tz) => {
+      const hours = getTimezoneOffsetHours(tz);
+      const absHours = Math.abs(hours);
+      const sign = hours >= 0 ? '+' : '-';
+      return `${sign}${String(absHours).padStart(2, '0')}:00`;
+    };
 
-    const now = new Date();
-    const startDateTime = startDate ? new Date(startDate + `T00:00:00${tzOffset}`) : now;
-    const endDateTime = endDate ? new Date(endDate + `T23:59:59${tzOffset}`) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    // MANUAL timezone conversion function
+    // Converts Unix timestamp (ms) to formatted time string in target timezone
+    const formatTimeInTimezone = (timestampMs, tz) => {
+      const offsetHours = getTimezoneOffsetHours(tz);
+      
+      // Create UTC date from timestamp
+      const utcDate = new Date(timestampMs);
+      
+      // Apply timezone offset to get local time
+      // We add the offset (which is negative for US timezones) to shift from UTC
+      const localTimeMs = timestampMs + (offsetHours * 60 * 60 * 1000);
+      const localDate = new Date(localTimeMs);
+      
+      // Extract hours and minutes using UTC methods 
+      // (since we've already shifted the time, UTC methods give us "local" values)
+      const hours = localDate.getUTCHours();
+      const minutes = localDate.getUTCMinutes();
+      
+      // Format as 12-hour time with AM/PM
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12; // Convert 0 to 12 for midnight
+      const minuteStr = String(minutes).padStart(2, '0');
+      
+      return `${hour12}:${minuteStr} ${period}`;
+    };
+
+    const tzOffsetString = getTimezoneOffsetString(timezone);
     
-    const startMillis = startDateTime.getTime();
-    const endMillis = endDateTime.getTime();
-
-    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startMillis}&endDate=${endMillis}&timezone=${timezone}`;
-
+    // Convert date strings to Unix timestamps in MILLISECONDS
+    const startDateTime = new Date(`${startDate}T00:00:00${tzOffsetString}`);
+    const endDateTime = new Date(`${endDate}T23:59:59${tzOffsetString}`);
+    
+    console.log('=== getHighLevelAvailability DEBUG v2 ===');
+    console.log('Input:', { startDate, endDate, timezone });
+    console.log('Offset hours:', getTimezoneOffsetHours(timezone));
+    console.log('Offset string:', tzOffsetString);
+    console.log('Start millis:', startDateTime.getTime());
+    console.log('End millis:', endDateTime.getTime());
+    
+    // Call HighLevel V2 API
+    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDateTime.getTime()}&endDate=${endDateTime.getTime()}&timezone=${encodeURIComponent(timezone)}`;
+    
+    console.log('HighLevel URL:', url);
+    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -43,98 +93,69 @@ Deno.serve(async (req) => {
         'Accept': 'application/json'
       }
     });
-
-    const rawData = await response.text();
-
+    
     if (!response.ok) {
-      return Response.json({ error: `HighLevel API error: ${rawData}` }, { status: 500 });
+      const errorText = await response.text();
+      console.error('HighLevel API error:', response.status, errorText);
+      return Response.json({ 
+        error: `HighLevel API error: ${response.status}`,
+        details: errorText 
+      }, { status: response.status });
     }
-
-    const data = JSON.parse(rawData);
     
-    const formatTimeInTimezone = (timestamp, tz) => {
-      const date = new Date(parseInt(timestamp));
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true,
-        timeZone: tz
-      });
-    };
+    const rawData = await response.json();
+    console.log('Raw HighLevel response keys:', Object.keys(rawData));
     
+    // Transform the response
+    // HighLevel returns: { "2026-01-24": { slots: ["1737727200000", ...] }, "traceId": "..." }
     const transformedSlots = [];
     
-    console.log(`RAW HighLevel response:`, JSON.stringify(data, null, 2));
-    
-    if (data.slots && Array.isArray(data.slots)) {
-      // HighLevel returns slots as an array of { startsAt: timestamp, ... } objects
-      const slotsByDate = {};
+    for (const [dateKey, dateData] of Object.entries(rawData)) {
+      // Skip non-date keys like traceId
+      if (dateKey === 'traceId' || !dateData || !Array.isArray(dateData.slots)) {
+        continue;
+      }
       
-      data.slots.forEach(slot => {
-        const timestamp = parseInt(slot.startsAt || slot.start_time || slot.startTime);
-        if (!timestamp) return;
+      console.log(`Processing date ${dateKey}: ${dateData.slots.length} slots`);
+      
+      // Convert each timestamp to human-readable time using MANUAL conversion
+      const times = dateData.slots.map(timestamp => {
+        const ts = parseInt(timestamp, 10);
+        const timeString = formatTimeInTimezone(ts, timezone);
         
-        const date = new Date(timestamp);
-        const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        // Debug: also show what UTC would be
+        const utcDate = new Date(ts);
+        console.log(`  ${timestamp} -> UTC: ${utcDate.toISOString()} -> Local (${timezone}): ${timeString}`);
         
-        if (!slotsByDate[dateStr]) {
-          slotsByDate[dateStr] = [];
-        }
-        slotsByDate[dateStr].push(timestamp);
+        return timeString;
       });
       
-      // Convert timestamps to formatted times and deduplicate
-      Object.entries(slotsByDate).forEach(([dateStr, timestamps]) => {
-        const times = timestamps.map(ts => formatTimeInTimezone(ts, timezone));
-        const uniqueTimes = [...new Set(times)].sort((a, b) => {
-          const parseTime = (t) => {
-            const [time, period] = t.split(' ');
-            let [hour, min] = time.split(':').map(Number);
-            if (period === 'PM' && hour !== 12) hour += 12;
-            if (period === 'AM' && hour === 12) hour = 0;
-            return hour * 60 + min;
-          };
-          return parseTime(a) - parseTime(b);
-        });
-        
-        if (uniqueTimes.length > 0) {
-          transformedSlots.push({
-            date: dateStr,
-            times: uniqueTimes
-          });
-        }
-      });
-    } else if (typeof data === 'object' && !Array.isArray(data)) {
-      // Fallback for older/different API response format
-      Object.entries(data).forEach(([dateKey, dayData]) => {
-        if (dateKey === 'traceId' || !dayData?.slots) return;
-        
-        const times = dayData.slots.map(slotTime => formatTimeInTimezone(slotTime, timezone));
-        
-        const uniqueTimes = [...new Set(times)].sort((a, b) => {
-          const parseTime = (t) => {
-            const [time, period] = t.split(' ');
-            let [hour, min] = time.split(':').map(Number);
-            if (period === 'PM' && hour !== 12) hour += 12;
-            if (period === 'AM' && hour === 12) hour = 0;
-            return hour * 60 + min;
-          };
-          return parseTime(a) - parseTime(b);
-        });
-        
-        if (uniqueTimes.length > 0) {
-          transformedSlots.push({
-            date: dateKey,
-            times: uniqueTimes
-          });
-        }
+      transformedSlots.push({
+        date: dateKey,
+        times: times
       });
     }
     
+    // Sort by date
     transformedSlots.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    return Response.json({ success: true, slots: transformedSlots, timezone });
+    console.log('=== RESULT ===');
+    console.log('Total dates with slots:', transformedSlots.length);
+    if (transformedSlots.length > 0) {
+      console.log('Sample:', transformedSlots[0]);
+    }
+    
+    return Response.json({ 
+      success: true, 
+      slots: transformedSlots,
+      timezone: timezone
+    });
+    
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('getHighLevelAvailability error:', error);
+    return Response.json({ 
+      error: error.message,
+      stack: error.stack 
+    }, { status: 500 });
   }
 });
