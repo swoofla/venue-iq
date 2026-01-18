@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       notes: `Wedding Date: ${data.wedding_date || 'TBD'}\nGuest Count: ${data.guest_count || 'TBD'}\nSource: Virtual Planner`
     };
 
-    const appointmentResponse = await fetch('https://rest.gohighlevel.com/v1/calendars/appointments', {
+    const appointmentResponse = await fetch(`https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/appointments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${HIGHLEVEL_API_KEY}`,
