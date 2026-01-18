@@ -14,13 +14,14 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VideoAskPanel from '@/components/VideoAskPanel';
 
-const WELCOME_MESSAGE = "Welcome to VenueIQ, we're glad to have you. How can we help you envision your perfect day here?";
+const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to have you. How can we help you envision your perfect day here?`;
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const [venueName, setVenueName] = useState('Sugar Lake Weddings');
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([
-    { id: 1, text: WELCOME_MESSAGE, isBot: true }
+    { id: 1, text: getWelcomeMessage('Sugar Lake Weddings'), isBot: true }
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [activeFlow, setActiveFlow] = useState(null);
@@ -32,6 +33,14 @@ export default function Home() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    base44.entities.Venue.list().then(venues => {
+      const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
+      if (sugarLakeVenue) {
+        setVenueName(sugarLakeVenue.name);
+        setMessages([{ id: 1, text: getWelcomeMessage(sugarLakeVenue.name), isBot: true }]);
+      }
+    });
+
     base44.auth.isAuthenticated().then(isAuth => {
       if (isAuth) {
         base44.auth.me().then(u => {
@@ -310,7 +319,7 @@ export default function Home() {
       {/* Header */}
       <header className="bg-black text-white px-6 py-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-xl font-light tracking-wide">venueiq</h1>
+          <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
           <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
         </div>
       </header>
