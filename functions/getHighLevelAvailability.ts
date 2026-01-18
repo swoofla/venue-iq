@@ -63,8 +63,14 @@ Deno.serve(async (req) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
         console.log(`DEBUG: Date ${dateKey} raw slots:`, dayData.slots);
+        console.log(`DEBUG: First slot type: ${typeof dayData.slots[0]}, value: ${dayData.slots[0]}`);
         
-        const times = dayData.slots.map(slotTime => {
+        const times = dayData.slots.map((slotTime, idx) => {
+          const timestamp = parseInt(slotTime);
+          const date = new Date(timestamp);
+          const dateMs = new Date(parseInt(slotTime) * 1000);
+          console.log(`DEBUG: Slot ${idx} - raw: ${slotTime}, as int: ${timestamp}, UTC: ${date.toUTCString()}, if seconds: ${dateMs.toUTCString()}`);
+          
           const formatted = formatTimeEST(slotTime);
           console.log(`DEBUG: ${slotTime} -> ${formatted}`);
           return formatted;
