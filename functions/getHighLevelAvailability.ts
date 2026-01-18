@@ -36,22 +36,20 @@ Deno.serve(async (req) => {
 
     const data = JSON.parse(rawData);
     
-    // Helper function to convert UTC timestamp to EST time string
-    const formatTimeEST = (timestamp) => {
-      const date = new Date(parseInt(timestamp));
-      // Get UTC hours and minutes
-      const utcHours = date.getUTCHours();
-      const utcMinutes = date.getUTCMinutes();
+    // Helper function to convert ISO 8601 string with timezone to EST time string
+    const formatTimeEST = (isoString) => {
+      // Parse ISO 8601 string like "2026-01-24T10:00:00-05:00"
+      const date = new Date(isoString);
       
-      // Convert to EST (UTC - 5 hours)
-      let estHours = utcHours - 5;
-      if (estHours < 0) estHours += 24;
+      // Get hours and minutes in the timezone offset specified (already in EST in this case)
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
       
       // Format as 12-hour time
-      const period = estHours >= 12 ? 'PM' : 'AM';
-      let displayHours = estHours % 12;
+      const period = hours >= 12 ? 'PM' : 'AM';
+      let displayHours = hours % 12;
       if (displayHours === 0) displayHours = 12;
-      const displayMinutes = utcMinutes.toString().padStart(2, '0');
+      const displayMinutes = minutes.toString().padStart(2, '0');
       
       return `${displayHours}:${displayMinutes} ${period}`;
     };
