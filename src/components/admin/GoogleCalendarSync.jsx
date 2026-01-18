@@ -45,7 +45,8 @@ export default function GoogleCalendarSync({ venueId }) {
       });
       setSyncResult({
         count: data.syncedCount,
-        success: true
+        success: true,
+        venueId: data.venueId
       });
     } catch (err) {
       setError('Failed to sync calendar. Please try again.');
@@ -117,9 +118,10 @@ export default function GoogleCalendarSync({ venueId }) {
       {syncResult && syncResult.success && (
         <div className="flex gap-2 items-start mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
           <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-          <span className="text-sm text-green-700">
-            Successfully synced {syncResult.count} wedding date{syncResult.count !== 1 ? 's' : ''} from your calendar
-          </span>
+          <div className="text-sm text-green-700">
+            <p>Successfully synced {syncResult.count} wedding date{syncResult.count !== 1 ? 's' : ''} from your calendar</p>
+            <p className="text-xs text-green-600 mt-1">Venue ID: {syncResult.venueId}</p>
+          </div>
         </div>
       )}
 
