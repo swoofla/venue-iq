@@ -8,8 +8,8 @@ import { DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
 // Fixed: Use correct tier keys that match pricing data
 const GUEST_TIERS = {
   'up_to_2': 'Just us two 💕',
-  'up_to_20': 'Intimate gathering (up to 20)',
-  'up_to_50': 'Small celebration (21-50)',
+  '2_to_20': 'Intimate gathering (up to 20)',
+  '20_to_50': 'Small celebration (21-50)',
   '51_to_120': 'Classic wedding (51-120)',
 };
 
@@ -28,18 +28,18 @@ const SEASONS = {
 // Fixed: Proper guest count lookup instead of parsing tier string
 const GUEST_COUNTS = {
   'up_to_2': 2,
-  'up_to_20': 15,
-  'up_to_50': 35,
+  '2_to_20': 15,
+  '20_to_50': 35,
   '51_to_120': 85,
 };
 
 // Define which day/season combinations are N/A for each tier
 const UNAVAILABLE_COMBINATIONS = {
-  'up_to_50': [
+  '20_to_50': [
     { day: 'saturday', season: 'peak' },
     { day: 'friday', season: 'peak' },
   ],
-  // up_to_2 and up_to_20 are flat rate - no day/season restrictions
+  // up_to_2 and 2_to_20 are flat rate - no day/season restrictions
   // 51_to_120 has all combinations available
 };
 
@@ -116,7 +116,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const categoryData = pricingConfig[category];
     if (Array.isArray(categoryData)) {
       const tierData = categoryData.find(t => t.guest_tier === selections.guestTier);
-      return tierData?.options || [{ key: 'None', label: 'None', price: 0 }];
+      return tierData?.options || [];
     }
     return [];
   };
@@ -129,8 +129,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
     
     if (basePriceObj) {
-      // Flat-price tiers (up_to_2, up_to_20) don't vary by day/season
-      if (selections.guestTier === 'up_to_2' || selections.guestTier === 'up_to_20') {
+      // Flat-price tiers (up_to_2, 2_to_20) don't vary by day/season
+      if (selections.guestTier === 'up_to_2' || selections.guestTier === '2_to_20') {
         total += basePriceObj.price || 0;
       } 
       // Variable tiers need day and season
@@ -184,10 +184,10 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       },
     ];
 
-    // For flat-rate tiers (up_to_2, up_to_20), skip day/season selection
+    // For flat-rate tiers (up_to_2, 2_to_20), skip day/season selection
     const needsDaySeasonSteps = selections.guestTier && 
       selections.guestTier !== 'up_to_2' && 
-      selections.guestTier !== 'up_to_20';
+      selections.guestTier !== '2_to_20';
 
     if (needsDaySeasonSteps) {
       baseSteps.push(
