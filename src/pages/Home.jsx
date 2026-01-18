@@ -18,6 +18,7 @@ const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const [venueId, setVenueId] = useState(null);
   const [venueName, setVenueName] = useState('Sugar Lake Weddings');
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([
