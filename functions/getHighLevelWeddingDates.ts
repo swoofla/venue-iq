@@ -67,12 +67,12 @@ Deno.serve(async (req) => {
     // Filter out traceId and extract actual date keys from HighLevel response
     const datesWithSlots = Object.keys(allSlots || {}).filter(key => key !== 'traceId');
     
-    // Dates WITHOUT slots in the calendar are AVAILABLE (no appointment blocking them)
-    // Dates WITH slots means there's availability configured but could be booked
-    // Since we can't access the appointments directly, we'll assume dates without any slots are available
-    const availableDates = allDates.filter(date => !datesWithSlots.includes(date));
+    // Dates WITH slots in the calendar are AVAILABLE (have open time slots for booking)
+    // Dates WITHOUT slots are not available (no availability configured)
+    const availableDates = datesWithSlots;
+    const bookedDates = allDates.filter(date => !datesWithSlots.includes(date));
 
-    return Response.json({ success: true, availableDates, bookedDates: datesWithSlots, totalDays: allDates.length });
+    return Response.json({ success: true, availableDates, bookedDates, totalDays: allDates.length });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
