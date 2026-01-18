@@ -158,22 +158,29 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
               <div className="text-center py-8 text-stone-500">Loading available dates...</div>
             ) : (
               <div className="space-y-2">
-                {upcomingDates.map((dateOption) => (
-                  <button
-                    key={dateOption.day}
-                    onClick={() => setSelectedDay(dateOption)}
-                    className={`w-full p-4 rounded-xl text-left transition-all ${
-                      selectedDay?.day === dateOption.day
-                        ? 'bg-black text-white'
-                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700'
-                    }`}
-                  >
-                    <p className="font-medium">{dateOption.day}</p>
-                    <p className={`text-sm ${selectedDay?.day === dateOption.day ? 'text-stone-300' : 'text-stone-500'}`}>
-                      {format(dateOption.date, 'MMMM d, yyyy')}
-                    </p>
-                  </button>
-                ))}
+                {upcomingDates.map((dateOption) => {
+                  const dateKey = dateOption.date.toISOString();
+                  const isSelected = selectedDay?.date.toISOString() === dateKey;
+                  return (
+                    <button
+                      key={dateKey}
+                      onClick={() => setSelectedDay(dateOption)}
+                      className={`w-full p-4 rounded-xl text-left transition-all ${
+                        isSelected
+                          ? 'bg-black text-white'
+                          : 'bg-stone-50 hover:bg-stone-100 text-stone-700'
+                      }`}
+                    >
+                      <p className="font-medium">{dateOption.day}</p>
+                      <p className={`text-sm ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                        {format(dateOption.date, 'MMMM d, yyyy')}
+                      </p>
+                      <p className={`text-xs mt-1 ${isSelected ? 'text-stone-400' : 'text-stone-400'}`}>
+                        {dateOption.slots.length > 0 ? `${dateOption.slots.length} slot${dateOption.slots.length !== 1 ? 's' : ''} available` : 'No slots'}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </motion.div>
