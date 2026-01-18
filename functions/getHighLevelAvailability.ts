@@ -35,10 +35,12 @@ Deno.serve(async (req) => {
     }
 
     const data = JSON.parse(rawData);
+    console.log('DEBUG Backend: Raw HighLevel response:', JSON.stringify(data, null, 2));
     const transformedSlots = [];
     
     if (typeof data === 'object' && !Array.isArray(data)) {
       Object.entries(data).forEach(([dateKey, dayData]) => {
+        console.log(`DEBUG Backend: Processing ${dateKey}:`, dayData);
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
         const times = dayData.slots.map(slotTime => {
