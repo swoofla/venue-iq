@@ -8,7 +8,7 @@ import { DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
 // Fixed: Use correct tier keys that match pricing data
 const GUEST_TIERS = {
   'up_to_2': 'Just us two 💕',
-  '2_to_20': 'Intimate gathering (up to 20)',
+  '2_to_20': 'The Inner Circle (up to 20)',
   '20_to_50': 'Small celebration (21-50)',
   '51_to_120': 'Classic wedding (51-120)',
 };
@@ -129,8 +129,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
     
     if (basePriceObj) {
-      // Flat-price tiers (up_to_2, 2_to_20) don't vary by day/season
-      if (selections.guestTier === 'up_to_2' || selections.guestTier === '2_to_20') {
+      // Flat-price tier (only up_to_2) doesn't vary by day/season
+      if (selections.guestTier === 'up_to_2') {
         total += basePriceObj.price || 0;
       } 
       // Variable tiers need day and season
@@ -184,10 +184,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       },
     ];
 
-    // For flat-rate tiers (up_to_2, 2_to_20), skip day/season selection
+    // For flat-rate tiers (only up_to_2), skip day/season selection
     const needsDaySeasonSteps = selections.guestTier && 
-      selections.guestTier !== 'up_to_2' && 
-      selections.guestTier !== '2_to_20';
+      selections.guestTier !== 'up_to_2';
 
     if (needsDaySeasonSteps) {
       baseSteps.push(
