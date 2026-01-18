@@ -63,6 +63,12 @@ export default function Home() {
     });
   }, []);
 
+  const { data: venue } = useQuery({
+    queryKey: ['venue', venueId],
+    queryFn: () => venueId ? base44.entities.Venue.get(venueId) : null,
+    enabled: !!venueId
+  });
+
   const { data: bookedDates = [] } = useQuery({
     queryKey: ['bookedDates'],
     queryFn: () => base44.entities.BookedWeddingDate.list(),
@@ -359,6 +365,7 @@ export default function Home() {
           {activeFlow === 'tour' && (
             <TourScheduler
               preSelectedDate={preSelectedDate}
+              venue={venue}
               onComplete={handleTourComplete}
               onCancel={closeFlow}
             />
