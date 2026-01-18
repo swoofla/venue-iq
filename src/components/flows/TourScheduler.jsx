@@ -42,10 +42,12 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
   useEffect(() => {
     async function fetchAvailability() {
       try {
-        const result = await base44.functions.getHighLevelAvailability({
+        const response = await base44.functions.invoke('getHighLevelAvailability', {
           startDate: new Date().toISOString().split('T')[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         });
+        
+        const result = response.data;
         
         console.log('DEBUG Frontend: Raw result from backend:', result);
         
