@@ -66,7 +66,46 @@ Deno.serve(async (req) => {
     
     console.log(`RAW HighLevel response:`, JSON.stringify(data, null, 2));
     
-    if (typeof data === 'object' && !Array.isArray(data)) {
+    if (data.slots && Array.isArray(data.slots)) {
+      // HighLevel returns slots as an array of { startsAt: timestamp, ... } objects
+      const slotsByDate = {};
+      
+      data.slots.forEach(slot => {
+        const timestamp = parseInt(slot.startsAt || slot.start_time || slot.startTime);
+        if (!timestamp) return;
+        
+        const date = new Date(timestamp);
+        const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        if (!slotsByDate[dateStr]) {
+          slotsByDate[dateStr] = [];
+        }
+        slotsByDate[dateStr].push(timestamp);
+      });
+      
+      // Convert timestamps to formatted times and deduplicate
+      Object.entries(slotsByDate).forEach(([dateStr, timestamps]) => {
+        const times = timestamps.map(ts => formatTimeInTimezone(ts, timezone));
+        const uniqueTimes = [...new Set(times)].sort((a, b) => {
+          const parseTime = (t) => {
+            const [time, period] = t.split(' ');
+            let [hour, min] = time.split(':').map(Number);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            return hour * 60 + min;
+          };
+          return parseTime(a) - parseTime(b);
+        });
+        
+        if (uniqueTimes.length > 0) {
+          transformedSlots.push({
+            date: dateStr,
+            times: uniqueTimes
+          });
+        }
+      });
+    } else if (typeof data === 'object' && !Array.isArray(data)) {
+      // Fallback for older/different API response format
       Object.entries(data).forEach(([dateKey, dayData]) => {
         if (dateKey === 'traceId' || !dayData?.slots) return;
         
