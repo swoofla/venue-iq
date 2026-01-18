@@ -3,48 +3,53 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import ProgressDots from '../chat/ProgressDots';
-import { DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
+import { DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 
-// Fixed: Use correct tier keys that match pricing data
-const GUEST_TIERS = {
-  'up_to_2': '2',
-  '2_to_20': '2-20',
-  '20_to_50': '50 and under',
-  '51_to_120': '51-120',
+// AVAILABILITY RULES - Controls which day/season combos are valid per tier
+const AVAILABILITY_RULES = {
+  up_to_2: {
+    peak: ['weekday'],
+    nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
+  },
+  up_to_20: {
+    peak: ['weekday'],
+    nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
+  },
+  up_to_50: {
+    peak: ['sunday', 'weekday'],
+    nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
+  },
+  '51_to_120': {
+    peak: ['saturday', 'friday', 'sunday', 'weekday'],
+    nonpeak: ['saturday', 'friday', 'sunday', 'weekday']
+  }
 };
 
-const DAYS_OF_WEEK = {
-  'saturday': 'Saturday',
-  'friday': 'Friday',
-  'sunday': 'Sunday',
-  'weekday': 'Weekday (Mon-Thu)',
-};
-
-const SEASONS = {
-  'peak': 'Peak Season (May - October)',
-  'nonpeak': 'Non-Peak Season (November - April)',
-};
-
-// Fixed: Proper guest count lookup instead of parsing tier string
 const GUEST_COUNTS = {
-  'up_to_2': 2,
-  '2_to_20': 15,
-  '20_to_50': 35,
-  '51_to_120': 85,
+  up_to_2: 2,
+  up_to_20: 15,
+  up_to_50: 35,
+  '51_to_120': 85
 };
 
-// Define which day/season combinations are N/A for each tier
-const UNAVAILABLE_COMBINATIONS = {
-  '2_to_20': [
-    { day: 'saturday', season: 'peak' },
-    { day: 'friday', season: 'peak' },
-    { day: 'sunday', season: 'peak' },
-  ],
-  '20_to_50': [
-    { day: 'saturday', season: 'peak' },
-    { day: 'friday', season: 'peak' },
-  ],
-};
+const GUEST_TIERS = [
+  { id: 'up_to_2', label: 'Just us two 💕', sublabel: 'Elopement Package' },
+  { id: 'up_to_20', label: 'Inner Circle', sublabel: 'Intimate gathering (up to 20)' },
+  { id: 'up_to_50', label: '50 and Under', sublabel: 'Small celebration (21-50)' },
+  { id: '51_to_120', label: 'Classic Wedding', sublabel: 'Up to 120 guests' }
+];
+
+const ALL_DAYS = [
+  { id: 'saturday', label: 'Saturday' },
+  { id: 'friday', label: 'Friday' },
+  { id: 'sunday', label: 'Sunday' },
+  { id: 'weekday', label: 'Weekday (Mon-Thu)' }
+];
+
+const ALL_SEASONS = [
+  { id: 'peak', label: 'Peak Season (May - October)' },
+  { id: 'nonpeak', label: 'Non-Peak Season (November - April)' }
+];
 
 export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel }) {
   const [step, setStep] = useState(0);
@@ -55,8 +60,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     dayOfWeek: null,
     season: null,
     spirits: null,
-    catering: null,
     planning: null,
+    catering: null,
     photography: null,
     florals: null,
     decor: null,
@@ -65,7 +70,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     desserts: null,
     linens: null,
     tableware: null,
-    extras: 0,
+    extras: 0
   });
   const [submitted, setSubmitted] = useState(false);
 
@@ -74,7 +79,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       try {
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
         if (configs.length > 0) {
-          setPricingConfig(configs[0].pricing_data);
+          setPricingConfig(configs[0]);
         }
       } catch (error) {
         console.error('Failed to load pricing:', error);
@@ -85,38 +90,29 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     fetchPricing();
   }, [venueId]);
 
-  // Check if a specific day/season combination is unavailable for the selected tier
-  const isCombinationUnavailable = (day, season, tier) => {
-    const unavailable = UNAVAILABLE_COMBINATIONS[tier];
-    if (!unavailable) return false;
-    return unavailable.some(combo => combo.day === day && combo.season === season);
+  // Get available days based on tier + season
+  const getAvailableDays = () => {
+    if (!selections.guestTier || !selections.season) return ALL_DAYS;
+    const rules = AVAILABILITY_RULES[selections.guestTier];
+    if (!rules) return ALL_DAYS;
+    const allowedDays = rules[selections.season] || [];
+    return ALL_DAYS.filter(day => allowedDays.includes(day.id));
   };
 
-  // Check if the CURRENT selection is an unavailable combination
-  const isCurrentCombinationUnavailable = () => {
-    if (!selections.guestTier || !selections.dayOfWeek || !selections.season) {
-      return false;
-    }
-    return isCombinationUnavailable(selections.dayOfWeek, selections.season, selections.guestTier);
+  // Get available seasons based on tier
+  const getAvailableSeasons = () => {
+    if (!selections.guestTier) return ALL_SEASONS;
+    return ALL_SEASONS;
   };
 
-  // Get warning message for current step if applicable
-  const getWarningMessage = () => {
-    // Only show warning on Season step when there's a restriction
-    if (step !== 2) return null;
-    
-    const tier = selections.guestTier;
-    const day = selections.dayOfWeek;
-    
-    if (tier === 'up_to_50' && (day === 'saturday' || day === 'friday')) {
-      return `Note: ${DAYS_OF_WEEK[day]} peak season bookings are not available for 21-50 guest events. Please select a different day or choose non-peak season.`;
-    }
-    return null;
-  };
-
+  // Get category options based on tier
   const getOptionsForCategory = (category) => {
-    if (!pricingConfig?.[category]) return [];
-    const categoryData = pricingConfig[category];
+    if (!pricingConfig || !selections.guestTier) return [];
+    const categoryData = pricingConfig.pricing_data?.[category];
+    if (!categoryData) return [];
+    if (categoryData[selections.guestTier]) {
+      return categoryData[selections.guestTier];
+    }
     if (Array.isArray(categoryData)) {
       const tierData = categoryData.find(t => t.guest_tier === selections.guestTier);
       return tierData?.options || [];
@@ -124,195 +120,172 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     return [];
   };
 
+  // Calculate running total
   const calculateTotal = () => {
     if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
-
     const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
-    const basePriceObj = pricingConfig.venue_base?.[selections.guestTier];
-    
-    if (basePriceObj && selections.dayOfWeek && selections.season) {
+
+    // Base venue price
+    const venueBase = pricingConfig.pricing_data?.venue_base?.[selections.guestTier];
+    if (venueBase && selections.dayOfWeek && selections.season) {
       const key = `${selections.dayOfWeek}_${selections.season}`;
-      const priceEntry = basePriceObj[key];
-      // Only add if price exists and is not null (N/A)
-      if (priceEntry?.price !== null && priceEntry?.price !== undefined) {
+      const priceEntry = venueBase[key];
+      if (priceEntry?.price) {
         total += priceEntry.price;
       }
     }
 
-    // Per-person services (spirits, catering)
-    const spiritsOption = getOptionsForCategory('spirits').find(o => o.label === selections.spirits);
-    if (spiritsOption?.price_type === 'per_person') {
-      total += (spiritsOption.price * guestCount);
-    } else if (spiritsOption?.price) {
-      total += spiritsOption.price;
-    }
-
-    const cateringOption = getOptionsForCategory('catering').find(o => o.label === selections.catering);
-    if (cateringOption?.price_type === 'per_person') {
-      total += (cateringOption.price * guestCount);
-    } else if (cateringOption?.price) {
-      total += cateringOption.price;
-    }
-
-    // Flat-price services
-    ['planning', 'photography', 'florals', 'decor', 'entertainment', 'videography', 'desserts', 'linens', 'tableware'].forEach(category => {
-      const option = getOptionsForCategory(category).find(o => o.label === selections[category]);
-      if (option?.price) {
-        total += option.price;
+    // Calculate each category
+    const categories = ['spirits', 'planning', 'catering', 'photography', 'florals', 
+                       'decor', 'entertainment', 'videography', 'desserts', 'linens', 'tableware'];
+    
+    categories.forEach(category => {
+      const options = getOptionsForCategory(category);
+      const selected = options.find(o => o.label === selections[category]);
+      if (selected) {
+        if (selected.price_type === 'per_person') {
+          total += selected.price * guestCount;
+        } else if (selected.price_type === 'flat_plus_per_person') {
+          total += selected.price + (selected.extra_pp || 0) * guestCount;
+        } else {
+          total += selected.price || 0;
+        }
       }
     });
 
-    // Extras
-    total += (selections.extras || 0);
-
-    return Math.max(0, total);
+    total += selections.extras || 0;
+    return total;
   };
 
-  // Determine which steps to show based on guest tier
+  // Step definitions
   const getSteps = () => {
-    const baseSteps = [
+    const steps = [
       {
         title: 'Guest Count',
         question: 'How many guests do you plan to have at your event?',
         key: 'guestTier',
-        options: Object.entries(GUEST_TIERS).map(([key, label]) => ({ key, label })),
+        type: 'guest_tier'
       },
+      {
+        title: 'Season',
+        question: 'What time of year are you considering?',
+        key: 'season',
+        type: 'season',
+        restriction: selections.guestTier && ['up_to_2', 'up_to_20'].includes(selections.guestTier)
+          ? '⚠️ Note: Peak season (May-Oct) is only available on weekdays for this package.'
+          : selections.guestTier === 'up_to_50'
+          ? '⚠️ Note: Peak season (May-Oct) is only available Sunday or weekdays for this package.'
+          : null
+      },
+      {
+        title: 'Day of Week',
+        question: 'What day of the week do you plan to get married on?',
+        key: 'dayOfWeek',
+        type: 'day_of_week'
+      }
     ];
 
-    // All tiers need day/season selection
-    const needsDaySeasonSteps = selections.guestTier;
-
-    if (needsDaySeasonSteps) {
-      baseSteps.push(
-        {
-          title: 'Day of Week',
-          question: 'What day of the week do you plan to get married on?',
-          key: 'dayOfWeek',
-          options: Object.entries(DAYS_OF_WEEK).map(([key, label]) => ({ key, label })),
-        },
-        {
-          title: 'Season',
-          question: 'What time of year are you considering?',
-          key: 'season',
-          options: Object.entries(SEASONS).map(([key, label]) => {
-            // Mark unavailable options
-            const isUnavailable = isCombinationUnavailable(
-              selections.dayOfWeek, 
-              key, 
-              selections.guestTier
-            );
-            return { key, label, isUnavailable };
-          }),
-        }
-      );
+    if (selections.guestTier) {
+      const categorySteps = [
+        { title: 'Spirits & Beverages', question: 'What kind of spirits do you plan to have?', key: 'spirits', type: 'category' },
+        { title: 'Planning Services', question: 'Do you want planning and coordination services?', key: 'planning', type: 'category' },
+        { title: 'Catering', question: 'What kind of catering do you plan to have?', key: 'catering', type: 'category' },
+        { title: 'Photography', question: 'What are you looking for in a photographer?', key: 'photography', type: 'category' },
+        { title: 'Florals', question: 'What is your floral vision?', key: 'florals', type: 'category' },
+        { title: 'Decorations', question: 'What are your plans for decorations and signage?', key: 'decor', type: 'category' },
+        { title: 'Entertainment', question: 'What kind of entertainment are you looking for?', key: 'entertainment', type: 'category' },
+        { title: 'Videography', question: 'Do you want a videographer?', key: 'videography', type: 'category' },
+        { title: 'Desserts', question: 'What kind of desserts are you wanting?', key: 'desserts', type: 'category' },
+        { title: 'Table Linens', question: 'Do you want table linens?', key: 'linens', type: 'category' },
+        { title: 'Tableware', question: 'What kind of tableware do you want?', key: 'tableware', type: 'category' },
+        { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras' }
+      ];
+      return [...steps, ...categorySteps];
     }
-
-    // Add category steps
-    const categorySteps = [
-      {
-        title: 'Spirits & Beverages',
-        question: 'What kind of spirits do you plan to have?',
-        key: 'spirits',
-        options: getOptionsForCategory('spirits'),
-      },
-      {
-        title: 'Planning & Coordination',
-        question: 'Do you want planning and coordination services?',
-        key: 'planning',
-        options: getOptionsForCategory('planning'),
-      },
-      {
-        title: 'Catering',
-        question: 'What kind of catering do you plan to have?',
-        key: 'catering',
-        options: getOptionsForCategory('catering'),
-      },
-      {
-        title: 'Photography',
-        question: 'What are you looking for in a photographer?',
-        key: 'photography',
-        options: getOptionsForCategory('photography'),
-      },
-      {
-        title: 'Florals',
-        question: 'What is your floral vision?',
-        key: 'florals',
-        options: getOptionsForCategory('florals'),
-      },
-      {
-        title: 'Decorations & Signage',
-        question: 'What are your plans for decorations and signage?',
-        key: 'decor',
-        options: getOptionsForCategory('decor'),
-      },
-      {
-        title: 'Entertainment',
-        question: 'What kind of entertainment are you looking for?',
-        key: 'entertainment',
-        options: getOptionsForCategory('entertainment'),
-      },
-      {
-        title: 'Videography',
-        question: 'Do you want a videographer?',
-        key: 'videography',
-        options: getOptionsForCategory('videography'),
-      },
-      {
-        title: 'Desserts',
-        question: 'What kind of desserts are you wanting?',
-        key: 'desserts',
-        options: getOptionsForCategory('desserts'),
-      },
-      {
-        title: 'Table Linens',
-        question: 'Do you want table linens?',
-        key: 'linens',
-        options: getOptionsForCategory('linens'),
-      },
-      {
-        title: 'Tableware',
-        question: 'What kind of tableware do you want to have?',
-        key: 'tableware',
-        options: getOptionsForCategory('tableware'),
-      },
-      {
-        title: 'Extras Budget',
-        question: 'How much do you want to allow for "extras"? (Live strings, photo booth, live wedding painter, favors, late night snacks, gifts for bridal party, upgrades, or things not accounted for)',
-        key: 'extras',
-        options: [0, 500, 1000, 1500, 2000, 3000, 5000, 10000].map(amount => ({ 
-          key: amount, 
-          label: amount === 0 ? '$0' : `$${amount.toLocaleString()}` 
-        })),
-      },
-    ];
-
-    return [...baseSteps, ...categorySteps];
+    return steps;
   };
 
   const steps = getSteps();
   const currentStep = steps[step];
-  
-  // Fixed validation logic:
-  // 1. A selection must be made
-  // 2. The selection must not be an unavailable combination
-  const hasSelection = selections[currentStep.key] !== null && 
-                       selections[currentStep.key] !== undefined && 
-                       selections[currentStep.key] !== '';
-  
-  // For season step, check if the selected season creates an invalid combination
-  const isInvalidSeasonSelection = currentStep.key === 'season' && 
-    selections.season && 
-    isCombinationUnavailable(selections.dayOfWeek, selections.season, selections.guestTier);
-  
-  const canContinue = hasSelection && !isInvalidSeasonSelection;
-  const totalBudget = calculateTotal() || 0;
-  const warningMessage = getWarningMessage();
+
+  const getCurrentOptions = () => {
+    if (!currentStep) return [];
+    switch (currentStep.type) {
+      case 'guest_tier':
+        return GUEST_TIERS;
+      case 'season':
+        return getAvailableSeasons();
+      case 'day_of_week':
+        return getAvailableDays();
+      case 'category':
+        return getOptionsForCategory(currentStep.key);
+      case 'extras':
+        return [
+          { id: 0, label: '$0' },
+          { id: 500, label: '$500' },
+          { id: 1000, label: '$1,000' },
+          { id: 1500, label: '$1,500' },
+          { id: 2000, label: '$2,000' },
+          { id: 3000, label: '$3,000' },
+          { id: 5000, label: '$5,000' },
+          { id: 10000, label: '$10,000' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const currentOptions = getCurrentOptions();
+  const canContinue = selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+  const totalBudget = calculateTotal();
 
   const handleSelect = (value) => {
+    const key = currentStep.key;
+    
+    if (key === 'guestTier' && value !== selections.guestTier) {
+      setSelections(prev => ({
+        ...prev,
+        guestTier: value,
+        dayOfWeek: null,
+        season: null,
+        spirits: null,
+        planning: null,
+        catering: null,
+        photography: null,
+        florals: null,
+        decor: null,
+        entertainment: null,
+        videography: null,
+        desserts: null,
+        linens: null,
+        tableware: null
+      }));
+      return;
+    }
+
+    if (key === 'season') {
+      const newSeason = value;
+      const currentDay = selections.dayOfWeek;
+      const tier = selections.guestTier;
+      const rules = AVAILABILITY_RULES[tier];
+      
+      if (currentDay && rules) {
+        const allowedDays = rules[newSeason] || [];
+        if (!allowedDays.includes(currentDay)) {
+          setSelections(prev => ({
+            ...prev,
+            season: newSeason,
+            dayOfWeek: null
+          }));
+          return;
+        }
+      }
+    }
+
     setSelections(prev => ({
       ...prev,
-      [currentStep.key]: value,
+      [key]: value
     }));
   };
 
@@ -324,7 +297,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       onComplete({
         ...selections,
         totalBudget,
-        guestCount: GUEST_COUNTS[selections.guestTier],
+        guestCount: GUEST_COUNTS[selections.guestTier]
       });
     }
   };
@@ -337,12 +310,24 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     }
   };
 
+  const formatPrice = (option) => {
+    if (option.price === undefined || option.price === null) return '';
+    if (option.price_type === 'per_person') {
+      return ` - $${option.price}/person`;
+    } else if (option.price_type === 'flat_plus_per_person') {
+      return ` - $${option.price} + $${option.extra_pp}/person`;
+    } else if (option.price > 0) {
+      return ` - $${option.price.toLocaleString()}${option.note ? ` (${option.note})` : ''}`;
+    }
+    return '';
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
-        <div className="text-center py-8">
-          <div className="animate-spin w-8 h-8 border-2 border-stone-300 border-t-black rounded-full mx-auto mb-4"></div>
-          <p className="text-stone-600">Loading budget calculator...</p>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+          <span className="ml-3 text-stone-600">Loading budget calculator...</span>
         </div>
       </div>
     );
@@ -351,8 +336,13 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   if (!pricingConfig) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
-        <div className="text-center py-8 text-red-600">
-          Pricing configuration not found. Please contact support.
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-stone-900 mb-2">Pricing Not Available</h3>
+          <p className="text-stone-600 mb-4">Please contact us directly for a custom quote.</p>
+          <Button onClick={onCancel} variant="outline" className="rounded-full">
+            Back to Chat
+          </Button>
         </div>
       </div>
     );
@@ -374,19 +364,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           <div className="text-4xl font-bold text-stone-900 mb-4 text-center">
             ${totalBudget.toLocaleString()}
           </div>
-          <div className="space-y-2 text-sm">
-            <p><span className="font-semibold">Guests:</span> {GUEST_TIERS[selections.guestTier]}</p>
-            {selections.dayOfWeek && (
-              <p><span className="font-semibold">Day:</span> {DAYS_OF_WEEK[selections.dayOfWeek]}</p>
-            )}
-            {selections.season && (
-              <p><span className="font-semibold">Season:</span> {SEASONS[selections.season]}</p>
-            )}
+          <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
+            <p><span className="font-semibold">Package:</span> {GUEST_TIERS.find(t => t.id === selections.guestTier)?.label}</p>
+            <p><span className="font-semibold">Day:</span> {ALL_DAYS.find(d => d.id === selections.dayOfWeek)?.label}</p>
+            <p><span className="font-semibold">Season:</span> {ALL_SEASONS.find(s => s.id === selections.season)?.label}</p>
           </div>
         </div>
 
         <p className="text-sm text-stone-600 mb-4">
-          Would you like to schedule a tour to see our venue and discuss your wedding vision in person?
+          This is an estimate based on your selections. Schedule a tour to discuss your vision in detail!
         </p>
 
         <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
@@ -412,22 +398,25 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           exit={{ opacity: 0, x: -20 }}
           className="mt-4"
         >
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <DollarSign className="w-5 h-5 text-stone-400" />
             <h3 className="text-lg font-semibold text-stone-900">{currentStep.title}</h3>
           </div>
           <p className="text-stone-600 mb-4">{currentStep.question}</p>
 
-          <div className="space-y-2">
-            {currentStep.options.map((option) => {
-              const optionKey = option.key !== undefined ? option.key : option.label;
+          {currentStep.restriction && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
+              {currentStep.restriction}
+            </div>
+          )}
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {currentOptions.map((option) => {
+              const optionKey = option.id ?? option.label;
               const isSelected = selections[currentStep.key] === optionKey;
-              const displayLabel = option.label || optionKey;
-              const displayPrice = option.price !== undefined ? ` - $${option.price.toLocaleString()}${option.price_type === 'per_person' ? ' (per person)' : ''}` : '';
-              
-              // Check if this specific option is unavailable
-              const isOptionUnavailable = currentStep.key === 'season' && 
-                isCombinationUnavailable(selections.dayOfWeek, optionKey, selections.guestTier);
+              const displayLabel = option.label || option.id;
+              const priceDisplay = formatPrice(option);
+              const sublabel = option.sublabel;
 
               return (
                 <button
@@ -435,32 +424,30 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
                   onClick={() => handleSelect(optionKey)}
                   className={`w-full p-4 rounded-xl text-left transition-all ${
                     isSelected
-                      ? isOptionUnavailable 
-                        ? 'bg-red-900 text-white' // Selected but unavailable
-                        : 'bg-black text-white'  // Selected and available
+                      ? 'bg-black text-white'
                       : 'bg-stone-50 hover:bg-stone-100 text-stone-700'
                   }`}
                 >
-                  <p className="font-medium">{displayLabel}{displayPrice}</p>
+                  <p className="font-medium">{displayLabel}{priceDisplay}</p>
+                  {sublabel && (
+                    <p className={`text-sm mt-1 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                      {sublabel}
+                    </p>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Warning message for unavailable combinations */}
-          {warningMessage && selections.season === 'peak' && (
-            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <div className="flex gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-800">{warningMessage}</p>
-              </div>
+          {currentOptions.length === 0 && currentStep.type === 'day_of_week' && (
+            <div className="bg-stone-100 rounded-xl p-4 text-center">
+              <p className="text-stone-600">Please select a season first to see available days.</p>
             </div>
           )}
 
-          {/* Budget preview - show after first 3 steps have valid selections */}
-          {totalBudget > 0 && (
-            <div className="mt-6 p-4 bg-stone-50 rounded-lg">
-              <p className="text-sm text-stone-600">Estimated Total so far:</p>
+          {selections.guestTier && selections.dayOfWeek && selections.season && totalBudget > 0 && (
+            <div className="mt-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
+              <p className="text-sm text-stone-600">Running total:</p>
               <p className="text-2xl font-bold text-stone-900">${totalBudget.toLocaleString()}</p>
             </div>
           )}
