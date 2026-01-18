@@ -47,15 +47,19 @@ export default function TourScheduler({ preSelectedDate, onComplete, onCancel })
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         });
         
-        // Transform HighLevel slots to our format
+        console.log('DEBUG Frontend: Raw result from backend:', result);
+        
         const transformedSlots = result.slots?.map(slot => ({
           day: format(new Date(slot.date), 'EEEE'),
           date: new Date(slot.date),
           slots: slot.times || []
         })) || [];
         
+        console.log('DEBUG Frontend: Transformed slots:', transformedSlots);
+        
         setUpcomingDates(transformedSlots);
       } catch (error) {
+        console.log('DEBUG Frontend: Error:', error);
         console.log('Using fallback availability - enable backend functions for HighLevel integration');
         setUpcomingDates(getFallbackDates());
       } finally {
