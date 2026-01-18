@@ -32,8 +32,18 @@ export default function Home() {
       if (isAuth) {
         base44.auth.me().then(u => {
           setUser(u);
-          // Redirect logged-in users to Dashboard
-          window.location.href = createPageUrl('Dashboard');
+          // Super admins go to SuperAdmin page
+          if (u.role === 'admin' && !u.venue_id) {
+            window.location.href = createPageUrl('SuperAdmin');
+          }
+          // Users with venue assignments go to Dashboard
+          else if (u.venue_id) {
+            window.location.href = createPageUrl('Dashboard');
+          }
+          // Users without venue stay on home
+          else {
+            setLoading(false);
+          }
         });
       } else {
         setLoading(false);
