@@ -252,7 +252,8 @@ export default function Home() {
 
     await base44.entities.ContactSubmission.create(submissionData);
 
-    addBotMessage(`Your estimated budget is $${(data.totalBudget || 0).toLocaleString()}. Would you like to schedule a tour to see our venue in person?`);
+    addBotMessage(`Your estimated budget is $${(data.totalBudget || 0).toLocaleString()}. Let's schedule a tour to see our venue in person!`);
+    setTimeout(() => setActiveFlow('tour'), 1500);
   };
 
   const handleAvailabilityTour = (date) => {
