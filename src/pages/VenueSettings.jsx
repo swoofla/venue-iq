@@ -431,7 +431,7 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
       return base44.entities.VenueKnowledge.create(dataWithVenue);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['knowledge']);
+      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
       onClose();
     }
   });
