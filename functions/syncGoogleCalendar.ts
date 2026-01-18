@@ -72,7 +72,6 @@ Deno.serve(async (req) => {
           email: user.email,
           phone: '',
           guest_count: null,
-          package: 'custom',
           notes: description
         };
 
