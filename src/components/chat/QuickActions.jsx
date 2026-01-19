@@ -1,12 +1,12 @@
 import React from 'react';
 
 const actions = [
-  { id: 'budget', label: '💰 Budget Calculator' },
-  { id: 'gallery', label: '📸 Explore Venue' },
-  { id: 'visualizer', label: '✨ Preview Your Vision' },
-  { id: 'packages', label: '📦 View Packages' },
-  { id: 'availability', label: '📅 Check Availability' },
-  { id: 'tour', label: '🗓️ Schedule a Tour' },
+  { id: 'budget', label: '💰 Budget' },
+  { id: 'gallery', label: '📸 Explore' },
+  { id: 'visualizer', label: '✨ Preview' },
+  { id: 'packages', label: '📦 Packages' },
+  { id: 'availability', label: '📅 Availability' },
+  { id: 'tour', label: '⛪️ Tour' },
 ];
 
 export default function QuickActions({ onAction, disabled }) {
