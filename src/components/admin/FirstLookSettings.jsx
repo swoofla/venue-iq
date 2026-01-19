@@ -228,9 +228,9 @@ export default function FirstLookSettings({ venueId }) {
                         />
                       </div>
                       <div>
-                        <Label>Video URL</Label>
+                        <Label>Video URL (Wistia direct link)</Label>
                         <Input
-                          placeholder="https://storage.googleapis.com/msgsndr/..."
+                          placeholder="https://embed-ssl.wistia.com/deliveries/abc123.mp4"
                           value={option.video_url}
                           onChange={(e) => updateVideoOption(index, 'video_url', e.target.value)}
                         />
