@@ -59,26 +59,14 @@ Deno.serve(async (req) => {
         .slice(0, 3)
     });
 
-    // 4. Send delivery message (email or SMS)
+    // 4. Send planner notification with customer contact info
     const plannersEmail = Deno.env.get('SUGAR_LAKE_PLANNERS_EMAIL') || 'info@sugarlakeweddings.com';
     const budgetBreakdownText = formatBudgetBreakdown(budgetData, totalBudget);
-    
-    if (deliveryPreference === 'email' && email) {
-      const brideEmailSubject = `Your Sugar Lake Wedding Budget Estimate - $${totalBudget.toLocaleString()}`;
-      const brideEmailBody = generateBrideEmail(name, budgetBreakdownText, totalBudget, venueName);
-      
-      await base44.integrations.Core.SendEmail({
-        to: email,
-        subject: brideEmailSubject,
-        body: brideEmailBody,
-        from_name: venueName || 'Sugar Lake Weddings'
-      });
-    }
 
-    // 5. Always send planner notification
     const plannerEmailSubject = `New Budget Quote Request - ${name}`;
-    const plannerEmailBody = generatePlannerEmail(name, email || phone || 'No contact', phone || email || 'No contact', budgetBreakdownText, totalBudget);
-    
+    const contactInfo = deliveryPreference === 'email' ? email : phone;
+    const plannerEmailBody = generatePlannerEmail(name, contactInfo, deliveryPreference, budgetBreakdownText, totalBudget);
+
     await base44.integrations.Core.SendEmail({
       to: plannersEmail,
       subject: plannerEmailSubject,
