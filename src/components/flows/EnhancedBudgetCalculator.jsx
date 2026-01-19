@@ -348,7 +348,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
   const currentOptions = getCurrentOptions();
   const canContinue = currentStep?.type === 'guest_tier' 
-    ? selections.guestTier !== null && selections.guestCount !== null
+    ? selections.guestTier !== null && (selections.guestTier === 'up_to_2' || selections.guestCount !== null)
     : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
@@ -668,7 +668,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             })}
           </div>
 
-          {currentStep.type === 'guest_tier' && selections.guestTier && (
+          {currentStep.type === 'guest_tier' && selections.guestTier && selections.guestTier !== 'up_to_2' && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
