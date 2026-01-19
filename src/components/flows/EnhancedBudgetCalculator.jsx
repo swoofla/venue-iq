@@ -656,7 +656,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
                     className="text-3xl font-bold text-stone-900 bg-transparent text-center w-32 border-b-2 border-stone-300 focus:border-black outline-none"
                     min={0}
                     max={10000}
-                    step={100}
+                    step={500}
                   />
                 </div>
                 <div className="relative">
@@ -666,7 +666,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
                     onChange={(e) => setSelections(prev => ({ ...prev, extras: parseInt(e.target.value) }))}
                     min={0}
                     max={10000}
-                    step={100}
+                    step={500}
                     className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
