@@ -119,7 +119,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const [contactInfo, setContactInfo] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    deliveryPreference: 'email'
   });
   const [saving, setSaving] = useState(false);
 
@@ -535,7 +536,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
   if (submitted) {
     const [showAllSelections, setShowAllSelections] = useState(false);
-    const canSave = contactInfo.name && contactInfo.email;
+    const canSave = contactInfo.name && 
+      ((contactInfo.deliveryPreference === 'email' && contactInfo.email) ||
+       (contactInfo.deliveryPreference === 'text' && contactInfo.phone));
 
     // Build list of all selections
     const allSelections = [
@@ -594,25 +597,57 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
         <div className="space-y-3 mb-6">
           <Input
-            placeholder="Your Name *"
+            placeholder="First Name *"
             value={contactInfo.name}
             onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
             className="h-12 rounded-xl"
           />
-          <Input
-            type="email"
-            placeholder="Email Address *"
-            value={contactInfo.email}
-            onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-            className="h-12 rounded-xl"
-          />
-          <Input
-            type="tel"
-            placeholder="Phone Number (optional)"
-            value={contactInfo.phone}
-            onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-            className="h-12 rounded-xl"
-          />
+          
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-stone-700">How would you like to receive your estimate?</p>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="email"
+                  checked={contactInfo.deliveryPreference === 'email'}
+                  onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-stone-700">Email me</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="text"
+                  checked={contactInfo.deliveryPreference === 'text'}
+                  onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-stone-700">Text me</span>
+              </label>
+            </div>
+          </div>
+
+          {contactInfo.deliveryPreference === 'email' && (
+            <Input
+              type="email"
+              placeholder="Email Address *"
+              value={contactInfo.email}
+              onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
+              className="h-12 rounded-xl"
+            />
+          )}
+
+          {contactInfo.deliveryPreference === 'text' && (
+            <Input
+              type="tel"
+              placeholder="Phone Number *"
+              value={contactInfo.phone}
+              onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
+              className="h-12 rounded-xl"
+            />
+          )}
         </div>
 
         <div className="flex gap-2">
