@@ -470,8 +470,19 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   }
 
   const handleSaveAndSend = async () => {
-    if (!contactInfo.name || !contactInfo.email) {
-      alert('Please enter your name and email');
+    // Validate based on delivery preference
+    if (!contactInfo.name) {
+      alert('Please enter your name');
+      return;
+    }
+    
+    if (contactInfo.deliveryPreference === 'email' && !contactInfo.email) {
+      alert('Please enter your email address');
+      return;
+    }
+    
+    if (contactInfo.deliveryPreference === 'text' && !contactInfo.phone) {
+      alert('Please enter your phone number');
       return;
     }
 
@@ -481,7 +492,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       await base44.entities.ContactSubmission.create({
         venue_id: venueId,
         name: contactInfo.name,
-        email: contactInfo.email,
+        email: contactInfo.email || null,
         phone: contactInfo.phone || null,
         guest_count: selections.guestCount,
         budget: totalBudget,
