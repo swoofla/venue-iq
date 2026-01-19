@@ -1,56 +1,45 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Check, Users, Clock, Sparkles } from 'lucide-react';
+import { Check, Users, Sparkles, Loader2 } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 
-const packages = [
-  {
-    id: 'intimate_garden',
-    name: 'Intimate Garden',
-    price: 8500,
-    maxGuests: 50,
-    features: [
-      'Ceremony space',
-      'Garden reception',
-      '4-hour rental',
-      'Basic chairs & tables',
-      'Bridal suite',
-    ],
-  },
-  {
-    id: 'classic_elegance',
-    name: 'Classic Elegance',
-    price: 15000,
-    maxGuests: 120,
-    popular: true,
-    features: [
-      'Ceremony & reception',
-      '6-hour rental',
-      'Premium furniture',
-      'Both suites',
-      'Day-of coordinator',
-      'String lighting',
-    ],
-  },
-  {
-    id: 'grand_estate',
-    name: 'Grand Estate',
-    price: 25000,
-    maxGuests: 250,
-    features: [
-      'Full estate access',
-      '10-hour rental',
-      'Luxury furniture',
-      'Both suites',
-      'Full coordination',
-      'Custom lighting',
-      'Valet parking',
-      'Rehearsal dinner space',
-    ],
-  },
-];
+export default function PackagesView({ venueId, onScheduleTour, onCancel }) {
+  const { data: packages = [], isLoading } = useQuery({
+    queryKey: ['packages', venueId],
+    queryFn: async () => {
+      const pkgs = await base44.entities.VenuePackage.filter({ 
+        venue_id: venueId,
+        is_active: true 
+      });
+      return pkgs.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    },
+    enabled: !!venueId
+  });
 
-export default function PackagesView({ onScheduleTour, onCancel }) {
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 mb-4">
+        <div className="flex items-center justify-center gap-3">
+          <Loader2 className="w-6 h-6 text-stone-400 animate-spin" />
+          <span className="text-stone-600">Loading packages...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 mb-4 text-center">
+        <h3 className="text-lg font-semibold text-stone-900 mb-2">No Packages Available</h3>
+        <p className="text-stone-600 mb-4">Contact us to learn about our offerings!</p>
+        <Button onClick={onCancel} className="rounded-full bg-black hover:bg-stone-800">
+          Back to Chat
+        </Button>
+      </div>
+    );
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -81,7 +70,7 @@ export default function PackagesView({ onScheduleTour, onCancel }) {
                 <div className="flex items-center gap-3 mt-1 text-sm text-stone-500">
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    Up to {pkg.maxGuests} guests
+                    Up to {pkg.max_guests} guests
                   </span>
                 </div>
               </div>
@@ -90,14 +79,20 @@ export default function PackagesView({ onScheduleTour, onCancel }) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              {pkg.features.map((feature) => (
-                <div key={feature} className="flex items-center gap-2 text-sm text-stone-600">
-                  <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  {feature}
-                </div>
-              ))}
-            </div>
+            {pkg.description && (
+              <p className="text-sm text-stone-600 mb-3">{pkg.description}</p>
+            )}
+
+            {pkg.includes && pkg.includes.length > 0 && (
+              <div className="space-y-2">
+                {pkg.includes.map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm text-stone-600">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    {feature}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <Button
               onClick={() => onScheduleTour(pkg.name)}

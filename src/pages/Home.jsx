@@ -427,8 +427,9 @@ export default function Home() {
             />
           )}
           
-          {activeFlow === 'packages' && (
+          {activeFlow === 'packages' && venueId && (
             <PackagesView
+              venueId={venueId}
               onScheduleTour={handlePackageTour}
               onCancel={closeFlow}
             />
