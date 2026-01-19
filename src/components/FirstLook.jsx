@@ -204,7 +204,12 @@ export default function FirstLook({ config }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full h-full relative"
+            className="w-full h-full relative cursor-pointer"
+            onClick={() => {
+              if (isMuted && settings.welcome_video_id) {
+                handleUnmute();
+              }
+            }}
           >
             {/* Background: Wistia video embed using JS API OR fallback image */}
             <div className="absolute inset-0">
@@ -229,7 +234,10 @@ export default function FirstLook({ config }) {
 
             {/* Close Button */}
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
               className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
             >
               <X className="w-5 h-5" />
@@ -238,7 +246,10 @@ export default function FirstLook({ config }) {
             {/* Mute/Unmute Button - only show if there's a welcome video */}
             {settings.welcome_video_id && (
               <button
-                onClick={isMuted ? handleUnmute : handleMute}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  isMuted ? handleUnmute() : handleMute();
+                }}
                 className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
               >
                 {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -255,7 +266,10 @@ export default function FirstLook({ config }) {
                   className="absolute top-16 left-4 z-10"
                 >
                   <button
-                    onClick={handleUnmute}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnmute();
+                    }}
                     className="flex items-center gap-2 px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium animate-pulse"
                   >
                     <VolumeX className="w-4 h-4" />
@@ -283,7 +297,10 @@ export default function FirstLook({ config }) {
                   {settings.video_options.map((option) => (
                     <button
                       key={option.id}
-                      onClick={() => option.video_id && setSelectedVideo(option.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        option.video_id && setSelectedVideo(option.id);
+                      }}
                       disabled={!option.video_id}
                       className="w-full px-4 py-3.5 bg-white/10 backdrop-blur-sm rounded-2xl text-white font-medium text-left hover:bg-white/20 transition-all flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
