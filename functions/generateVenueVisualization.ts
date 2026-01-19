@@ -109,8 +109,15 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   }
 
   // Fetch base image and convert to base64
-  const imageResponse = await fetch(baseImageUrl);
-  if (!imageResponse.ok) throw new Error('Failed to fetch base image');
+  const imageResponse = await fetch(baseImageUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+  });
+  if (!imageResponse.ok) {
+    console.error('Failed to fetch image:', imageResponse.status, await imageResponse.text());
+    throw new Error('Failed to fetch base image');
+  }
   
   const imageBuffer = await imageResponse.arrayBuffer();
   const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
