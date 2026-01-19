@@ -3,9 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import ProgressDots from '../chat/ProgressDots';
-import BudgetSummaryBreakdown from './BudgetSummaryBreakdown';
-import SendBudgetForm from './SendBudgetForm';
-import { DollarSign, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 
 // AVAILABILITY RULES - Controls which day/season combos are valid per tier
 const AVAILABILITY_RULES = {
@@ -27,11 +25,11 @@ const AVAILABILITY_RULES = {
   }
 };
 
-const TIER_RANGES = {
-  up_to_2: { min: 1, max: 2, default: 2 },
-  '2_to_20': { min: 3, max: 20, default: 12 },
-  '20_to_50': { min: 21, max: 50, default: 35 },
-  '51_to_120': { min: 51, max: 120, default: 85 }
+const GUEST_COUNTS = {
+  up_to_2: 2,
+  '2_to_20': 15,
+  '20_to_50': 35,
+  '51_to_120': 85
 };
 
 const GUEST_TIERS = [
@@ -98,10 +96,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const [step, setStep] = useState(0);
   const [pricingConfig, setPricingConfig] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [venueName, setVenueName] = useState('Sugar Lake');
   const [selections, setSelections] = useState({
     guestTier: null,
-    guestCount: null,
     dayOfWeek: null,
     season: null,
     spirits: null,
@@ -118,19 +114,13 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     extras: 0
   });
   const [submitted, setSubmitted] = useState(false);
-  const [view, setView] = useState('summary'); // 'summary', 'send', 'success'
 
   useEffect(() => {
     async function fetchPricing() {
       try {
-        const venues = await base44.entities.Venue.list();
-        const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-        if (sugarLakeVenue) {
-          setVenueName(sugarLakeVenue.name);
-        }
-
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
 
+        // DIAGNOSTIC: Log the raw response to see exact structure
         console.log('=== PRICING CONFIG DEBUG ===');
         console.log('Raw configs array:', configs);
 
@@ -139,6 +129,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           console.log('Raw config object:', rawConfig);
           console.log('Config keys:', Object.keys(rawConfig));
 
+          // Log each key and its type/value
           Object.keys(rawConfig).forEach((key) => {
             const value = rawConfig[key];
             console.log(`  ${key}: [${typeof value}]`,
@@ -148,6 +139,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             );
           });
 
+          // Check for venue_base in different locations
           console.log('Looking for venue_base...');
           console.log('  Direct (rawConfig.venue_base):', rawConfig.venue_base);
           console.log('  In pricing_data:', rawConfig.pricing_data?.venue_base);
@@ -211,7 +203,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const calculateTotal = () => {
     if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
-    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
+    const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
 
     // Base venue price - use helper function
     const venueBase = getConfigField(pricingConfig, 'venue_base');
@@ -319,14 +311,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const steps = getSteps();
   const currentStep = steps[step];
 
-  const handleGuestCountChange = (newCount) => {
-    const tierRange = TIER_RANGES[selections.guestTier];
-    if (tierRange) {
-      const clampedCount = Math.max(tierRange.min, Math.min(tierRange.max, parseInt(newCount) || tierRange.default));
-      setSelections(prev => ({ ...prev, guestCount: clampedCount }));
-    }
-  };
-
   const getCurrentOptions = () => {
     if (!currentStep) return [];
     switch (currentStep.type) {
@@ -355,9 +339,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   };
 
   const currentOptions = getCurrentOptions();
-  const canContinue = currentStep?.type === 'guest_tier' 
-    ? selections.guestTier !== null && selections.guestCount !== null
-    : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+  const canContinue = selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
   const handleSelect = (value) => {
@@ -367,7 +349,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       setSelections((prev) => ({
         ...prev,
         guestTier: value,
-        guestCount: TIER_RANGES[value]?.default || null,
         dayOfWeek: null,
         season: null,
         spirits: null,
@@ -415,6 +396,11 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       setStep(step + 1);
     } else {
       setSubmitted(true);
+      onComplete({
+        ...selections,
+        totalBudget,
+        guestCount: GUEST_COUNTS[selections.guestTier]
+      });
     }
   };
 
@@ -469,77 +455,33 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
+        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4 text-center">
 
-        <AnimatePresence mode="wait">
-          {view === 'summary' && (
-            <motion.div key="summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <h3 className="text-xl font-semibold text-stone-900 mb-6">Your Budget Estimate</h3>
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="w-8 h-8 text-green-600" />
+        </div>
+        <h3 className="text-xl font-semibold text-stone-900 mb-2">Your Budget Estimate</h3>
+        
+        <div className="bg-stone-50 rounded-xl p-6 mb-4 text-left">
+          <div className="text-4xl font-bold text-stone-900 mb-4 text-center">
+            ${totalBudget.toLocaleString()}
+          </div>
+          <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
+            <p><span className="font-semibold">Package:</span> {GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label}</p>
+            <p><span className="font-semibold">Day:</span> {ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label}</p>
+            <p><span className="font-semibold">Season:</span> {ALL_SEASONS.find((s) => s.id === selections.season)?.label}</p>
+          </div>
+        </div>
 
-              <div className="mb-6">
-                <BudgetSummaryBreakdown 
-                  selections={selections} 
-                  totalBudget={totalBudget}
-                  pricingConfig={pricingConfig}
-                  onEditCategory={(categoryKey) => {
-                    const stepIndex = steps.findIndex(s => s.key === categoryKey);
-                    if (stepIndex !== -1) {
-                      setSubmitted(false);
-                      setStep(stepIndex);
-                    }
-                  }}
-                />
-              </div>
+        <p className="text-stone-600 mb-4 text-sm normal-case">This is an estimate based on your selections. Would you like to schedule a private tour of Sugar Lake?
 
-              <p className="text-stone-600 text-sm mb-6">
-                This is an estimate based on your selections.
-              </p>
+        </p>
 
-              <div className="space-y-3">
-                <Button onClick={() => setView('send')} className="w-full rounded-full bg-black hover:bg-stone-800">
-                  Save Budget
-                </Button>
-                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: selections.guestCount })} variant="outline" className="w-full rounded-full">
-                  Schedule a Tour
-                </Button>
-                <button 
-                  onClick={() => {
-                    setSubmitted(false);
-                    setStep(0);
-                  }}
-                  className="w-full py-2 text-center text-stone-600 hover:text-stone-900 transition-colors text-sm font-medium"
-                >
-                  ← Edit Budget
-                </button>
-              </div>
-            </motion.div>
-          )}
+        <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
+          Schedule a Tour
+        </Button>
+      </motion.div>);
 
-          {view === 'send' && (
-            <motion.div key="send" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <SendBudgetForm 
-                totalBudget={totalBudget} 
-                budgetData={selections}
-                venueName={venueName}
-                onSuccess={(data) => {
-                  onComplete({
-                    ...selections,
-                    totalBudget,
-                    guestCount: GUEST_COUNTS[selections.guestTier],
-                    ...data
-                  });
-                }}
-                onCancel={() => setView('summary')}
-                onEditBudget={() => {
-                  setSubmitted(false);
-                  setStep(0);
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    );
   }
 
   return (
@@ -598,53 +540,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
             })}
           </div>
-
-          {currentStep.type === 'guest_tier' && selections.guestTier && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200"
-            >
-              <p className="text-sm font-medium text-stone-900 mb-3">
-                Approximately how many guests are you expecting?
-              </p>
-              <div className="space-y-3">
-                <div className="text-center">
-                  <input
-                    type="number"
-                    value={selections.guestCount || ''}
-                    onChange={(e) => handleGuestCountChange(e.target.value)}
-                    className="text-3xl font-bold text-stone-900 bg-transparent text-center w-24 border-b-2 border-stone-300 focus:border-black outline-none"
-                    min={TIER_RANGES[selections.guestTier]?.min}
-                    max={TIER_RANGES[selections.guestTier]?.max}
-                  />
-                  <span className="text-lg text-stone-600 ml-2">guests</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    value={selections.guestCount || TIER_RANGES[selections.guestTier]?.default}
-                    onChange={(e) => handleGuestCountChange(e.target.value)}
-                    min={TIER_RANGES[selections.guestTier]?.min}
-                    max={TIER_RANGES[selections.guestTier]?.max}
-                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
-                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
-                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
-                      [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white 
-                      [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer
-                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 
-                      [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-black 
-                      [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white 
-                      [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-stone-500 mt-1">
-                    <span>{TIER_RANGES[selections.guestTier]?.min}</span>
-                    <span>{TIER_RANGES[selections.guestTier]?.max}</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           {currentOptions.length === 0 && currentStep.type === 'day_of_week' &&
           <div className="bg-stone-100 rounded-xl p-4 text-center">
