@@ -108,10 +108,12 @@ Deno.serve(async (req) => {
             firstName: name.split(' ')[0],
             lastName: name.split(' ').slice(1).join(' '),
             customFields: {
-              budgetEstimate: totalBudget.toString(),
+              budget_estimate: totalBudget.toString(),
+              budget_delivery_preference: deliveryPreference,
               budgetPackage: budgetData.guestTier,
               budgetSource: 'budget_calculator'
-            }
+            },
+            tags: ['Budget Calculator Lead']
           })
         });
 
