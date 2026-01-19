@@ -534,7 +534,30 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   };
 
   if (submitted) {
+    const [showAllSelections, setShowAllSelections] = useState(false);
     const canSave = contactInfo.name && contactInfo.email;
+
+    // Build list of all selections
+    const allSelections = [
+      { label: 'Package', value: GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label },
+      { label: 'Guest Count', value: selections.guestCount },
+      { label: 'Day', value: ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label },
+      { label: 'Season', value: ALL_SEASONS.find((s) => s.id === selections.season)?.label },
+      { label: 'Spirits', value: selections.spirits },
+      { label: 'Planning', value: selections.planning },
+      { label: 'Catering', value: selections.catering },
+      { label: 'Photography', value: selections.photography },
+      { label: 'Florals', value: selections.florals },
+      { label: 'Decor', value: selections.decor },
+      { label: 'Entertainment', value: selections.entertainment },
+      { label: 'Videography', value: selections.videography },
+      { label: 'Desserts', value: selections.desserts },
+      { label: 'Linens', value: selections.linens },
+      { label: 'Tableware', value: selections.tableware },
+      { label: 'Extras Budget', value: selections.extras ? `$${selections.extras.toLocaleString()}` : '$0' },
+    ].filter(item => item.value);
+
+    const visibleSelections = showAllSelections ? allSelections : allSelections.slice(0, 3);
 
     return (
       <motion.div
@@ -552,18 +575,20 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             ${totalBudget.toLocaleString()}
           </div>
           <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
-            <div className="flex justify-between">
-              <span className="text-stone-600">Package</span>
-              <span className="font-medium text-stone-900">{GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-600">Day</span>
-              <span className="font-medium text-stone-900">{ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-stone-600">Season</span>
-              <span className="font-medium text-stone-900">{ALL_SEASONS.find((s) => s.id === selections.season)?.label}</span>
-            </div>
+            {visibleSelections.map((item, idx) => (
+              <div key={idx} className="flex justify-between">
+                <span className="text-stone-600">{item.label}</span>
+                <span className="font-medium text-stone-900">{item.value}</span>
+              </div>
+            ))}
+            {allSelections.length > 3 && (
+              <button
+                onClick={() => setShowAllSelections(!showAllSelections)}
+                className="text-sm text-black hover:underline font-medium pt-2"
+              >
+                {showAllSelections ? 'View less' : `View more (${allSelections.length - 3} more)`}
+              </button>
+            )}
           </div>
         </div>
 
