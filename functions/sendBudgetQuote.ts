@@ -220,12 +220,11 @@ The ${venueName} Planning Team
 Ready to see the venue in person? Schedule a tour with us to experience the space firsthand and discuss how we can bring your vision to life.`;
 }
 
-function generatePlannerEmail(name, email, phone, budgetBreakdown, totalBudget) {
+function generatePlannerEmail(name, contactInfo, deliveryPreference, budgetBreakdown, totalBudget) {
   return `New Budget Quote Request
 
-Couple Name: ${name}
-Email: ${email}
-Phone: ${phone}
+Name: ${name}
+Contact: ${contactInfo} (via ${deliveryPreference})
 Estimated Budget: $${totalBudget.toLocaleString()}
 
 BUDGET BREAKDOWN:
