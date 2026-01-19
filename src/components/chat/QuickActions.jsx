@@ -4,7 +4,7 @@ import { Calculator, Calendar, CalendarCheck, Package, Image, Sparkles } from 'l
 const actions = [
   { id: 'budget', label: 'Budget Calculator', icon: Calculator },
   { id: 'gallery', label: 'Explore Venue', icon: Image },
-  { id: 'visualizer', label: 'Visualize Wedding', icon: Sparkles },
+  { id: 'visualizer', label: 'Preview Your Vision', icon: Sparkles },
   { id: 'packages', label: 'View Packages', icon: Package },
   { id: 'availability', label: 'Check Availability', icon: Calendar },
   { id: 'tour', label: 'Schedule a Tour', icon: CalendarCheck },
