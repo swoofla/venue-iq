@@ -301,7 +301,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       { title: 'Desserts', question: 'What kind of desserts are you wanting?', key: 'desserts', type: 'category' },
       { title: 'Table Linens', question: 'Do you want table linens?', key: 'linens', type: 'category' },
       { title: 'Tableware', question: 'What kind of tableware do you want?', key: 'tableware', type: 'category' },
-      { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras' }];
+      { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras_slider' }];
 
       return [...steps, ...categorySteps];
     }
@@ -322,24 +322,17 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         return getAvailableDays();
       case 'category':
         return getOptionsForCategory(currentStep.key);
-      case 'extras':
-        return [
-        { id: 0, label: '$0' },
-        { id: 500, label: '$500' },
-        { id: 1000, label: '$1,000' },
-        { id: 1500, label: '$1,500' },
-        { id: 2000, label: '$2,000' },
-        { id: 3000, label: '$3,000' },
-        { id: 5000, label: '$5,000' },
-        { id: 10000, label: '$10,000' }];
-
+      case 'extras_slider':
+        return []; // Slider doesn't need options
       default:
         return [];
     }
   };
 
   const currentOptions = getCurrentOptions();
-  const canContinue = selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+  const canContinue = currentStep?.type === 'extras_slider' 
+    ? true // Always allow continue for extras slider (even if $0)
+    : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
   const handleSelect = (value) => {
