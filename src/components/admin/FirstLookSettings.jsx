@@ -132,9 +132,9 @@ export default function FirstLookSettings({ venueId }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Video URL</Label>
+                <Label>Video URL (Wistia direct link)</Label>
                 <Input
-                  placeholder="https://storage.googleapis.com/msgsndr/..."
+                  placeholder="https://embed-ssl.wistia.com/deliveries/abc123.mp4"
                   value={config.welcome_video_url}
                   onChange={(e) => updateConfig('welcome_video_url', e.target.value)}
                 />
@@ -251,20 +251,20 @@ export default function FirstLookSettings({ venueId }) {
             </CardContent>
           </Card>
 
-          {/* Help Card */}
+          {/* Wistia Help Card */}
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
               <div className="flex gap-3">
                 <ExternalLink className="w-5 h-5 text-blue-600 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-900">How to upload videos to HighLevel</p>
+                  <p className="font-medium text-blue-900">How to get video URLs from Wistia</p>
                   <ol className="text-sm text-blue-800 mt-2 space-y-1 list-decimal list-inside">
-                    <li>Go to HighLevel → Media Library</li>
-                    <li>Upload your vertical video (9:16, under 100MB)</li>
-                    <li>Right-click uploaded video → Copy URL</li>
-                    <li>Paste URL above</li>
+                    <li>Go to Wistia → Select your video</li>
+                    <li>Click <strong>Video Actions</strong> → <strong>Download</strong></li>
+                    <li>Right-click your preferred quality → <strong>Copy link address</strong></li>
+                    <li>Paste the URL above (should end in .mp4)</li>
                   </ol>
-                  <p className="text-xs text-blue-600 mt-2">💡 Record in portrait mode (1080x1920)</p>
+                  <p className="text-xs text-blue-600 mt-2">💡 Record in portrait mode (1080x1920) for best results</p>
                 </div>
               </div>
             </CardContent>
