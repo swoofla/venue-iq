@@ -172,6 +172,11 @@ export default function Home() {
     } else if (lowerText.includes('package') || lowerText.includes('option')) {
       addBotMessage("We have three beautiful packages designed to fit different wedding styles and sizes. Take a look:");
       setTimeout(() => setActiveFlow('packages'), 1500);
+    } else if (lowerText.includes('photo') || lowerText.includes('picture') || 
+               lowerText.includes('gallery') || lowerText.includes('look like') ||
+               lowerText.includes('see the venue') || lowerText.includes('show me')) {
+      addBotMessage("Let me show you around! Here are some photos of our beautiful venue.");
+      setTimeout(() => setActiveFlow('gallery'), 1500);
     } else {
       // Check knowledge base for relevant answer
       const relevantKnowledge = venueKnowledge.find(k => 
@@ -236,6 +241,11 @@ export default function Home() {
         setMessages(prev => [...prev, { id: Date.now(), text: "Show me your packages", isBot: false }]);
         addBotMessage("Here are our three beautiful packages, each designed to create an unforgettable celebration:");
         setTimeout(() => setActiveFlow('packages'), 1500);
+        break;
+      case 'gallery':
+        setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to see photos of the venue", isBot: false }]);
+        addBotMessage("Let me show you around our beautiful venue! ✨");
+        setTimeout(() => setActiveFlow('gallery'), 1000);
         break;
     }
   };
@@ -408,6 +418,17 @@ export default function Home() {
           {activeFlow === 'packages' && (
             <PackagesView
               onScheduleTour={handlePackageTour}
+              onCancel={closeFlow}
+            />
+          )}
+
+          {activeFlow === 'gallery' && venueId && (
+            <VenueGallery
+              venueId={venueId}
+              onScheduleTour={() => {
+                setActiveFlow('tour');
+                addBotMessage("Wonderful! Let's find a time that works for you.");
+              }}
               onCancel={closeFlow}
             />
           )}

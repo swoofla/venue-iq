@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
+import AdminPhotos from './pages/AdminPhotos';
 
 
 export const PAGES = {
@@ -15,6 +16,7 @@ export const PAGES = {
     "Home": Home,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
+    "AdminPhotos": AdminPhotos,
 }
 
 export const pagesConfig = {
