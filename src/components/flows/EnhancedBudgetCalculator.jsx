@@ -27,11 +27,11 @@ const AVAILABILITY_RULES = {
   }
 };
 
-const GUEST_COUNTS = {
-  up_to_2: 2,
-  '2_to_20': 15,
-  '20_to_50': 35,
-  '51_to_120': 85
+const TIER_RANGES = {
+  up_to_2: { min: 1, max: 2, default: 2 },
+  '2_to_20': { min: 3, max: 20, default: 12 },
+  '20_to_50': { min: 21, max: 50, default: 35 },
+  '51_to_120': { min: 51, max: 120, default: 85 }
 };
 
 const GUEST_TIERS = [
@@ -101,6 +101,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const [venueName, setVenueName] = useState('Sugar Lake');
   const [selections, setSelections] = useState({
     guestTier: null,
+    guestCount: null,
     dayOfWeek: null,
     season: null,
     spirits: null,
@@ -210,7 +211,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const calculateTotal = () => {
     if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
-    const guestCount = GUEST_COUNTS[selections.guestTier] || 2;
+    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
 
     // Base venue price - use helper function
     const venueBase = getConfigField(pricingConfig, 'venue_base');
@@ -318,6 +319,14 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const steps = getSteps();
   const currentStep = steps[step];
 
+  const handleGuestCountChange = (newCount) => {
+    const tierRange = TIER_RANGES[selections.guestTier];
+    if (tierRange) {
+      const clampedCount = Math.max(tierRange.min, Math.min(tierRange.max, parseInt(newCount) || tierRange.default));
+      setSelections(prev => ({ ...prev, guestCount: clampedCount }));
+    }
+  };
+
   const getCurrentOptions = () => {
     if (!currentStep) return [];
     switch (currentStep.type) {
@@ -346,7 +355,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   };
 
   const currentOptions = getCurrentOptions();
-  const canContinue = selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+  const canContinue = currentStep?.type === 'guest_tier' 
+    ? selections.guestTier !== null && selections.guestCount !== null
+    : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
   const handleSelect = (value) => {
@@ -356,6 +367,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       setSelections((prev) => ({
         ...prev,
         guestTier: value,
+        guestCount: TIER_RANGES[value]?.default || null,
         dayOfWeek: null,
         season: null,
         spirits: null,
@@ -486,7 +498,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
                 <Button onClick={() => setView('send')} className="w-full rounded-full bg-black hover:bg-stone-800">
                   Save Budget
                 </Button>
-                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: GUEST_COUNTS[selections.guestTier] })} variant="outline" className="w-full rounded-full">
+                <Button onClick={() => onComplete({ ...selections, totalBudget, guestCount: selections.guestCount })} variant="outline" className="w-full rounded-full">
                   Schedule a Tour
                 </Button>
                 <button 
@@ -585,6 +597,53 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
             })}
           </div>
+
+          {currentStep.type === 'guest_tier' && selections.guestTier && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200"
+            >
+              <p className="text-sm font-medium text-stone-900 mb-3">
+                Approximately how many guests are you expecting?
+              </p>
+              <div className="space-y-3">
+                <div className="text-center">
+                  <input
+                    type="number"
+                    value={selections.guestCount || ''}
+                    onChange={(e) => handleGuestCountChange(e.target.value)}
+                    className="text-3xl font-bold text-stone-900 bg-transparent text-center w-24 border-b-2 border-stone-300 focus:border-black outline-none"
+                    min={TIER_RANGES[selections.guestTier]?.min}
+                    max={TIER_RANGES[selections.guestTier]?.max}
+                  />
+                  <span className="text-lg text-stone-600 ml-2">guests</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    value={selections.guestCount || TIER_RANGES[selections.guestTier]?.default}
+                    onChange={(e) => handleGuestCountChange(e.target.value)}
+                    min={TIER_RANGES[selections.guestTier]?.min}
+                    max={TIER_RANGES[selections.guestTier]?.max}
+                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
+                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
+                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
+                      [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white 
+                      [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer
+                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 
+                      [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-black 
+                      [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white 
+                      [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-stone-500 mt-1">
+                    <span>{TIER_RANGES[selections.guestTier]?.min}</span>
+                    <span>{TIER_RANGES[selections.guestTier]?.max}</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {currentOptions.length === 0 && currentStep.type === 'day_of_week' &&
           <div className="bg-stone-100 rounded-xl p-4 text-center">
