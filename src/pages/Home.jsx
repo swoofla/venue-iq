@@ -13,6 +13,7 @@ import AvailabilityChecker from '@/components/flows/AvailabilityChecker';
 import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
+import VenueVisualizer from '@/components/flows/VenueVisualizer';
 import VideoAskPanel from '@/components/VideoAskPanel';
 
 const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to have you. How can we help you envision your perfect day here?`;
@@ -178,6 +179,11 @@ export default function Home() {
                lowerText.includes('see the venue') || lowerText.includes('show me')) {
       addBotMessage("Let me show you around! Here are some photos of our beautiful venue.");
       setTimeout(() => setActiveFlow('gallery'), 1500);
+    } else if (lowerText.includes('visualize') || lowerText.includes('design') || 
+               lowerText.includes('see my wedding') || lowerText.includes('what would it look like') ||
+               lowerText.includes('decorate') || lowerText.includes('style')) {
+      addBotMessage("Let me show you what your wedding could look like at our venue! ✨");
+      setTimeout(() => setActiveFlow('visualizer'), 1500);
     } else {
       // Check knowledge base for relevant answer
       const relevantKnowledge = venueKnowledge.find(k => 
@@ -247,6 +253,11 @@ export default function Home() {
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to see photos of the venue", isBot: false }]);
         addBotMessage("Let me show you around our beautiful venue! ✨");
         setTimeout(() => setActiveFlow('gallery'), 1000);
+        break;
+      case 'visualizer':
+        setMessages(prev => [...prev, { id: Date.now(), text: "I want to visualize my wedding design", isBot: false }]);
+        addBotMessage("Let's create a vision of your dream wedding at our venue! ✨");
+        setTimeout(() => setActiveFlow('visualizer'), 1000);
         break;
     }
   };
@@ -429,6 +440,18 @@ export default function Home() {
               onScheduleTour={() => {
                 setActiveFlow('tour');
                 addBotMessage("Wonderful! Let's find a time that works for you.");
+              }}
+              onCancel={closeFlow}
+            />
+          )}
+
+          {activeFlow === 'visualizer' && venueId && (
+            <VenueVisualizer
+              venueId={venueId}
+              venueName={venueName}
+              onComplete={() => {
+                setActiveFlow('tour');
+                addBotMessage("Ready to see it in person? Let's schedule your tour!");
               }}
               onCancel={closeFlow}
             />
