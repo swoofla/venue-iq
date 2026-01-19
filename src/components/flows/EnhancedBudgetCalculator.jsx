@@ -629,8 +629,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           exit={{ opacity: 0, x: -20 }}
           className="mt-4">
 
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="w-5 h-5 text-stone-400" />
+          <div className="mb-2">
             <h3 className="text-lg font-semibold text-stone-900">{currentStep.title}</h3>
           </div>
           <p className="text-stone-600 mb-4">{currentStep.question}</p>
