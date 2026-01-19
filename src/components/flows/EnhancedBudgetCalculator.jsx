@@ -492,8 +492,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       await base44.entities.ContactSubmission.create({
         venue_id: venueId,
         name: contactInfo.name,
-        email: contactInfo.email || null,
-        phone: contactInfo.phone || null,
+        email: contactInfo.email || '',
+        phone: contactInfo.phone || '',
         guest_count: selections.guestCount,
         budget: totalBudget,
         source: 'budget_calculator',
