@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
+import FirstLookSettings from '../components/admin/FirstLookSettings';
 import VenueSelector from '../components/admin/VenueSelector';
 
 export default function VenueSettings() {
@@ -136,34 +137,42 @@ export default function VenueSettings() {
         )}
         
         <Tabs defaultValue="packages">
-          <TabsList>
-            <TabsTrigger value="packages">
-              <Package className="w-4 h-4 mr-2" />
-              Packages
-            </TabsTrigger>
-            <TabsTrigger value="visualizer">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Visualizer Photos
-            </TabsTrigger>
-            <TabsTrigger value="calendar">
-              <Calendar className="w-4 h-4 mr-2" />
-              Google Calendar
-            </TabsTrigger>
-            <TabsTrigger value="chatbot">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Chatbot Training
-            </TabsTrigger>
-            <TabsTrigger value="transcripts">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Transcripts
-            </TabsTrigger>
-          </TabsList>
+           <TabsList>
+             <TabsTrigger value="packages">
+               <Package className="w-4 h-4 mr-2" />
+               Packages
+             </TabsTrigger>
+             <TabsTrigger value="first-look">
+               <Play className="w-4 h-4 mr-2" />
+               First Look
+             </TabsTrigger>
+             <TabsTrigger value="visualizer">
+               <Sparkles className="w-4 h-4 mr-2" />
+               Visualizer Photos
+             </TabsTrigger>
+             <TabsTrigger value="calendar">
+               <Calendar className="w-4 h-4 mr-2" />
+               Google Calendar
+             </TabsTrigger>
+             <TabsTrigger value="chatbot">
+               <MessageSquare className="w-4 h-4 mr-2" />
+               Chatbot Training
+             </TabsTrigger>
+             <TabsTrigger value="transcripts">
+               <Upload className="w-4 h-4 mr-2" />
+               Upload Transcripts
+             </TabsTrigger>
+           </TabsList>
 
           <TabsContent value="packages" className="mt-6">
-            <PackagesManager packages={packages} venueId={venueId} />
-          </TabsContent>
+             <PackagesManager packages={packages} venueId={venueId} />
+           </TabsContent>
 
-          <TabsContent value="visualizer" className="mt-6">
+           <TabsContent value="first-look" className="mt-6">
+             <FirstLookSettings venueId={venueId} />
+           </TabsContent>
+
+           <TabsContent value="visualizer" className="mt-6">
             <VisualizerPhotosManager photos={visualizerPhotos} venueId={venueId} />
           </TabsContent>
 
