@@ -33,7 +33,6 @@ export default function FirstLook({ config }) {
     
     const params = new URLSearchParams({
       autoPlay: autoPlay.toString(),
-      silentAutoPlay: 'true',
       muted: muted.toString(),
       endVideoBehavior: loop ? 'loop' : 'default',
       playbar: controls.toString(),
@@ -46,6 +45,12 @@ export default function FirstLook({ config }) {
       fitStrategy: 'cover',
       videoFoam: 'false'
     });
+    
+    // Only add silentAutoPlay when we want it muted
+    // silentAutoPlay forces muted state for autoplay compliance
+    if (muted) {
+      params.set('silentAutoPlay', 'true');
+    }
     
     return `https://fast.wistia.net/embed/iframe/${videoId}?${params.toString()}`;
   };
