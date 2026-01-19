@@ -24,14 +24,14 @@ const getFallbackDates = () => {
   ].sort((a, b) => a.date - b.date);
 };
 
-export default function TourScheduler({ preSelectedDate, venue, onComplete, onCancel }) {
+export default function TourScheduler({ preSelectedDate, venue, prefillContact, onComplete, onCancel }) {
   const [step, setStep] = useState(0);
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedTime, setSelectedTime] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
+    name: prefillContact?.name || '',
+    email: prefillContact?.email || '',
+    phone: prefillContact?.phone || '',
     weddingDate: preSelectedDate || '',
     guestCount: '',
   });

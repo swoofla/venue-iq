@@ -31,6 +31,8 @@ export default function Home() {
   const [originalQuestion, setOriginalQuestion] = useState('');
   const [leadName, setLeadName] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
+  const [leadEmail, setLeadEmail] = useState('');
+  const [showTourPrompt, setShowTourPrompt] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -239,21 +241,21 @@ export default function Home() {
   };
 
   const handleBudgetComplete = async (data) => {
-    const venues = await base44.entities.Venue.list();
-    const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-
-    const submissionData = {
-      ...data,
-      source: 'budget_calculator',
-      name: 'Budget Calculator User',
-      email: 'pending@sugar-lake.com',
-      venue_id: sugarLakeVenue?.id,
-    };
-
-    await base44.entities.ContactSubmission.create(submissionData);
-
-    addBotMessage(`Your estimated budget is $${(data.totalBudget || 0).toLocaleString()}. Let's schedule a tour to see our venue in person!`);
-    setTimeout(() => setActiveFlow('tour'), 1500);
+    // Calculator already saved the contact, just close and follow up
+    setActiveFlow(null);
+    
+    // Store the lead's info for personalized follow-up
+    setLeadName(data.name);
+    setLeadEmail(data.email);
+    setLeadPhone(data.phone);
+    
+    // Add a brief delay, then chatbot asks about tour
+    setTimeout(() => {
+      addBotMessage(
+        `Thanks ${data.name}! Your budget estimate of $${data.totalBudget.toLocaleString()} has been sent to your email. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
+      );
+      setShowTourPrompt(true);
+    }, 1000);
   };
 
   const handleAvailabilityTour = (date) => {
@@ -345,6 +347,33 @@ export default function Home() {
           
           {isTyping && <TypingIndicator />}
 
+          {/* Tour Prompt Quick Replies */}
+          {showTourPrompt && (
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setShowTourPrompt(false);
+                  setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let's schedule a tour!", isBot: false }]);
+                  addBotMessage("Wonderful! Let's find a time that works for you.");
+                  setTimeout(() => setActiveFlow('tour'), 1500);
+                }}
+                className="flex-1 px-4 py-3 bg-black text-white rounded-full hover:bg-stone-800 transition-colors text-sm font-medium"
+              >
+                Yes, let's schedule a tour!
+              </button>
+              <button
+                onClick={() => {
+                  setShowTourPrompt(false);
+                  setMessages(prev => [...prev, { id: Date.now(), text: "Not right now", isBot: false }]);
+                  addBotMessage("No problem! Feel free to explore more or reach out whenever you're ready. Is there anything else I can help you with?");
+                }}
+                className="flex-1 px-4 py-3 bg-stone-100 text-stone-700 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium"
+              >
+                Not right now
+              </button>
+            </div>
+          )}
+
           {/* Active Flow Components */}
           {activeFlow === 'budget' && venueId && (
             <EnhancedBudgetCalculator
@@ -366,6 +395,11 @@ export default function Home() {
             <TourScheduler
               preSelectedDate={preSelectedDate}
               venue={venue}
+              prefillContact={leadName && leadEmail ? {
+                name: leadName,
+                email: leadEmail,
+                phone: leadPhone
+              } : null}
               onComplete={handleTourComplete}
               onCancel={closeFlow}
             />
