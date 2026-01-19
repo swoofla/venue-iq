@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, RotateCcw, Send, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronDown, RotateCcw, Send, Download, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const TIER_LABELS = {
@@ -17,6 +17,7 @@ export default function AdminBudgetEstimates() {
   const [filterTier, setFilterTier] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [retryingId, setRetryingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const { data: estimates = [], isLoading, refetch } = useQuery({
     queryKey: ['budgetEstimates'],
@@ -33,6 +34,23 @@ export default function AdminBudgetEstimates() {
       }
       return 0;
     });
+
+  const handleDelete = async (estimateId) => {
+    if (!confirm('Are you sure you want to delete this budget estimate? This cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingId(estimateId);
+    try {
+      await base44.entities.SavedBudgetEstimate.delete(estimateId);
+      refetch();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete estimate. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleRetrySync = async (estimateId) => {
     setRetryingId(estimateId);
@@ -288,6 +306,15 @@ export default function AdminBudgetEstimates() {
                           >
                             <Send className="w-4 h-4" />
                             Resend to Lead
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(estimate.id)}
+                            disabled={deletingId === estimate.id}
+                            variant="outline"
+                            className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {deletingId === estimate.id ? 'Deleting...' : 'Delete'}
                           </Button>
                         </div>
                       </motion.div>
