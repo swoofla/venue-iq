@@ -86,25 +86,36 @@ export default function Home() {
   });
 
   // Fetch featured venue photos for greeting carousel
-  const { data: greetingPhotos = [] } = useQuery({
-    queryKey: ['greetingPhotos', venueId],
-    queryFn: async () => {
-      if (!venueId) return [];
-      const photos = await base44.entities.VenuePhoto.filter({ 
-        venue_id: venueId,
-        is_featured: true 
-      });
-      // Sort by sort_order and take top 5
-      return photos
-        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-        .slice(0, 5)
-        .map(p => ({
-          url: p.image_url,
-          caption: p.caption || p.title
-        }));
-    },
-    enabled: !!venueId
-  });
+   const { data: greetingPhotos = [] } = useQuery({
+     queryKey: ['greetingPhotos', venueId],
+     queryFn: async () => {
+       if (!venueId) return [];
+       const photos = await base44.entities.VenuePhoto.filter({ 
+         venue_id: venueId,
+         is_featured: true 
+       });
+       // Sort by sort_order and take top 5
+       return photos
+         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+         .slice(0, 5)
+         .map(p => ({
+           url: p.image_url,
+           caption: p.caption || p.title
+         }));
+     },
+     enabled: !!venueId
+   });
+
+   // Fetch First Look configuration
+   const { data: firstLookConfig } = useQuery({
+     queryKey: ['firstLookConfig', venueId],
+     queryFn: async () => {
+       if (!venueId) return null;
+       const configs = await base44.entities.FirstLookConfiguration.filter({ venue_id: venueId });
+       return configs[0] || null;
+     },
+     enabled: !!venueId
+   });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -522,7 +533,7 @@ export default function Home() {
       </footer>
 
       {/* First Look Panel */}
-      <FirstLook />
+      {firstLookConfig && <FirstLook config={firstLookConfig} />}
     </div>
   );
 }
