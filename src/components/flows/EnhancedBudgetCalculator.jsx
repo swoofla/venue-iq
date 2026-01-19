@@ -419,8 +419,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       setSubmitted(true);
       onComplete({
         ...selections,
-        totalBudget,
-        guestCount: GUEST_COUNTS[selections.guestTier]
+        totalBudget
       });
     }
   };
