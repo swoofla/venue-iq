@@ -476,10 +476,11 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             <motion.div key="summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <h3 className="text-xl font-semibold text-stone-900 mb-6">Your Budget Estimate</h3>
 
-              <div className="bg-stone-50 rounded-xl p-6 mb-6">
+              <div className="mb-6">
                 <BudgetSummaryBreakdown 
                   selections={selections} 
                   totalBudget={totalBudget}
+                  pricingConfig={pricingConfig}
                   onEditCategory={(categoryKey) => {
                     const stepIndex = steps.findIndex(s => s.key === categoryKey);
                     if (stepIndex !== -1) {
