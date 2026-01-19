@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { encodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -108,7 +109,7 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     throw new Error('STABILITY_API_KEY not configured. Add it to your Base44 Secrets.');
   }
 
-  // Fetch base image and convert to base64
+  // Fetch base image
   const imageResponse = await fetch(baseImageUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -121,17 +122,10 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   
   const imageBuffer = await imageResponse.arrayBuffer();
   
-  // Convert to base64 in chunks to avoid stack overflow
-  const bytes = new Uint8Array(imageBuffer);
-  let binary = '';
-  const chunkSize = 0x8000; // 32KB chunks
+  // Convert to base64 using Deno's standard library (handles large files properly)
+  const base64Image = encodeBase64(new Uint8Array(imageBuffer));
   
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk);
-  }
-  
-  const base64Image = btoa(binary);
+  console.log(`Image converted to base64: ${base64Image.length} characters`);
 
   const strength = designChoices.transformationStrength || 0.60;
 
