@@ -15,7 +15,7 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
-import VideoAskPanel from '@/components/VideoAskPanel';
+import FirstLook from '@/components/FirstLook';
 
 const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to have you. How can we help you envision your perfect day here?`;
 
@@ -521,8 +521,8 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* VideoAsk Panel */}
-      <VideoAskPanel />
+      {/* First Look Panel */}
+      <FirstLook />
     </div>
   );
 }
