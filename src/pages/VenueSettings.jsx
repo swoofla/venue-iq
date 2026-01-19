@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
@@ -52,6 +52,12 @@ export default function VenueSettings() {
   const { data: knowledge = [] } = useQuery({
     queryKey: ['knowledge', venueId],
     queryFn: () => venueId ? base44.entities.VenueKnowledge.filter({ venue_id: venueId }) : [],
+    enabled: !!venueId
+  });
+
+  const { data: visualizerPhotos = [] } = useQuery({
+    queryKey: ['visualizerPhotos', venueId],
+    queryFn: () => venueId ? base44.entities.VenueVisualizationPhoto.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
   });
 
@@ -135,6 +141,10 @@ export default function VenueSettings() {
               <Package className="w-4 h-4 mr-2" />
               Packages
             </TabsTrigger>
+            <TabsTrigger value="visualizer">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Visualizer Photos
+            </TabsTrigger>
             <TabsTrigger value="calendar">
               <Calendar className="w-4 h-4 mr-2" />
               Google Calendar
@@ -151,6 +161,10 @@ export default function VenueSettings() {
 
           <TabsContent value="packages" className="mt-6">
             <PackagesManager packages={packages} venueId={venueId} />
+          </TabsContent>
+
+          <TabsContent value="visualizer" className="mt-6">
+            <VisualizerPhotosManager photos={visualizerPhotos} venueId={venueId} />
           </TabsContent>
 
           <TabsContent value="calendar" className="mt-6">
@@ -502,6 +516,331 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
           <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
           <Button onClick={() => saveMutation.mutate(formData)} className="flex-1" disabled={!formData.question || !formData.answer}>
             Save Q&A
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VisualizerPhotosManager({ photos, venueId }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState(null);
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.VenueVisualizationPhoto.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['visualizerPhotos', venueId] })
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }) => base44.entities.VenueVisualizationPhoto.update(id, { is_active: isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['visualizerPhotos', venueId] })
+  });
+
+  const photosByCategory = photos.reduce((acc, photo) => {
+    if (!acc[photo.category]) acc[photo.category] = [];
+    acc[photo.category].push(photo);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-rose-600 mt-0.5" />
+          <div>
+            <p className="text-sm text-rose-900 font-medium mb-1">AI Wedding Visualizer Photos</p>
+            <p className="text-sm text-rose-800">
+              Upload blank venue photos that couples can transform with their wedding designs using AI. 
+              Include detailed descriptions to help the AI add decorations accurately.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">Visualizer Photo Library</h2>
+        <Button onClick={() => setShowForm(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Photo
+        </Button>
+      </div>
+
+      {showForm && (
+        <VisualizerPhotoForm
+          venueId={venueId}
+          photo={editingPhoto}
+          onClose={() => {
+            setShowForm(false);
+            setEditingPhoto(null);
+          }}
+        />
+      )}
+
+      {Object.keys(photosByCategory).length === 0 ? (
+        <div className="text-center py-12 bg-stone-50 rounded-xl border-2 border-dashed border-stone-200">
+          <ImageIcon className="w-12 h-12 text-stone-300 mx-auto mb-3" />
+          <p className="text-stone-600 mb-4">No visualizer photos yet</p>
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Your First Photo
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {Object.entries(photosByCategory).map(([category, categoryPhotos]) => (
+            <div key={category}>
+              <h3 className="text-lg font-semibold capitalize mb-4 flex items-center gap-2">
+                {category === 'ceremony' && '💒'} 
+                {category === 'reception' && '🎉'} 
+                {category === 'cocktail' && '🥂'} 
+                {category === 'outdoor' && '🌳'} 
+                {category === 'detail' && '✨'}
+                {category.replace('_', ' ')}
+                <span className="text-sm font-normal text-stone-500">({categoryPhotos.length})</span>
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                {categoryPhotos.map(photo => (
+                  <div key={photo.id} className={`border-2 rounded-xl overflow-hidden ${photo.is_active ? 'border-stone-200' : 'border-stone-100 opacity-50'}`}>
+                    <div className="relative aspect-[4/3] bg-stone-100">
+                      <img src={photo.photo_url} alt={photo.name} className="w-full h-full object-cover" />
+                      {!photo.is_active && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">Inactive</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-semibold">{photo.name}</h4>
+                          {photo.description && <p className="text-sm text-stone-600 mt-1">{photo.description}</p>}
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleActiveMutation.mutate({ id: photo.id, isActive: !photo.is_active })}
+                            title={photo.is_active ? 'Hide' : 'Show'}
+                          >
+                            {photo.is_active ? 'Hide' : 'Show'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingPhoto(photo);
+                              setShowForm(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (confirm('Delete this photo?')) {
+                                deleteMutation.mutate(photo.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {photo.photo_description && (
+                        <div className="mt-3 pt-3 border-t border-stone-100">
+                          <p className="text-xs text-stone-500 mb-1">AI Context:</p>
+                          <p className="text-xs text-stone-600">{photo.photo_description}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisualizerPhotoForm({ venueId, photo, onClose }) {
+  const [formData, setFormData] = useState({
+    name: photo?.name || '',
+    description: photo?.description || '',
+    category: photo?.category || 'ceremony',
+    photo_url: photo?.photo_url || '',
+    photo_description: photo?.photo_description || '',
+    transformation_hints: photo?.transformation_hints || '',
+    aspect_ratio: photo?.aspect_ratio || '16:9',
+    sort_order: photo?.sort_order || 0
+  });
+  const [uploading, setUploading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => {
+      const dataWithVenue = { ...data, venue_id: venueId };
+      if (photo) {
+        return base44.entities.VenueVisualizationPhoto.update(photo.id, dataWithVenue);
+      }
+      return base44.entities.VenueVisualizationPhoto.create(dataWithVenue);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visualizerPhotos', venueId] });
+      onClose();
+    }
+  });
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setFormData({ ...formData, photo_url: file_url });
+    } catch (error) {
+      alert('Upload failed: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="bg-stone-50 border border-stone-200 rounded-xl p-6 mb-6">
+      <h3 className="font-semibold mb-4">{photo ? 'Edit Visualizer Photo' : 'Add Visualizer Photo'}</h3>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Photo Upload *</label>
+          {formData.photo_url ? (
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-stone-100 mb-2">
+              <img src={formData.photo_url} alt="Preview" className="w-full h-full object-cover" />
+              <button
+                onClick={() => setFormData({ ...formData, photo_url: '' })}
+                className="absolute top-2 right-2 bg-black/70 text-white px-3 py-1 rounded text-sm hover:bg-black"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-stone-300 rounded-xl p-8 text-center">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="photo-upload"
+                disabled={uploading}
+              />
+              <label htmlFor="photo-upload" className="cursor-pointer">
+                {uploading ? (
+                  <div className="text-stone-600">Uploading...</div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+                    <p className="text-sm text-stone-600">Click to upload venue photo</p>
+                    <p className="text-xs text-stone-500 mt-1">PNG, JPG up to 10MB</p>
+                  </>
+                )}
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Display Name *</label>
+          <Input
+            placeholder="e.g., Lakeside Ceremony"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Category *</label>
+          <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ceremony">💒 Ceremony</SelectItem>
+              <SelectItem value="reception">🎉 Reception</SelectItem>
+              <SelectItem value="cocktail">🥂 Cocktail Hour</SelectItem>
+              <SelectItem value="outdoor">🌳 Outdoor Space</SelectItem>
+              <SelectItem value="detail">✨ Detail Shot</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">User Description</label>
+          <Input
+            placeholder="Brief description shown to couples (optional)"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">AI Photo Description *</label>
+          <Textarea
+            placeholder="Detailed description for AI: 'Outdoor ceremony area with wooden arch, lake backdrop, green lawn, mountain views, golden hour lighting'"
+            value={formData.photo_description}
+            onChange={(e) => setFormData({ ...formData, photo_description: e.target.value })}
+            rows={3}
+          />
+          <p className="text-xs text-stone-500 mt-1">Describe what's in the photo - helps AI understand the space</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Transformation Hints</label>
+          <Textarea
+            placeholder="What can be added: 'Add floral arrangements to arch, add guest chairs, add aisle runner, add ceremony decor'"
+            value={formData.transformation_hints}
+            onChange={(e) => setFormData({ ...formData, transformation_hints: e.target.value })}
+            rows={2}
+          />
+          <p className="text-xs text-stone-500 mt-1">Guide the AI on what decorations to add</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Aspect Ratio</label>
+            <Select value={formData.aspect_ratio} onValueChange={(value) => setFormData({ ...formData, aspect_ratio: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Sort Order</label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={formData.sort_order}
+              onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button 
+            onClick={() => saveMutation.mutate(formData)} 
+            className="flex-1" 
+            disabled={!formData.name || !formData.photo_url || !formData.photo_description}
+          >
+            Save Photo
           </Button>
         </div>
       </div>
