@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
 
@@ -7,6 +7,9 @@ export default function FirstLook({ config }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
+  const [welcomePlayerReady, setWelcomePlayerReady] = useState(false);
+  const welcomePlayerRef = useRef(null);
+  const welcomeContainerRef = useRef(null);
 
   const defaultConfig = {
     is_enabled: true,
@@ -20,47 +23,67 @@ export default function FirstLook({ config }) {
 
   const settings = config || defaultConfig;
 
-  // Build Wistia iframe URL with parameters
-  const getWistiaEmbedUrl = (videoId, options = {}) => {
-    if (!videoId) return '';
+  // Load Wistia script once
+  useEffect(() => {
+    if (!settings.welcome_video_id) return;
     
-    const {
-      autoPlay = true,
-      muted = true,
-      loop = true,
-      controls = false
-    } = options;
-    
-    const params = new URLSearchParams({
-      autoPlay: autoPlay.toString(),
-      muted: muted.toString(),
-      endVideoBehavior: loop ? 'loop' : 'default',
-      playbar: controls.toString(),
-      controlsVisibleOnLoad: controls.toString(),
-      settingsControl: 'false',
-      fullscreenButton: controls.toString(),
-      playButton: 'false',
-      smallPlayButton: 'false',
-      volumeControl: controls.toString(),
-      fitStrategy: 'cover',
-      videoFoam: 'false'
-    });
-    
-    // Only add silentAutoPlay when we want it muted
-    // silentAutoPlay forces muted state for autoplay compliance
-    if (muted) {
-      params.set('silentAutoPlay', 'true');
+    // Check if script already exists
+    if (!document.querySelector('script[src*="wistia.com/assets/external/E-v1.js"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://fast.wistia.com/assets/external/E-v1.js';
+      script.async = true;
+      document.head.appendChild(script);
     }
-    
-    return `https://fast.wistia.net/embed/iframe/${videoId}?${params.toString()}`;
-  };
+  }, [settings.welcome_video_id]);
 
+  // Initialize welcome video player
+  useEffect(() => {
+    if (!settings.welcome_video_id || !isOpen || selectedVideo) return;
+
+    // Wait for Wistia to be available
+    const initPlayer = () => {
+      window._wq = window._wq || [];
+      window._wq.push({
+        id: settings.welcome_video_id,
+        onReady: (video) => {
+          welcomePlayerRef.current = video;
+          setWelcomePlayerReady(true);
+          video.mute();
+          video.play();
+        }
+      });
+    };
+
+    // Check if Wistia is loaded
+    if (window.Wistia) {
+      initPlayer();
+    } else {
+      // Wait for script to load
+      const checkWistia = setInterval(() => {
+        if (window.Wistia) {
+          clearInterval(checkWistia);
+          initPlayer();
+        }
+      }, 100);
+      
+      return () => clearInterval(checkWistia);
+    }
+  }, [settings.welcome_video_id, isOpen, selectedVideo]);
+
+  // Handle mute/unmute using Wistia API
   const handleUnmute = () => {
+    if (welcomePlayerRef.current) {
+      welcomePlayerRef.current.unmute();
+      welcomePlayerRef.current.play();
+    }
     setIsMuted(false);
     setShowUnmuteHint(false);
   };
 
   const handleMute = () => {
+    if (welcomePlayerRef.current) {
+      welcomePlayerRef.current.mute();
+    }
     setIsMuted(true);
   };
 
@@ -71,6 +94,42 @@ export default function FirstLook({ config }) {
       return () => clearTimeout(timer);
     }
   }, [showUnmuteHint, isOpen, selectedVideo]);
+
+  // Cleanup player when closing or selecting different video
+  useEffect(() => {
+    if (!isOpen || selectedVideo) {
+      if (welcomePlayerRef.current) {
+        welcomePlayerRef.current.pause();
+      }
+    }
+  }, [isOpen, selectedVideo]);
+
+  // Build Wistia iframe URL for selected videos (these play with controls)
+  const getWistiaEmbedUrl = (videoId, options = {}) => {
+    if (!videoId) return '';
+    
+    const {
+      autoPlay = true,
+      muted = false,
+      loop = false,
+      controls = true
+    } = options;
+    
+    const params = new URLSearchParams({
+      autoPlay: autoPlay.toString(),
+      muted: muted.toString(),
+      endVideoBehavior: loop ? 'loop' : 'default',
+      playbar: controls.toString(),
+      controlsVisibleOnLoad: controls.toString(),
+      settingsControl: 'false',
+      fullscreenButton: controls.toString(),
+      volumeControl: controls.toString(),
+      fitStrategy: 'cover',
+      videoFoam: 'false'
+    });
+    
+    return `https://fast.wistia.net/embed/iframe/${videoId}?${params.toString()}`;
+  };
 
   if (!settings.is_enabled) return null;
 
@@ -109,7 +168,11 @@ export default function FirstLook({ config }) {
             {/* Header with back button */}
             <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-2 z-10 bg-gradient-to-b from-black/60 to-transparent">
               <button
-                onClick={() => setSelectedVideo(null)}
+                onClick={() => {
+                  setSelectedVideo(null);
+                  setIsMuted(true);
+                  setShowUnmuteHint(true);
+                }}
                 className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -143,22 +206,13 @@ export default function FirstLook({ config }) {
             exit={{ opacity: 0 }}
             className="w-full h-full relative"
           >
-            {/* Background: Wistia video embed OR fallback image */}
+            {/* Background: Wistia video embed using JS API OR fallback image */}
             <div className="absolute inset-0">
               {settings.welcome_video_id ? (
-                <iframe
-                  key={`welcome-${isMuted}`}
-                  src={getWistiaEmbedUrl(settings.welcome_video_id, {
-                    autoPlay: true,
-                    muted: isMuted,
-                    loop: true,
-                    controls: false
-                  })}
-                  className="w-full h-full"
-                  style={{ pointerEvents: 'none' }}
-                  allow="autoplay"
-                  frameBorder="0"
-                  title="Welcome video"
+                <div
+                  ref={welcomeContainerRef}
+                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false`}
+                  style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
                 />
               ) : settings.welcome_video_thumbnail ? (
                 <img 
