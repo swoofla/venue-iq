@@ -120,7 +120,18 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   }
   
   const imageBuffer = await imageResponse.arrayBuffer();
-  const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+  
+  // Convert to base64 in chunks to avoid stack overflow
+  const bytes = new Uint8Array(imageBuffer);
+  let binary = '';
+  const chunkSize = 0x8000; // 32KB chunks
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  
+  const base64Image = btoa(binary);
 
   const strength = designChoices.transformationStrength || 0.60;
 
