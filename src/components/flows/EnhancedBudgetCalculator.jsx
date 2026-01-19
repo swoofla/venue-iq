@@ -34,10 +34,10 @@ const TIER_RANGES = {
 };
 
 const GUEST_TIERS = [
-{ id: 'up_to_2', label: 'Just us two 💕', sublabel: 'Elopement Package' },
-{ id: '2_to_20', label: 'Inner Circle', sublabel: 'Intimate gathering (2-20)' },
-{ id: '20_to_50', label: '50 and Under', sublabel: 'Small celebration (21-50)' },
-{ id: '51_to_120', label: 'Classic Wedding', sublabel: '51-120 guests' }];
+{ id: 'up_to_2', label: 'Couple Elopement', sublabel: 'Just The Two of Us (2)' },
+{ id: '2_to_20', label: 'Up to 20', sublabel: 'The Inner Circle (2-20)' },
+{ id: '20_to_50', label: '50 and Under', sublabel: 'Micro Wedding (21-50)' },
+{ id: '51_to_120', label: 'Up to 120', sublabel: 'Classic Wedding (51-120)' }];
 
 
 const ALL_DAYS = [
