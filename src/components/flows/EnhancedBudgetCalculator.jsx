@@ -488,6 +488,23 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
     setSaving(true);
     try {
+      // Save to SavedBudgetEstimate
+      await base44.entities.SavedBudgetEstimate.create({
+        venue_id: venueId,
+        name: contactInfo.name,
+        email: contactInfo.deliveryPreference === 'email' ? contactInfo.email : '',
+        phone: contactInfo.deliveryPreference === 'text' ? contactInfo.phone : '',
+        delivery_preference: contactInfo.deliveryPreference,
+        total_budget: totalBudget,
+        guest_count: selections.guestCount,
+        guest_tier: selections.guestTier,
+        day_of_week: selections.dayOfWeek,
+        season: selections.season,
+        budget_selections: selections,
+        budget_breakdown: getItemizedBreakdown(),
+        highlevel_sync_status: 'pending'
+      });
+
       // Save to ContactSubmission
       await base44.entities.ContactSubmission.create({
         venue_id: venueId,
