@@ -110,7 +110,7 @@ export default function BudgetSummaryBreakdown({ selections, totalBudget, onEdit
           <thead>
             <tr className="border-b border-stone-200">
               <th className="text-left py-3 px-4 text-sm font-medium text-stone-600">Category</th>
-              <th className="text-left py-3 px-4 text-sm font-medium text-stone-600">Selection</th>
+              <th className="text-left py-3 px-4 text-sm font-medium text-stone-600">Your Selection</th>
               <th className="text-right py-3 px-4 text-sm font-medium text-stone-600">Price</th>
             </tr>
           </thead>
