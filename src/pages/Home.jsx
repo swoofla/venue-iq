@@ -24,7 +24,9 @@ export default function Home() {
   const [venueId, setVenueId] = useState(null);
   const [venueName, setVenueName] = useState('Sugar Lake Weddings');
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([
+    { id: 1, text: getWelcomeMessage('Sugar Lake Weddings'), isBot: true }
+  ]);
   const [showGreeting, setShowGreeting] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [activeFlow, setActiveFlow] = useState(null);
@@ -383,26 +385,12 @@ export default function Home() {
       <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 pb-4">
-          {/* Greeting Carousel - shows only on initial load */}
+          {/* Greeting Carousel */}
           {showGreeting && greetingPhotos.length > 0 && (
             <ImageCarouselMessage images={greetingPhotos} />
           )}
 
-          {/* Welcome text message - shows after carousel */}
-          {showGreeting && (
-            <div className="flex justify-start mb-4">
-              <div className="flex gap-3 max-w-[80%]">
-                <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0 text-sm font-medium text-stone-600">
-                  E
-                </div>
-                <div className="p-4 rounded-2xl bg-stone-100 text-stone-800">
-                  Welcome to {venueName}, we're glad to have you. How can we help you envision your perfect day here?
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Regular conversation messages */}
+          {/* Regular messages (includes welcome) */}
           {messages.map((message) => (
             <ChatMessage
               key={message.id}
