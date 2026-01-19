@@ -123,6 +123,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     deliveryPreference: 'email'
   });
   const [saving, setSaving] = useState(false);
+  const [showAllSelections, setShowAllSelections] = useState(false);
 
   useEffect(() => {
     async function fetchPricing() {
@@ -417,11 +418,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
+      // Only show summary screen - onComplete is called from handleSaveAndSend
       setSubmitted(true);
-      onComplete({
-        ...selections,
-        totalBudget
-      });
     }
   };
 
@@ -534,127 +532,214 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     setStep(0);
   };
 
+  const getItemizedBreakdown = () => {
+    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
+    const venueBase = getConfigField(pricingConfig, 'venue_base');
+    const items = [];
+
+    // Base venue price
+    if (venueBase && selections.guestTier && selections.dayOfWeek && selections.season) {
+      const tierPricing = venueBase[selections.guestTier];
+      if (tierPricing) {
+        const seasonKey = selections.season === 'peak' ? 'peak' : 'non_peak';
+        const key = `${selections.dayOfWeek}_${seasonKey}`;
+        const priceEntry = tierPricing[key];
+        const basePrice = priceEntry?.price || (typeof priceEntry === 'number' ? priceEntry : 0);
+        if (basePrice > 0) {
+          items.push({ label: 'Venue Base', price: basePrice });
+        }
+      }
+    }
+
+    // Category items
+    const categoryLabels = {
+      catering: 'Catering',
+      spirits: 'Bar & Spirits',
+      photography: 'Photography',
+      planning: 'Planning & Coordination',
+      florals: 'Florals',
+      decor: 'Decorations',
+      entertainment: 'Entertainment',
+      videography: 'Videography',
+      desserts: 'Desserts',
+      linens: 'Table Linens',
+      tableware: 'Tableware'
+    };
+
+    Object.entries(categoryLabels).forEach(([key, label]) => {
+      if (selections[key]) {
+        const options = getOptionsForCategory(key);
+        const selected = options.find(o => o.label === selections[key]);
+        if (selected) {
+          let price = 0;
+          if (selected.price_type === 'per_person') {
+            price = selected.price * guestCount;
+          } else if (selected.price_type === 'flat_plus_per_person') {
+            price = selected.price + (selected.extra_pp || 0) * guestCount;
+          } else {
+            price = selected.price || 0;
+          }
+          if (price > 0) {
+            items.push({ label, price });
+          }
+        }
+      }
+    });
+
+    // Extras
+    if (selections.extras > 0) {
+      items.push({ label: 'Extras Budget', price: selections.extras });
+    }
+
+    return items;
+  };
+
   if (submitted) {
-    const [showAllSelections, setShowAllSelections] = useState(false);
+    const itemizedBreakdown = getItemizedBreakdown();
+    const visibleItems = showAllSelections ? itemizedBreakdown : itemizedBreakdown.slice(0, 4);
+    const hiddenCount = itemizedBreakdown.length - 4;
+    
     const canSave = contactInfo.name && 
       ((contactInfo.deliveryPreference === 'email' && contactInfo.email) ||
        (contactInfo.deliveryPreference === 'text' && contactInfo.phone));
-
-    // Build list of all selections
-    const allSelections = [
-      { label: 'Package', value: GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label },
-      { label: 'Guest Count', value: selections.guestCount },
-      { label: 'Day', value: ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label },
-      { label: 'Season', value: ALL_SEASONS.find((s) => s.id === selections.season)?.label },
-      { label: 'Spirits', value: selections.spirits },
-      { label: 'Planning', value: selections.planning },
-      { label: 'Catering', value: selections.catering },
-      { label: 'Photography', value: selections.photography },
-      { label: 'Florals', value: selections.florals },
-      { label: 'Decor', value: selections.decor },
-      { label: 'Entertainment', value: selections.entertainment },
-      { label: 'Videography', value: selections.videography },
-      { label: 'Desserts', value: selections.desserts },
-      { label: 'Linens', value: selections.linens },
-      { label: 'Tableware', value: selections.tableware },
-      { label: 'Extras Budget', value: selections.extras ? `$${selections.extras.toLocaleString()}` : '$0' },
-    ].filter(item => item.value);
-
-    const visibleSelections = showAllSelections ? allSelections : allSelections.slice(0, 3);
 
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
-
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8 text-green-600" />
-        </div>
-        <h3 className="text-xl font-semibold text-stone-900 mb-2 text-center">Your Budget Estimate</h3>
+        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4"
+      >
+        {/* Header */}
+        <h3 className="text-xl font-semibold text-stone-900 mb-1 text-center">
+          Your Wedding Budget Estimate
+        </h3>
         
-        <div className="bg-stone-50 rounded-xl p-6 mb-6 text-left">
-          <div className="text-4xl font-bold text-stone-900 mb-4 text-center">
-            ${totalBudget.toLocaleString()}
+        {/* Total */}
+        <div className="text-4xl font-bold text-stone-900 text-center my-4">
+          ${totalBudget.toLocaleString()}
+        </div>
+
+        {/* Itemized Breakdown Card */}
+        <div className="bg-stone-50 rounded-xl p-5 mb-6">
+          {/* Summary Info */}
+          <div className="space-y-1 text-sm mb-4">
+            <p>
+              <span className="text-stone-600">Package:</span>{' '}
+              <span className="font-medium text-stone-900">
+                {GUEST_TIERS.find(t => t.id === selections.guestTier)?.label} ({selections.guestCount} guests)
+              </span>
+            </p>
+            <p>
+              <span className="text-stone-600">Day:</span>{' '}
+              <span className="font-medium text-stone-900">
+                {ALL_DAYS.find(d => d.id === selections.dayOfWeek)?.label}
+              </span>
+            </p>
+            <p>
+              <span className="text-stone-600">Season:</span>{' '}
+              <span className="font-medium text-stone-900">
+                {ALL_SEASONS.find(s => s.id === selections.season)?.label}
+              </span>
+            </p>
           </div>
-          <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
-            {visibleSelections.map((item, idx) => (
-              <div key={idx} className="flex justify-between">
-                <span className="text-stone-600">{item.label}</span>
-                <span className="font-medium text-stone-900">{item.value}</span>
+
+          {/* Divider */}
+          <div className="border-t border-stone-200 my-4"></div>
+
+          {/* Line Items with Dotted Leaders */}
+          <div className="space-y-2">
+            {visibleItems.map((item, idx) => (
+              <div key={idx} className="flex items-baseline text-sm">
+                <span className="text-stone-700">{item.label}</span>
+                <span className="flex-1 border-b border-dotted border-stone-300 mx-2 mb-1"></span>
+                <span className="font-medium text-stone-900">${item.price.toLocaleString()}</span>
               </div>
             ))}
-            {allSelections.length > 3 && (
-              <button
-                onClick={() => setShowAllSelections(!showAllSelections)}
-                className="text-sm text-black hover:underline font-medium pt-2"
-              >
-                {showAllSelections ? 'View less' : `View more (${allSelections.length - 3} more)`}
-              </button>
+          </div>
+
+          {/* Expand/Collapse */}
+          {hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAllSelections(!showAllSelections)}
+              className="w-full text-center text-sm text-stone-600 hover:text-black font-medium pt-4 flex items-center justify-center gap-1"
+            >
+              {showAllSelections ? (
+                <>▲ View less</>
+              ) : (
+                <>▼ View more ({hiddenCount} more items)</>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Contact Form Card */}
+        <div className="bg-stone-50 rounded-xl p-5 mb-6">
+          <p className="text-sm font-medium text-stone-900 mb-4">
+            To receive your personalized estimate:
+          </p>
+          
+          <div className="space-y-4">
+            <Input
+              placeholder="First Name *"
+              value={contactInfo.name}
+              onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
+              className="h-12 rounded-xl bg-white"
+            />
+            
+            <div className="space-y-2">
+              <p className="text-sm text-stone-600">How would you like to receive it?</p>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="email"
+                    checked={contactInfo.deliveryPreference === 'email'}
+                    onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
+                    className="w-4 h-4 accent-black"
+                  />
+                  <span className="text-sm text-stone-700">Email me</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="text"
+                    checked={contactInfo.deliveryPreference === 'text'}
+                    onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
+                    className="w-4 h-4 accent-black"
+                  />
+                  <span className="text-sm text-stone-700">Text me</span>
+                </label>
+              </div>
+            </div>
+
+            {contactInfo.deliveryPreference === 'email' && (
+              <Input
+                type="email"
+                placeholder="Email Address *"
+                value={contactInfo.email}
+                onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
+                className="h-12 rounded-xl bg-white"
+              />
+            )}
+
+            {contactInfo.deliveryPreference === 'text' && (
+              <Input
+                type="tel"
+                placeholder="Phone Number *"
+                value={contactInfo.phone}
+                onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
+                className="h-12 rounded-xl bg-white"
+              />
             )}
           </div>
         </div>
 
-        <div className="space-y-3 mb-6">
-          <Input
-            placeholder="First Name *"
-            value={contactInfo.name}
-            onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
-            className="h-12 rounded-xl"
-          />
-          
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-stone-700">How would you like to receive your estimate?</p>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="email"
-                  checked={contactInfo.deliveryPreference === 'email'}
-                  onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm text-stone-700">Email me</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="text"
-                  checked={contactInfo.deliveryPreference === 'text'}
-                  onChange={(e) => setContactInfo({ ...contactInfo, deliveryPreference: e.target.value })}
-                  className="w-4 h-4"
-                />
-                <span className="text-sm text-stone-700">Text me</span>
-              </label>
-            </div>
-          </div>
-
-          {contactInfo.deliveryPreference === 'email' && (
-            <Input
-              type="email"
-              placeholder="Email Address *"
-              value={contactInfo.email}
-              onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-              className="h-12 rounded-xl"
-            />
-          )}
-
-          {contactInfo.deliveryPreference === 'text' && (
-            <Input
-              type="tel"
-              placeholder="Phone Number *"
-              value={contactInfo.phone}
-              onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-              className="h-12 rounded-xl"
-            />
-          )}
-        </div>
-
-        <div className="flex gap-2">
+        {/* Action Buttons */}
+        <div className="flex gap-3">
           <Button
             onClick={handleEdit}
             variant="outline"
-            className="flex-1 rounded-full"
+            className="flex-1 rounded-full h-12"
             disabled={saving}
           >
             Edit
@@ -662,7 +747,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           <Button
             onClick={handleSaveAndSend}
             disabled={!canSave || saving}
-            className="flex-1 rounded-full bg-black hover:bg-stone-800 gap-2"
+            className="flex-1 rounded-full h-12 bg-black hover:bg-stone-800 gap-2"
           >
             <Mail className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save & Send'}
