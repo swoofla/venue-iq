@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { base44 } from '@/api/base44Client';
 import ProgressDots from '../chat/ProgressDots';
-import { DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
+import { DollarSign, CheckCircle, AlertCircle, Mail } from 'lucide-react';
 
 // AVAILABILITY RULES - Controls which day/season combos are valid per tier
 const AVAILABILITY_RULES = {
@@ -114,6 +115,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     extras: 0
   });
   const [submitted, setSubmitted] = useState(false);
+  const [contactInfo, setContactInfo] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchPricing() {
@@ -450,38 +457,146 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
   }
 
+  const handleSaveAndSend = async () => {
+    if (!contactInfo.name || !contactInfo.email) {
+      alert('Please enter your name and email');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Save to ContactSubmission
+      await base44.entities.ContactSubmission.create({
+        venue_id: venueId,
+        name: contactInfo.name,
+        email: contactInfo.email,
+        phone: contactInfo.phone || null,
+        guest_count: GUEST_COUNTS[selections.guestTier],
+        budget: totalBudget,
+        source: 'budget_calculator',
+        status: 'new',
+        priorities: Object.entries(selections)
+          .filter(([key, value]) => value && !['guestTier', 'dayOfWeek', 'season', 'extras'].includes(key))
+          .map(([key, value]) => `${key}: ${value}`)
+          .slice(0, 3)
+      });
+
+      // Sync to HighLevel
+      try {
+        await base44.functions.invoke('createHighLevelContact', {
+          name: contactInfo.name,
+          email: contactInfo.email,
+          phone: contactInfo.phone,
+          guest_count: GUEST_COUNTS[selections.guestTier],
+          budget: totalBudget,
+          source: 'budget_calculator'
+        });
+      } catch (hlError) {
+        console.error('HighLevel sync error:', hlError);
+      }
+
+      // Complete the flow
+      onComplete({
+        name: contactInfo.name,
+        email: contactInfo.email,
+        phone: contactInfo.phone,
+        guestTier: selections.guestTier,
+        guestCount: GUEST_COUNTS[selections.guestTier],
+        dayOfWeek: selections.dayOfWeek,
+        season: selections.season,
+        totalBudget: totalBudget,
+        selections: selections
+      });
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = () => {
+    setSubmitted(false);
+    setStep(0);
+  };
+
   if (submitted) {
+    const canSave = contactInfo.name && contactInfo.email;
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4 text-center">
+        className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
 
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="text-xl font-semibold text-stone-900 mb-2">Your Budget Estimate</h3>
+        <h3 className="text-xl font-semibold text-stone-900 mb-2 text-center">Your Budget Estimate</h3>
         
-        <div className="bg-stone-50 rounded-xl p-6 mb-4 text-left">
+        <div className="bg-stone-50 rounded-xl p-6 mb-6 text-left">
           <div className="text-4xl font-bold text-stone-900 mb-4 text-center">
             ${totalBudget.toLocaleString()}
           </div>
           <div className="space-y-2 text-sm border-t border-stone-200 pt-4">
-            <p><span className="font-semibold">Package:</span> {GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label}</p>
-            <p><span className="font-semibold">Day:</span> {ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label}</p>
-            <p><span className="font-semibold">Season:</span> {ALL_SEASONS.find((s) => s.id === selections.season)?.label}</p>
+            <div className="flex justify-between">
+              <span className="text-stone-600">Package</span>
+              <span className="font-medium text-stone-900">{GUEST_TIERS.find((t) => t.id === selections.guestTier)?.label}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-stone-600">Day</span>
+              <span className="font-medium text-stone-900">{ALL_DAYS.find((d) => d.id === selections.dayOfWeek)?.label}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-stone-600">Season</span>
+              <span className="font-medium text-stone-900">{ALL_SEASONS.find((s) => s.id === selections.season)?.label}</span>
+            </div>
           </div>
         </div>
 
-        <p className="text-stone-600 mb-4 text-sm normal-case">This is an estimate based on your selections. Would you like to schedule a private tour of Sugar Lake?
+        <div className="space-y-3 mb-6">
+          <Input
+            placeholder="Your Name *"
+            value={contactInfo.name}
+            onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
+            className="h-12 rounded-xl"
+          />
+          <Input
+            type="email"
+            placeholder="Email Address *"
+            value={contactInfo.email}
+            onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
+            className="h-12 rounded-xl"
+          />
+          <Input
+            type="tel"
+            placeholder="Phone Number (optional)"
+            value={contactInfo.phone}
+            onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
+            className="h-12 rounded-xl"
+          />
+        </div>
 
-        </p>
-
-        <Button onClick={onCancel} className="w-full rounded-full bg-black hover:bg-stone-800">
-          Schedule a Tour
-        </Button>
-      </motion.div>);
-
+        <div className="flex gap-2">
+          <Button
+            onClick={handleEdit}
+            variant="outline"
+            className="flex-1 rounded-full"
+            disabled={saving}
+          >
+            Edit
+          </Button>
+          <Button
+            onClick={handleSaveAndSend}
+            disabled={!canSave || saving}
+            className="flex-1 rounded-full bg-black hover:bg-stone-800 gap-2"
+          >
+            <Mail className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save & Send'}
+          </Button>
+        </div>
+      </motion.div>
+    );
   }
 
   return (
