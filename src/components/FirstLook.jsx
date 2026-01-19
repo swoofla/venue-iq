@@ -7,6 +7,7 @@ export default function FirstLook({ config }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
+  const welcomePlayerRef = React.useRef(null);
 
   const defaultConfig = {
     is_enabled: true,
@@ -53,10 +54,28 @@ export default function FirstLook({ config }) {
   const handleUnmute = () => {
     setIsMuted(false);
     setShowUnmuteHint(false);
+    // Use Wistia API to unmute the welcome video
+    if (window._wq && welcomePlayerRef.current?.getAttribute('data-wistia-id')) {
+      window._wq.push({
+        id: welcomePlayerRef.current.getAttribute('data-wistia-id'),
+        onReady: (player) => {
+          player.unmute();
+        }
+      });
+    }
   };
 
   const handleMute = () => {
     setIsMuted(true);
+    // Use Wistia API to mute the welcome video
+    if (window._wq && welcomePlayerRef.current?.getAttribute('data-wistia-id')) {
+      window._wq.push({
+        id: welcomePlayerRef.current.getAttribute('data-wistia-id'),
+        onReady: (player) => {
+          player.mute();
+        }
+      });
+    }
   };
 
   // Auto-hide unmute hint after 5 seconds
@@ -66,6 +85,13 @@ export default function FirstLook({ config }) {
       return () => clearTimeout(timer);
     }
   }, [showUnmuteHint, isOpen, selectedVideo]);
+
+  // Load Wistia API for mute/unmute control
+  useEffect(() => {
+    if (!window._wq) {
+      window._wq = [];
+    }
+  }, []);
 
   if (!settings.is_enabled) return null;
 
@@ -142,10 +168,11 @@ export default function FirstLook({ config }) {
             <div className="absolute inset-0">
               {settings.welcome_video_id ? (
                 <iframe
-                  key={`welcome-${isMuted}`}
+                  ref={welcomePlayerRef}
+                  data-wistia-id={settings.welcome_video_id}
                   src={getWistiaEmbedUrl(settings.welcome_video_id, {
                     autoPlay: true,
-                    muted: isMuted,
+                    muted: true,
                     loop: true,
                     controls: false
                   })}
