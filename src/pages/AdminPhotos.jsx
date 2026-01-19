@@ -34,6 +34,7 @@ export default function AdminPhotos() {
   const [selectedCategory, setSelectedCategory] = useState('ceremony');
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [newPhoto, setNewPhoto] = useState({
     image_url: '',
     caption: '',
@@ -121,6 +122,21 @@ export default function AdminPhotos() {
       id: photo.id,
       data: { is_active: !photo.is_active }
     });
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await base44.integrations.Core.UploadFile({ file });
+      setNewPhoto({ ...newPhoto, image_url: result.file_url });
+    } catch (error) {
+      alert('Failed to upload image: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSaveNewPhoto = () => {
@@ -241,20 +257,53 @@ export default function AdminPhotos() {
               </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">
-                  Image URL *
+                <label className="block text-sm font-medium text-stone-700 mb-2">
+                  Upload Image *
                 </label>
-                <Input
-                  value={newPhoto.image_url}
-                  onChange={(e) => setNewPhoto({ ...newPhoto, image_url: e.target.value })}
-                  placeholder="https://example.com/photo.jpg"
-                />
-                <p className="text-xs text-stone-500 mt-1">
-                  Upload image to Base44 Files first, then paste URL here
-                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                      <div className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                        uploading ? 'border-stone-300 bg-stone-50' : 'border-stone-300 hover:border-stone-400 hover:bg-stone-50'
+                      }`}>
+                        {uploading ? (
+                          <div className="flex items-center justify-center gap-2 text-stone-600">
+                            <div className="w-4 h-4 border-2 border-stone-600 border-t-transparent rounded-full animate-spin"></div>
+                            Uploading...
+                          </div>
+                        ) : newPhoto.image_url ? (
+                          <div className="text-green-600 font-medium">✓ Image uploaded</div>
+                        ) : (
+                          <div className="text-stone-600">
+                            <ImageIcon className="w-8 h-8 mx-auto mb-2 text-stone-400" />
+                            Click to select an image
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                  {newPhoto.image_url && (
+                    <Input
+                      value={newPhoto.image_url}
+                      onChange={(e) => setNewPhoto({ ...newPhoto, image_url: e.target.value })}
+                      placeholder="Or paste image URL"
+                      className="text-sm"
+                    />
+                  )}
+                </div>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">
@@ -305,13 +354,13 @@ export default function AdminPhotos() {
             )}
 
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsAddingPhoto(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveNewPhoto} disabled={!newPhoto.image_url}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Photo
-              </Button>
+            <Button variant="outline" onClick={() => setIsAddingPhoto(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNewPhoto} disabled={!newPhoto.image_url || uploading}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Photo
+            </Button>
             </div>
           </div>
         )}
