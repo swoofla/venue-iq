@@ -349,6 +349,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   const currentOptions = getCurrentOptions();
   const canContinue = currentStep?.type === 'guest_tier' 
     ? selections.guestTier !== null && (selections.guestTier === 'up_to_2' || selections.guestCount !== null)
+    : currentStep?.type === 'extras'
+    ? true // Extras always has a default value of 0
     : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
@@ -639,34 +641,79 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             </div>
           }
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {currentOptions.map((option) => {
-              const optionKey = option.id ?? option.label;
-              const isSelected = selections[currentStep.key] === optionKey;
-              const displayLabel = option.label || option.id;
-              const priceDisplay = formatPrice(option);
-              const sublabel = option.sublabel;
+          {currentStep.type === 'extras' ? (
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
+              <div className="space-y-3">
+                <div className="text-center">
+                  <span className="text-lg text-stone-600 mr-2">$</span>
+                  <input
+                    type="number"
+                    value={selections.extras || 0}
+                    onChange={(e) => {
+                      const value = Math.max(0, Math.min(10000, parseInt(e.target.value) || 0));
+                      setSelections(prev => ({ ...prev, extras: value }));
+                    }}
+                    className="text-3xl font-bold text-stone-900 bg-transparent text-center w-32 border-b-2 border-stone-300 focus:border-black outline-none"
+                    min={0}
+                    max={10000}
+                    step={100}
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    value={selections.extras || 0}
+                    onChange={(e) => setSelections(prev => ({ ...prev, extras: parseInt(e.target.value) }))}
+                    min={0}
+                    max={10000}
+                    step={100}
+                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
+                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
+                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
+                      [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white 
+                      [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer
+                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 
+                      [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-black 
+                      [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white 
+                      [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-stone-500 mt-1">
+                    <span>$0</span>
+                    <span>$10,000</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {currentOptions.map((option) => {
+                const optionKey = option.id ?? option.label;
+                const isSelected = selections[currentStep.key] === optionKey;
+                const displayLabel = option.label || option.id;
+                const priceDisplay = formatPrice(option);
+                const sublabel = option.sublabel;
 
-              return (
-                <button
-                  key={optionKey}
-                  onClick={() => handleSelect(optionKey)}
-                  className={`w-full p-4 rounded-xl text-left transition-all ${
-                  isSelected ?
-                  'bg-black text-white' :
-                  'bg-stone-50 hover:bg-stone-100 text-stone-700'}`
-                  }>
+                return (
+                  <button
+                    key={optionKey}
+                    onClick={() => handleSelect(optionKey)}
+                    className={`w-full p-4 rounded-xl text-left transition-all ${
+                    isSelected ?
+                    'bg-black text-white' :
+                    'bg-stone-50 hover:bg-stone-100 text-stone-700'}`
+                    }>
 
-                  <p className="font-medium">{displayLabel}{priceDisplay}</p>
-                  {sublabel &&
-                  <p className={`text-sm mt-1 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
-                      {sublabel}
-                    </p>
-                  }
-                </button>);
+                    <p className="font-medium">{displayLabel}{priceDisplay}</p>
+                    {sublabel &&
+                    <p className={`text-sm mt-1 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                        {sublabel}
+                      </p>
+                    }
+                  </button>);
 
-            })}
-          </div>
+              })}
+            </div>
+          )}
 
           {currentStep.type === 'guest_tier' && selections.guestTier && selections.guestTier !== 'up_to_2' && (
             <motion.div
