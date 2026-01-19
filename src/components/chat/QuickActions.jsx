@@ -1,11 +1,12 @@
 import React from 'react';
-import { Calculator, Calendar, CalendarCheck, Package } from 'lucide-react';
+import { Calculator, Calendar, CalendarCheck, Package, Image } from 'lucide-react';
 
 const actions = [
   { id: 'budget', label: 'Budget Calculator', icon: Calculator },
   { id: 'availability', label: 'Check Availability', icon: Calendar },
   { id: 'tour', label: 'Schedule a Tour', icon: CalendarCheck },
   { id: 'packages', label: 'View Packages', icon: Package },
+  { id: 'gallery', label: 'Explore Venue', icon: Image },
 ];
 
 export default function QuickActions({ onAction, disabled }) {

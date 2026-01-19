@@ -12,6 +12,7 @@ import EnhancedBudgetCalculator from '@/components/flows/EnhancedBudgetCalculato
 import AvailabilityChecker from '@/components/flows/AvailabilityChecker';
 import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
+import VenueGallery from '@/components/flows/VenueGallery';
 import VideoAskPanel from '@/components/VideoAskPanel';
 
 const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to have you. How can we help you envision your perfect day here?`;
