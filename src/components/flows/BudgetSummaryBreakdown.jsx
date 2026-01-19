@@ -100,36 +100,36 @@ export default function BudgetSummaryBreakdown({ selections, totalBudget, onEdit
   }
 
   return (
-    <div className="bg-stone-900 rounded-xl overflow-hidden">
-      <div className="p-4 border-b border-stone-700">
-        <h3 className="text-xl font-semibold text-white">Full Budget Breakdown</h3>
+    <div className="bg-white rounded-xl overflow-hidden border border-stone-200">
+      <div className="p-4 border-b border-stone-200">
+        <h3 className="text-xl font-semibold text-stone-900">Full Budget Breakdown</h3>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-stone-700">
-              <th className="text-left py-3 px-4 text-sm font-medium text-stone-300">Category</th>
-              <th className="text-left py-3 px-4 text-sm font-medium text-stone-300">Selection</th>
-              <th className="text-right py-3 px-4 text-sm font-medium text-stone-300">Price</th>
+            <tr className="border-b border-stone-200">
+              <th className="text-left py-3 px-4 text-sm font-medium text-stone-600">Category</th>
+              <th className="text-left py-3 px-4 text-sm font-medium text-stone-600">Selection</th>
+              <th className="text-right py-3 px-4 text-sm font-medium text-stone-600">Price</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, idx) => (
-              <tr key={idx} className="border-b border-stone-800">
-                <td className="py-3 px-4 text-sm text-stone-100">{row.category}</td>
-                <td className="py-3 px-4 text-sm text-stone-300">{row.selection}</td>
-                <td className="py-3 px-4 text-sm text-right text-stone-100">
+              <tr key={idx} className="border-b border-stone-100">
+                <td className="py-3 px-4 text-sm text-stone-900">{row.category}</td>
+                <td className="py-3 px-4 text-sm text-stone-600">{row.selection}</td>
+                <td className="py-3 px-4 text-sm text-right text-stone-900">
                   {row.price !== null ? `$${row.price.toLocaleString()}` : '-'}
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-stone-800">
-              <td className="py-4 px-4 text-base font-semibold text-white">TOTAL</td>
+            <tr className="bg-stone-50">
+              <td className="py-4 px-4 text-base font-semibold text-stone-900">TOTAL</td>
               <td className="py-4 px-4"></td>
-              <td className="py-4 px-4 text-right text-xl font-bold text-white">
+              <td className="py-4 px-4 text-right text-xl font-bold text-stone-900">
                 ${totalBudget.toLocaleString()}
               </td>
             </tr>
