@@ -534,6 +534,42 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             })}
           </div>
 
+          {currentStep.type === 'extras_slider' && (
+            <div className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-stone-900">
+                    ${(selections.extras || 0).toLocaleString()}
+                  </div>
+                  <p className="text-sm text-stone-600 mt-1">Extras Budget</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    value={selections.extras || 0}
+                    onChange={(e) => setSelections(prev => ({ ...prev, extras: parseInt(e.target.value) }))}
+                    min={0}
+                    max={10000}
+                    step={100}
+                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
+                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
+                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
+                      [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white 
+                      [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer
+                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 
+                      [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-black 
+                      [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white 
+                      [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-stone-500 mt-1">
+                    <span>$0</span>
+                    <span>$10,000</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {currentOptions.length === 0 && currentStep.type === 'day_of_week' &&
           <div className="bg-stone-100 rounded-xl p-4 text-center">
               <p className="text-stone-600">Please select a season first to see available days.</p>
