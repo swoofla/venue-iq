@@ -5,7 +5,7 @@ import { X, Play, ChevronLeft, MessageCircle } from 'lucide-react';
 const videoOptions = [
   { id: 'planner', label: 'Meet Your Planners', videoId: 'dQw4w9WgXcQ' },
   { id: 'packages', label: 'Learn About Packages', videoId: 'dQw4w9WgXcQ' },
-  { id: 'tour', label: 'Quick Mini Tour', videoId: 'dQw4w9WgXcQ' },
+  { id: 'tour', label: 'Mini POV Tour', videoId: 'dQw4w9WgXcQ' },
 ];
 
 export default function VideoAskPanel() {
