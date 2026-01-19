@@ -101,26 +101,6 @@ function buildTransformationPrompt(photoDescription, transformationHints, design
   return prompt;
 }
 
-// Pure JavaScript base64 encoding that handles large files
-function uint8ArrayToBase64(bytes) {
-  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let result = '';
-  const len = bytes.length;
-  
-  for (let i = 0; i < len; i += 3) {
-    const b1 = bytes[i];
-    const b2 = i + 1 < len ? bytes[i + 1] : 0;
-    const b3 = i + 2 < len ? bytes[i + 2] : 0;
-    
-    result += base64Chars[b1 >> 2];
-    result += base64Chars[((b1 & 3) << 4) | (b2 >> 4)];
-    result += i + 1 < len ? base64Chars[((b2 & 15) << 2) | (b3 >> 6)] : '=';
-    result += i + 2 < len ? base64Chars[b3 & 63] : '=';
-  }
-  
-  return result;
-}
-
 async function generateWithStability(baseImageUrl, prompt, designChoices) {
   const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
   
@@ -147,15 +127,38 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   const bytes = new Uint8Array(imageBuffer);
   
   console.log(`Image fetched: ${bytes.length} bytes`);
-  
-  // Convert to base64 using our safe function (no stack overflow)
-  const base64Image = uint8ArrayToBase64(bytes);
-  
-  console.log(`Image converted to base64: ${base64Image.length} characters`);
+
+  // Determine image type from URL or default to jpeg
+  let mimeType = 'image/jpeg';
+  if (baseImageUrl.toLowerCase().includes('.png')) {
+    mimeType = 'image/png';
+  } else if (baseImageUrl.toLowerCase().includes('.webp')) {
+    mimeType = 'image/webp';
+  }
 
   const strength = designChoices.transformationStrength || 0.60;
+  const imageStrength = 1 - strength; // Stability uses inverse (lower = more change)
 
-  console.log('Calling Stability AI with strength:', strength);
+  console.log('Calling Stability AI with image_strength:', imageStrength);
+
+  // Create FormData for multipart/form-data request
+  const formData = new FormData();
+  
+  // Add the image as a Blob
+  const imageBlob = new Blob([bytes], { type: mimeType });
+  formData.append('init_image', imageBlob, 'image.jpg');
+  
+  // Add other parameters
+  formData.append('init_image_mode', 'IMAGE_STRENGTH');
+  formData.append('image_strength', imageStrength.toString());
+  formData.append('text_prompts[0][text]', prompt);
+  formData.append('text_prompts[0][weight]', '1');
+  formData.append('text_prompts[1][text]', 'blurry, low quality, distorted, unrealistic, cartoon, anime, people, guests');
+  formData.append('text_prompts[1][weight]', '-1');
+  formData.append('cfg_scale', '7');
+  formData.append('samples', '1');
+  formData.append('steps', '40');
+  formData.append('style_preset', 'photographic');
 
   const response = await fetch(
     'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
@@ -163,22 +166,10 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${STABILITY_API_KEY}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
+        // Don't set Content-Type - let fetch set it with boundary for FormData
       },
-      body: JSON.stringify({
-        init_image: base64Image,
-        init_image_mode: 'IMAGE_STRENGTH',
-        image_strength: 1 - strength,
-        text_prompts: [
-          { text: prompt, weight: 1.0 },
-          { text: 'blurry, low quality, distorted, unrealistic, cartoon, anime, people, guests', weight: -1.0 }
-        ],
-        cfg_scale: 7,
-        samples: 1,
-        steps: 40,
-        style_preset: 'photographic'
-      })
+      body: formData
     }
   );
 
@@ -189,6 +180,7 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     console.error('Stability AI error:', errorData);
     if (response.status === 402) throw new Error('Insufficient Stability AI credits');
     if (response.status === 400) throw new Error(`Stability API bad request: ${JSON.stringify(errorData)}`);
+    if (response.status === 401) throw new Error('Invalid Stability API key');
     throw new Error(`Stability API error: ${errorData?.message || response.status}`);
   }
 
