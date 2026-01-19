@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Link, useSearchParams } from 'react-router-dom';
+import { createPageUrl } from '../utils';
+import VenueSelector from '@/components/admin/VenueSelector';
 import { 
   Plus, 
   Trash2, 
@@ -27,7 +29,8 @@ const CATEGORIES = [
 ];
 
 export default function AdminPhotos() {
-  const [venueId, setVenueId] = useState(null);
+  const [user, setUser] = useState(null);
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('ceremony');
   const [isAddingPhoto, setIsAddingPhoto] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState(null);
@@ -40,15 +43,20 @@ export default function AdminPhotos() {
   });
   
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
 
   // Get current user's venue
   React.useEffect(() => {
-    base44.auth.me().then(user => {
-      if (user?.venue_id) {
-        setVenueId(user.venue_id);
+    base44.auth.me().then(u => {
+      setUser(u);
+      const paramVenueId = searchParams.get('venue_id');
+      if (paramVenueId) {
+        setSelectedVenueId(paramVenueId);
       }
     });
-  }, []);
+  }, [searchParams]);
+
+  const venueId = selectedVenueId || user?.venue_id;
 
   // Fetch photos
   const { data: photos = [], isLoading } = useQuery({
@@ -141,14 +149,59 @@ export default function AdminPhotos() {
     return photos.filter(p => p.category === categoryId).length;
   };
 
-  return (
-    <AdminLayout>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-stone-900">Photo Gallery</h1>
-            <p className="text-stone-600 mt-1">Manage venue photos displayed in the chatbot</p>
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!venueId) {
+    if (user.role === 'admin' && !user.venue_id) {
+      return (
+        <div className="min-h-screen bg-white">
+          <div className="border-b border-stone-200">
+            <div className="max-w-7xl mx-auto px-4 py-4">
+              <h1 className="text-2xl font-semibold">Photo Gallery</h1>
+            </div>
           </div>
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+          <p className="text-stone-600 mb-4">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
+          <Button onClick={() => base44.auth.logout()}>Logout</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold">Photo Gallery</h1>
+              <p className="text-sm text-stone-600 mt-1">Manage venue photos displayed in the chatbot</p>
+            </div>
+            <div className="flex gap-2">
+              <Link to={createPageUrl('Dashboard') + (selectedVenueId ? `?venue_id=${selectedVenueId}` : '')}>
+                <Button variant="outline">Dashboard</Button>
+              </Link>
+              <Button onClick={() => base44.auth.logout()} variant="outline">
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center justify-between mb-6">
           <Button
             onClick={() => setIsAddingPhoto(true)}
             className="bg-black hover:bg-stone-800"
@@ -429,6 +482,6 @@ export default function AdminPhotos() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </div>
   );
 }
