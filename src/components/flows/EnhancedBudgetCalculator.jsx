@@ -301,7 +301,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       { title: 'Desserts', question: 'What kind of desserts are you wanting?', key: 'desserts', type: 'category' },
       { title: 'Table Linens', question: 'Do you want table linens?', key: 'linens', type: 'category' },
       { title: 'Tableware', question: 'What kind of tableware do you want?', key: 'tableware', type: 'category' },
-      { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras_slider' }];
+      { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras' }];
 
       return [...steps, ...categorySteps];
     }
@@ -322,17 +322,24 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         return getAvailableDays();
       case 'category':
         return getOptionsForCategory(currentStep.key);
-      case 'extras_slider':
-        return []; // Slider doesn't need options
+      case 'extras':
+        return [
+        { id: 0, label: '$0' },
+        { id: 500, label: '$500' },
+        { id: 1000, label: '$1,000' },
+        { id: 1500, label: '$1,500' },
+        { id: 2000, label: '$2,000' },
+        { id: 3000, label: '$3,000' },
+        { id: 5000, label: '$5,000' },
+        { id: 10000, label: '$10,000' }];
+
       default:
         return [];
     }
   };
 
   const currentOptions = getCurrentOptions();
-  const canContinue = currentStep?.type === 'extras_slider' 
-    ? true // Always allow continue for extras slider (even if $0)
-    : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+  const canContinue = selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
   const handleSelect = (value) => {
@@ -493,7 +500,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           exit={{ opacity: 0, x: -20 }}
           className="mt-4">
 
-          <div className="mb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-5 h-5 text-stone-400" />
             <h3 className="text-lg font-semibold text-stone-900">{currentStep.title}</h3>
           </div>
           <p className="text-stone-600 mb-4">{currentStep.question}</p>
@@ -532,42 +540,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
             })}
           </div>
-
-          {currentStep.type === 'extras_slider' && (
-            <div className="mt-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-stone-900">
-                    ${(selections.extras || 0).toLocaleString()}
-                  </div>
-                  <p className="text-sm text-stone-600 mt-1">Extras Budget</p>
-                </div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    value={selections.extras || 0}
-                    onChange={(e) => setSelections(prev => ({ ...prev, extras: parseInt(e.target.value) }))}
-                    min={0}
-                    max={10000}
-                    step={100}
-                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer 
-                      [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
-                      [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-black 
-                      [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white 
-                      [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer
-                      [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 
-                      [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-black 
-                      [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white 
-                      [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-stone-500 mt-1">
-                    <span>$0</span>
-                    <span>$10,000</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {currentOptions.length === 0 && currentStep.type === 'day_of_week' &&
           <div className="bg-stone-100 rounded-xl p-4 text-center">
