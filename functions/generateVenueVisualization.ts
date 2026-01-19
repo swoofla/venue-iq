@@ -1,4 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+
+// SDXL allowed dimensions (width x height)
+const SDXL_DIMENSIONS = [
+  { width: 1024, height: 1024, ratio: 1.0 },
+  { width: 1152, height: 896, ratio: 1.286 },
+  { width: 1216, height: 832, ratio: 1.462 },
+  { width: 1344, height: 768, ratio: 1.75 },
+  { width: 1536, height: 640, ratio: 2.4 },
+  { width: 640, height: 1536, ratio: 0.417 },
+  { width: 768, height: 1344, ratio: 0.571 },
+  { width: 832, height: 1216, ratio: 0.684 },
+  { width: 896, height: 1152, ratio: 0.778 },
+];
 
 Deno.serve(async (req) => {
   try {
@@ -101,6 +115,24 @@ function buildTransformationPrompt(photoDescription, transformationHints, design
   return prompt;
 }
 
+// Find the best SDXL dimension for a given aspect ratio
+function findBestDimension(width, height) {
+  const aspectRatio = width / height;
+  
+  let bestMatch = SDXL_DIMENSIONS[0];
+  let smallestDiff = Math.abs(aspectRatio - bestMatch.ratio);
+  
+  for (const dim of SDXL_DIMENSIONS) {
+    const diff = Math.abs(aspectRatio - dim.ratio);
+    if (diff < smallestDiff) {
+      smallestDiff = diff;
+      bestMatch = dim;
+    }
+  }
+  
+  return bestMatch;
+}
+
 async function generateWithStability(baseImageUrl, prompt, designChoices) {
   const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
   
@@ -124,29 +156,52 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   }
   
   const imageBuffer = await imageResponse.arrayBuffer();
-  const bytes = new Uint8Array(imageBuffer);
-  
-  console.log(`Image fetched: ${bytes.length} bytes`);
+  console.log(`Image fetched: ${imageBuffer.byteLength} bytes`);
 
-  // Determine image type from URL or default to jpeg
-  let mimeType = 'image/jpeg';
-  if (baseImageUrl.toLowerCase().includes('.png')) {
-    mimeType = 'image/png';
-  } else if (baseImageUrl.toLowerCase().includes('.webp')) {
-    mimeType = 'image/webp';
-  }
+  // Decode image using imagescript (pure JS - works in Deno)
+  const image = await Image.decode(new Uint8Array(imageBuffer));
+  const originalWidth = image.width;
+  const originalHeight = image.height;
+  
+  console.log(`Original dimensions: ${originalWidth}x${originalHeight}`);
+  
+  // Find best matching SDXL dimension
+  const targetDim = findBestDimension(originalWidth, originalHeight);
+  console.log(`Resizing to SDXL dimension: ${targetDim.width}x${targetDim.height}`);
+  
+  // Resize image using cover fit (resize + crop to fill)
+  // First, calculate scale to cover the target dimensions
+  const scaleX = targetDim.width / originalWidth;
+  const scaleY = targetDim.height / originalHeight;
+  const scale = Math.max(scaleX, scaleY);
+  
+  const scaledWidth = Math.round(originalWidth * scale);
+  const scaledHeight = Math.round(originalHeight * scale);
+  
+  // Resize to scaled dimensions
+  image.resize(scaledWidth, scaledHeight);
+  
+  // Crop to exact target dimensions (center crop)
+  const cropX = Math.round((scaledWidth - targetDim.width) / 2);
+  const cropY = Math.round((scaledHeight - targetDim.height) / 2);
+  image.crop(cropX, cropY, targetDim.width, targetDim.height);
+  
+  // Encode as PNG (imagescript outputs PNG)
+  const resizedBuffer = await image.encode();
+  
+  console.log(`Resized image: ${resizedBuffer.length} bytes`);
 
   const strength = designChoices.transformationStrength || 0.60;
-  const imageStrength = 1 - strength; // Stability uses inverse (lower = more change)
+  const imageStrength = 1 - strength;
 
   console.log('Calling Stability AI with image_strength:', imageStrength);
 
   // Create FormData for multipart/form-data request
   const formData = new FormData();
   
-  // Add the image as a Blob
-  const imageBlob = new Blob([bytes], { type: mimeType });
-  formData.append('init_image', imageBlob, 'image.jpg');
+  // Add the resized image as a Blob
+  const imageBlob = new Blob([resizedBuffer], { type: 'image/png' });
+  formData.append('init_image', imageBlob, 'image.png');
   
   // Add other parameters
   formData.append('init_image_mode', 'IMAGE_STRENGTH');
@@ -167,7 +222,6 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
       headers: {
         'Authorization': `Bearer ${STABILITY_API_KEY}`,
         'Accept': 'application/json',
-        // Don't set Content-Type - let fetch set it with boundary for FormData
       },
       body: formData
     }
@@ -197,6 +251,7 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     success: true,
     imageUrl: `data:image/png;base64,${data.artifacts[0].base64}`,
     provider: 'stability',
-    prompt: prompt
+    prompt: prompt,
+    dimensions: `${targetDim.width}x${targetDim.height}`
   };
 }
