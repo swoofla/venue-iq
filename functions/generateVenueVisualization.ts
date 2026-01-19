@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { encodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -102,6 +101,26 @@ function buildTransformationPrompt(photoDescription, transformationHints, design
   return prompt;
 }
 
+// Pure JavaScript base64 encoding that handles large files
+function uint8ArrayToBase64(bytes) {
+  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  const len = bytes.length;
+  
+  for (let i = 0; i < len; i += 3) {
+    const b1 = bytes[i];
+    const b2 = i + 1 < len ? bytes[i + 1] : 0;
+    const b3 = i + 2 < len ? bytes[i + 2] : 0;
+    
+    result += base64Chars[b1 >> 2];
+    result += base64Chars[((b1 & 3) << 4) | (b2 >> 4)];
+    result += i + 1 < len ? base64Chars[((b2 & 15) << 2) | (b3 >> 6)] : '=';
+    result += i + 2 < len ? base64Chars[b3 & 63] : '=';
+  }
+  
+  return result;
+}
+
 async function generateWithStability(baseImageUrl, prompt, designChoices) {
   const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
   
@@ -109,25 +128,34 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     throw new Error('STABILITY_API_KEY not configured. Add it to your Base44 Secrets.');
   }
 
+  console.log('Fetching image from:', baseImageUrl);
+
   // Fetch base image
   const imageResponse = await fetch(baseImageUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
   });
+  
   if (!imageResponse.ok) {
-    console.error('Failed to fetch image:', imageResponse.status, await imageResponse.text());
-    throw new Error('Failed to fetch base image');
+    const errorText = await imageResponse.text();
+    console.error('Failed to fetch image:', imageResponse.status, errorText);
+    throw new Error(`Failed to fetch base image: ${imageResponse.status}`);
   }
   
   const imageBuffer = await imageResponse.arrayBuffer();
+  const bytes = new Uint8Array(imageBuffer);
   
-  // Convert to base64 using Deno's standard library (handles large files properly)
-  const base64Image = encodeBase64(new Uint8Array(imageBuffer));
+  console.log(`Image fetched: ${bytes.length} bytes`);
+  
+  // Convert to base64 using our safe function (no stack overflow)
+  const base64Image = uint8ArrayToBase64(bytes);
   
   console.log(`Image converted to base64: ${base64Image.length} characters`);
 
   const strength = designChoices.transformationStrength || 0.60;
+
+  console.log('Calling Stability AI with strength:', strength);
 
   const response = await fetch(
     'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
@@ -154,14 +182,24 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     }
   );
 
+  console.log('Stability AI response status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error('Stability AI error:', errorData);
     if (response.status === 402) throw new Error('Insufficient Stability AI credits');
+    if (response.status === 400) throw new Error(`Stability API bad request: ${JSON.stringify(errorData)}`);
     throw new Error(`Stability API error: ${errorData?.message || response.status}`);
   }
 
   const data = await response.json();
-  if (!data.artifacts || data.artifacts.length === 0) throw new Error('No image generated');
+  
+  if (!data.artifacts || data.artifacts.length === 0) {
+    console.error('No artifacts in response:', data);
+    throw new Error('No image generated');
+  }
+
+  console.log('Image generated successfully');
 
   return {
     success: true,
