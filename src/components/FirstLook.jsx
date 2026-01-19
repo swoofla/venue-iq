@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
 
@@ -7,11 +7,10 @@ export default function FirstLook({ config }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
-  const menuVideoRef = useRef(null);
 
   const defaultConfig = {
     is_enabled: true,
-    welcome_video_url: '',
+    welcome_video_id: '',
     welcome_video_thumbnail: '',
     host_name: 'Your Host',
     host_title: 'Owner & Head Planner',
@@ -21,23 +20,46 @@ export default function FirstLook({ config }) {
 
   const settings = config || defaultConfig;
 
+  // Build Wistia iframe URL with parameters
+  const getWistiaEmbedUrl = (videoId, options = {}) => {
+    if (!videoId) return '';
+    
+    const {
+      autoPlay = true,
+      muted = true,
+      loop = true,
+      controls = false
+    } = options;
+    
+    const params = new URLSearchParams({
+      autoPlay: autoPlay.toString(),
+      silentAutoPlay: 'true',
+      muted: muted.toString(),
+      endVideoBehavior: loop ? 'loop' : 'default',
+      playbar: controls.toString(),
+      controlsVisibleOnLoad: controls.toString(),
+      settingsControl: 'false',
+      fullscreenButton: controls.toString(),
+      playButton: 'false',
+      smallPlayButton: 'false',
+      volumeControl: controls.toString(),
+      fitStrategy: 'cover',
+      videoFoam: 'false'
+    });
+    
+    return `https://fast.wistia.net/embed/iframe/${videoId}?${params.toString()}`;
+  };
+
   const handleUnmute = () => {
     setIsMuted(false);
     setShowUnmuteHint(false);
-    if (menuVideoRef.current) {
-      menuVideoRef.current.muted = false;
-      menuVideoRef.current.currentTime = 0;
-      menuVideoRef.current.play();
-    }
   };
 
   const handleMute = () => {
     setIsMuted(true);
-    if (menuVideoRef.current) {
-      menuVideoRef.current.muted = true;
-    }
   };
 
+  // Auto-hide unmute hint after 5 seconds
   useEffect(() => {
     if (showUnmuteHint && isOpen && !selectedVideo) {
       const timer = setTimeout(() => setShowUnmuteHint(false), 5000);
@@ -47,6 +69,7 @@ export default function FirstLook({ config }) {
 
   if (!settings.is_enabled) return null;
 
+  // Collapsed state - just show play button
   if (!isOpen) {
     return (
       <motion.button
@@ -70,14 +93,16 @@ export default function FirstLook({ config }) {
     >
       <AnimatePresence mode="wait">
         {selectedVideo ? (
+          /* ===== SELECTED VIDEO PLAYER VIEW ===== */
           <motion.div
             key="video"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full h-full flex flex-col"
+            className="w-full h-full flex flex-col relative"
           >
-            <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-2 z-10 bg-gradient-to-b from-black/50 to-transparent">
+            {/* Header with back button */}
+            <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-2 z-10 bg-gradient-to-b from-black/60 to-transparent">
               <button
                 onClick={() => setSelectedVideo(null)}
                 className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors"
@@ -89,17 +114,23 @@ export default function FirstLook({ config }) {
               </span>
             </div>
             
+            {/* Full video player with controls */}
             <div className="w-full h-full bg-black">
-              <video
-                src={settings.video_options?.find(v => v.id === selectedVideo)?.video_url}
-                className="w-full h-full object-cover"
-                controls
-                autoPlay
-                playsInline
+              <iframe
+                src={getWistiaEmbedUrl(
+                  settings.video_options?.find(v => v.id === selectedVideo)?.video_id,
+                  { autoPlay: true, muted: false, loop: false, controls: true }
+                )}
+                className="w-full h-full"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                frameBorder="0"
+                title="Video player"
               />
             </div>
           </motion.div>
         ) : (
+          /* ===== WELCOME MENU VIEW ===== */
           <motion.div
             key="menu"
             initial={{ opacity: 0 }}
@@ -107,18 +138,22 @@ export default function FirstLook({ config }) {
             exit={{ opacity: 0 }}
             className="w-full h-full relative"
           >
-            {/* Background: Muted autoplay video OR fallback image */}
+            {/* Background: Wistia video embed OR fallback image */}
             <div className="absolute inset-0">
-              {settings.welcome_video_url ? (
-                <video
-                  ref={menuVideoRef}
-                  src={settings.welcome_video_url}
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  loop
-                  muted={isMuted}
-                  playsInline
-                  poster={settings.welcome_video_thumbnail}
+              {settings.welcome_video_id ? (
+                <iframe
+                  key={`welcome-${isMuted}`}
+                  src={getWistiaEmbedUrl(settings.welcome_video_id, {
+                    autoPlay: true,
+                    muted: isMuted,
+                    loop: true,
+                    controls: false
+                  })}
+                  className="w-full h-full"
+                  style={{ pointerEvents: 'none' }}
+                  allow="autoplay"
+                  frameBorder="0"
+                  title="Welcome video"
                 />
               ) : settings.welcome_video_thumbnail ? (
                 <img 
@@ -129,7 +164,8 @@ export default function FirstLook({ config }) {
               ) : (
                 <div className="w-full h-full bg-gradient-to-b from-stone-700 to-stone-900" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+              {/* Gradient overlay for text readability */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 pointer-events-none" />
             </div>
 
             {/* Close Button */}
@@ -141,7 +177,7 @@ export default function FirstLook({ config }) {
             </button>
 
             {/* Mute/Unmute Button - only show if there's a welcome video */}
-            {settings.welcome_video_url && (
+            {settings.welcome_video_id && (
               <button
                 onClick={isMuted ? handleUnmute : handleMute}
                 className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
@@ -152,7 +188,7 @@ export default function FirstLook({ config }) {
 
             {/* Tap to Unmute Hint - auto-hides after 5 seconds */}
             <AnimatePresence>
-              {isMuted && showUnmuteHint && settings.welcome_video_url && (
+              {isMuted && showUnmuteHint && settings.welcome_video_id && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -172,6 +208,7 @@ export default function FirstLook({ config }) {
 
             {/* Content - Bottom section */}
             <div className="absolute inset-0 flex flex-col justify-end p-5">
+              {/* Host intro text */}
               <div className="mb-5">
                 <h3 className="text-white text-xl font-semibold mb-1">
                   Hi, I'm {settings.host_name}
@@ -181,13 +218,14 @@ export default function FirstLook({ config }) {
                 </p>
               </div>
 
+              {/* Video menu options */}
               {settings.video_options && settings.video_options.length > 0 && (
                 <div className="space-y-2.5">
                   {settings.video_options.map((option) => (
                     <button
                       key={option.id}
-                      onClick={() => option.video_url && setSelectedVideo(option.id)}
-                      disabled={!option.video_url}
+                      onClick={() => option.video_id && setSelectedVideo(option.id)}
+                      disabled={!option.video_id}
                       className="w-full px-4 py-3.5 bg-white/10 backdrop-blur-sm rounded-2xl text-white font-medium text-left hover:bg-white/20 transition-all flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="text-sm">{option.label}</span>
@@ -199,6 +237,7 @@ export default function FirstLook({ config }) {
                 </div>
               )}
 
+              {/* Branding */}
               <p className="text-center text-white/40 text-xs mt-4 font-medium tracking-wide">
                 FIRST LOOK
               </p>
