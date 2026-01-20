@@ -1,43 +1,48 @@
+// generateVenueVisualization.js - v3 with Inpainting + Masking Support
+// 
+// This version uses Stability AI's inpainting endpoint when a mask is provided,
+// which forces all edits into the ceremony zone while protecting the background.
+//
+// USAGE:
+// - If maskImageUrl is provided: Uses inpainting (best results)
+// - If no mask: Falls back to img2img with structured prompts
+
 import { encodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 import * as imagescript from "https://deno.land/x/imagescript@1.2.15/mod.ts";
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
-  console.log('=== generateVenueVisualization v3 START ===');
+  console.log('=== generateVenueVisualization v3 (Inpainting) START ===');
 
   try {
     const { 
       baseImageUrl,
       maskImageUrl,
-      photoDescription,
-      transformationHints,
-      designChoices
+      prompt
     } = await req.json();
 
     console.log('baseImageUrl:', baseImageUrl ? 'present' : 'missing');
-    console.log('maskImageUrl:', maskImageUrl ? maskImageUrl : 'NOT PROVIDED');
-    console.log('designChoices:', JSON.stringify(designChoices));
+    console.log('maskImageUrl:', maskImageUrl || 'none');
+    console.log('prompt:', prompt ? 'present' : 'missing');
 
-    if (!baseImageUrl || !designChoices) {
-      return Response.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+    if (!baseImageUrl || !prompt) {
+      return Response.json({ success: false, error: 'Missing required fields: baseImageUrl and prompt' }, { status: 400 });
     }
 
     const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
     if (!STABILITY_API_KEY) {
-      console.error('STABILITY_API_KEY not found in environment');
       return Response.json({ success: false, error: 'Stability API key not configured' }, { status: 500 });
     }
 
-    // Build the prompt
-    const prompt = buildInpaintingPrompt(photoDescription, transformationHints, designChoices);
     console.log('=== PROMPT ===');
     console.log(prompt);
+    console.log('==============');
 
-    // Determine mode
+    // Determine which mode to use
     const useInpainting = !!maskImageUrl;
-    console.log(`Mode: ${useInpainting ? 'INPAINTING' : 'IMG2IMG'}`);
+    console.log(`Mode: ${useInpainting ? 'INPAINTING (with mask)' : 'IMG2IMG (no mask)'}`);
 
-    // Fetch base image
+    // Fetch and process the base image
     console.log('Fetching base image...');
     const imageResponse = await fetch(baseImageUrl);
     if (!imageResponse.ok) {
@@ -46,8 +51,8 @@ Deno.serve(async (req) => {
     const imageBuffer = await imageResponse.arrayBuffer();
     const imageBytes = new Uint8Array(imageBuffer);
 
-    // Resize to SDXL dimensions
-    console.log('Resizing image...');
+    // Resize to valid SDXL dimensions
+    console.log('Processing base image...');
     const image = await imagescript.decode(imageBytes);
     const aspectRatio = image.width / image.height;
     
@@ -66,50 +71,36 @@ Deno.serve(async (req) => {
     image.resize(targetWidth, targetHeight);
     const resizedImageBytes = await image.encode(1);
     const base64Image = encodeBase64(resizedImageBytes);
-    console.log(`Base image resized: ${targetWidth}x${targetHeight}`);
+    console.log(`Base image: ${targetWidth}x${targetHeight}`);
 
     // Process mask if provided
     let base64Mask = null;
-    if (useInpainting && maskImageUrl) {
-      console.log('Fetching mask image from:', maskImageUrl);
-      try {
-        const maskResponse = await fetch(maskImageUrl);
-        if (!maskResponse.ok) {
-          console.warn(`Failed to fetch mask: ${maskResponse.status}`);
-        } else {
-          const maskBuffer = await maskResponse.arrayBuffer();
-          const maskBytes = new Uint8Array(maskBuffer);
-          
-          const maskImage = await imagescript.decode(maskBytes);
-          maskImage.resize(targetWidth, targetHeight);
-          const resizedMaskBytes = await maskImage.encode(1);
-          base64Mask = encodeBase64(resizedMaskBytes);
-          console.log(`Mask image resized: ${targetWidth}x${targetHeight}`);
-        }
-      } catch (maskError) {
-        console.warn('Mask fetch error:', maskError.message);
+    if (useInpainting) {
+      console.log('Fetching mask image...');
+      const maskResponse = await fetch(maskImageUrl);
+      if (!maskResponse.ok) {
+        console.warn(`Failed to fetch mask: ${maskResponse.status}, falling back to img2img`);
+      } else {
+        const maskBuffer = await maskResponse.arrayBuffer();
+        const maskBytes = new Uint8Array(maskBuffer);
+        
+        const maskImage = await imagescript.decode(maskBytes);
+        maskImage.resize(targetWidth, targetHeight);
+        const resizedMaskBytes = await maskImage.encode(1);
+        base64Mask = encodeBase64(resizedMaskBytes);
+        console.log(`Mask image: ${targetWidth}x${targetHeight}`);
       }
     }
 
-    // Determine strength
-    const strengthMap = {
-      'subtle': 0.55,
-      'balanced': 0.70,
-      'dramatic': 0.85
-    };
-    const strength = strengthMap[designChoices.transformationStrength] || 0.70;
-    console.log(`Strength: ${strength}`);
-
-    // Convert base64 to blob
+    // Convert base64 to blobs
     const imageBlob = base64ToBlob(base64Image, 'image/png');
     
     let result;
-    
     if (base64Mask) {
       // ============================================
-      // INPAINTING MODE
+      // INPAINTING MODE (with mask)
       // ============================================
-      console.log('Calling Stability AI INPAINTING endpoint...');
+      console.log('Using INPAINTING endpoint...');
       
       const maskBlob = base64ToBlob(base64Mask, 'image/png');
       
@@ -139,7 +130,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Stability Inpaint error:', response.status, errorText);
+        console.error('Stability Inpaint API error:', response.status, errorText);
         throw new Error(`Stability API error: ${response.status} - ${errorText}`);
       }
 
@@ -147,11 +138,11 @@ Deno.serve(async (req) => {
       
     } else {
       // ============================================
-      // IMG2IMG MODE (fallback)
+      // IMG2IMG MODE (fallback, no mask)
       // ============================================
-      console.log('Calling Stability AI IMG2IMG endpoint...');
+      console.log('Using IMG2IMG endpoint (no mask provided)...');
       
-      const imageStrength = 1 - strength;
+      const imageStrength = 0.30; // Higher = more transformation
       
       const formData = new FormData();
       formData.append('init_image', imageBlob, 'venue.png');
@@ -179,7 +170,7 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Stability IMG2IMG error:', response.status, errorText);
+        console.error('Stability IMG2IMG API error:', response.status, errorText);
         throw new Error(`Stability API error: ${response.status} - ${errorText}`);
       }
 
@@ -201,7 +192,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('generateVenueVisualization error:', error);
     return Response.json({ 
       success: false, 
       error: error.message 
@@ -209,6 +200,9 @@ Deno.serve(async (req) => {
   }
 });
 
+// ============================================
+// HELPER: Base64 to Blob
+// ============================================
 function base64ToBlob(base64, mimeType) {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
@@ -218,57 +212,13 @@ function base64ToBlob(base64, mimeType) {
   return new Blob([bytes], { type: mimeType });
 }
 
-function buildInpaintingPrompt(photoDescription, transformationHints, designChoices) {
-  const { style, colorPalette, florals, lighting } = designChoices;
-
-  const STYLE_DECOR = {
-    romantic: 'romantic wedding arch with flowing sheer fabric draping and cascading floral arrangements, rose petals on the ground, elegant floral aisle markers',
-    rustic: 'rustic wooden wedding arch with greenery garlands and wildflowers, burlap accents, mason jar arrangements, natural branch elements',
-    modern: 'sleek geometric metal wedding arch with minimalist floral accents, modern sculptural arrangements, clean contemporary decorations',
-    bohemian: 'macramé wedding arch backdrop with pampas grass and dried flowers, eclectic bohemian decorations, woven textiles',
-    garden: 'lush floral garden arch overflowing with roses and hydrangeas, abundant ground arrangements, romantic garden decorations',
-    glamorous: 'dramatic tall wedding arch with cascading white orchids and crystal accents, luxury floral pedestals, opulent decorations',
-    vintage: 'antique-style wedding arch with vintage lace and old garden roses, antique lanterns, heirloom-inspired decorations',
-    coastal: 'driftwood wedding arch with flowing white fabric, tropical greenery, seashell accents, beach-inspired decorations'
-  };
-
-  const COLOR_PALETTES = {
-    blush_gold: 'soft blush pink, champagne gold, ivory white flowers',
-    sage_cream: 'sage green, soft cream, natural ivory tones',
-    dusty_blue: 'dusty blue, silver gray, crisp white accents',
-    burgundy_navy: 'deep burgundy, navy blue, gold accents',
-    terracotta: 'terracotta orange, rust brown, warm earth tones',
-    lavender: 'soft lavender, purple, dusty mauve colors',
-    classic_white: 'pure white, fresh green, classic ivory',
-    sunset: 'coral orange, soft pink, golden yellow tones'
-  };
-
-  const FLORAL_STYLES = {
-    lush_garden: 'abundant garden roses, peonies, ranunculus',
-    wildflower: 'natural wildflower mix, loose arrangements',
-    minimal_modern: 'architectural flowers, calla lilies, orchids',
-    dried_preserved: 'dried flowers, pampas grass, preserved botanicals',
-    greenery_focused: 'lush eucalyptus, ferns, olive branches',
-    classic_elegant: 'classic roses, hydrangeas, traditional arrangements'
-  };
-
-  const LIGHTING_ADDITIONS = {
-    string_lights: 'with romantic string lights overhead',
-    candles: 'with pillar candles and warm candlelight',
-    chandeliers: 'with elegant crystal chandelier',
-    lanterns: 'with decorative lanterns',
-    natural: 'in beautiful natural daylight',
-    mixed: 'with candles and string lights'
-  };
-
-  const decorStyle = STYLE_DECOR[style] || STYLE_DECOR.romantic;
-  const colors = COLOR_PALETTES[colorPalette] || COLOR_PALETTES.classic_white;
-  const flowers = FLORAL_STYLES[florals] || FLORAL_STYLES.classic_elegant;
-  const lightingAccent = LIGHTING_ADDITIONS[lighting] || LIGHTING_ADDITIONS.natural;
-
-  return `Beautiful wedding ceremony decorations: ${decorStyle}. Colors: ${colors}. Florals: ${flowers}. ${lightingAccent}. Professional wedding photography, photorealistic, magazine quality, natural shadows.`;
-}
-
+// ============================================
+// NEGATIVE PROMPT
+// ============================================
 function buildNegativePrompt() {
-  return 'blurry, distorted, low quality, cartoon, anime, illustration, people, guests, bride, groom, text, watermark, logo';
+  return `blurry, distorted, low quality, cartoon, anime, illustration, painting, 
+sketch, unrealistic, artificial, oversaturated, 
+people, guests, bride, groom, crowd,
+text, watermark, logo, signature,
+floating objects, impossible physics, wrong scale`;
 }
