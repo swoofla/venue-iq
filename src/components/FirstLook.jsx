@@ -104,6 +104,22 @@ export default function FirstLook({ config }) {
     }
   }, [isOpen, selectedVideo]);
 
+  // Hide Wistia's native unmute overlay
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .wistia_click_to_play,
+      .wistia_placeholderImage_overlay,
+      .w-big-play-button,
+      .w-unmute-button,
+      .wistia_unmute_button {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   // Build Wistia iframe URL for selected videos (these play with controls)
   const getWistiaEmbedUrl = (videoId, options = {}) => {
     if (!videoId) return '';
@@ -216,7 +232,7 @@ export default function FirstLook({ config }) {
               {settings.welcome_video_id ? (
                 <div
                   ref={welcomeContainerRef}
-                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false`}
+                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false playlistLinks=false muted=true qualityControl=false`}
                   style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
                 />
               ) : settings.welcome_video_thumbnail ? (
