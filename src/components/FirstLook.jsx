@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
+import { X, Play, Pause, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
 
 export default function FirstLook({ config }) {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
-  const [welcomePlayerReady, setWelcomePlayerReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
   const welcomePlayerRef = useRef(null);
-  const welcomeContainerRef = useRef(null);
+  const selectedPlayerRef = useRef(null);
 
   const defaultConfig = {
     is_enabled: true,
@@ -25,52 +26,133 @@ export default function FirstLook({ config }) {
 
   // Load Wistia script once
   useEffect(() => {
-    if (!settings.welcome_video_id) return;
-    
-    // Check if script already exists
     if (!document.querySelector('script[src*="wistia.com/assets/external/E-v1.js"]')) {
       const script = document.createElement('script');
       script.src = 'https://fast.wistia.com/assets/external/E-v1.js';
       script.async = true;
       document.head.appendChild(script);
     }
-  }, [settings.welcome_video_id]);
+    
+    // Add CSS to hide Wistia's native overlays
+    const style = document.createElement('style');
+    style.id = 'firstlook-wistia-overrides';
+    style.textContent = `
+      .wistia_click_to_play,
+      .w-big-play-button,
+      .w-playbar,
+      .w-control-bar,
+      .w-vulcan-v2-button,
+      .w-css-reset-tree button,
+      .wistia_placeholderImage_overlay {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    if (!document.getElementById('firstlook-wistia-overrides')) {
+      document.head.appendChild(style);
+    }
+    
+    return () => {
+      const existingStyle = document.getElementById('firstlook-wistia-overrides');
+      if (existingStyle) existingStyle.remove();
+    };
+  }, []);
 
   // Initialize welcome video player
   useEffect(() => {
     if (!settings.welcome_video_id || !isOpen || selectedVideo) return;
 
-    // Wait for Wistia to be available
     const initPlayer = () => {
       window._wq = window._wq || [];
       window._wq.push({
         id: settings.welcome_video_id,
         onReady: (video) => {
           welcomePlayerRef.current = video;
-          setWelcomePlayerReady(true);
           video.mute();
           video.play();
         }
       });
     };
 
-    // Check if Wistia is loaded
     if (window.Wistia) {
       initPlayer();
     } else {
-      // Wait for script to load
       const checkWistia = setInterval(() => {
         if (window.Wistia) {
           clearInterval(checkWistia);
           initPlayer();
         }
       }, 100);
-      
       return () => clearInterval(checkWistia);
     }
   }, [settings.welcome_video_id, isOpen, selectedVideo]);
 
-  // Handle mute/unmute using Wistia API
+  // Initialize selected video player
+  useEffect(() => {
+    if (!selectedVideo) {
+      selectedPlayerRef.current = null;
+      setProgress(0);
+      setIsPlaying(true);
+      return;
+    }
+
+    const videoId = settings.video_options?.find(v => v.id === selectedVideo)?.video_id;
+    if (!videoId) return;
+
+    const initSelectedPlayer = () => {
+      window._wq = window._wq || [];
+      window._wq.push({
+        id: videoId,
+        onReady: (video) => {
+          selectedPlayerRef.current = video;
+          video.unmute();
+          video.play();
+          setIsPlaying(true);
+
+          // Track progress
+          video.bind('timechange', (t) => {
+            const duration = video.duration();
+            if (duration > 0) {
+              setProgress((t / duration) * 100);
+            }
+          });
+
+          // Handle video end
+          video.bind('end', () => {
+            setIsPlaying(false);
+            setProgress(100);
+          });
+        }
+      });
+    };
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      if (window.Wistia) {
+        initSelectedPlayer();
+      } else {
+        const checkWistia = setInterval(() => {
+          if (window.Wistia) {
+            clearInterval(checkWistia);
+            initSelectedPlayer();
+          }
+        }, 100);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [selectedVideo, settings.video_options]);
+
+  // Pause welcome video when selecting a video
+  useEffect(() => {
+    if (selectedVideo && welcomePlayerRef.current) {
+      welcomePlayerRef.current.pause();
+    } else if (!selectedVideo && welcomePlayerRef.current && isOpen) {
+      welcomePlayerRef.current.play();
+    }
+  }, [selectedVideo, isOpen]);
+
   const handleUnmute = () => {
     if (welcomePlayerRef.current) {
       welcomePlayerRef.current.unmute();
@@ -87,6 +169,31 @@ export default function FirstLook({ config }) {
     setIsMuted(true);
   };
 
+  const togglePlayPause = () => {
+    if (!selectedPlayerRef.current) return;
+    
+    if (isPlaying) {
+      selectedPlayerRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      selectedPlayerRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleProgressClick = (e) => {
+    if (!selectedPlayerRef.current) return;
+    
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const duration = selectedPlayerRef.current.duration();
+    
+    selectedPlayerRef.current.time(percentage * duration);
+    setProgress(percentage * 100);
+  };
+
   // Auto-hide unmute hint after 5 seconds
   useEffect(() => {
     if (showUnmuteHint && isOpen && !selectedVideo) {
@@ -95,61 +202,9 @@ export default function FirstLook({ config }) {
     }
   }, [showUnmuteHint, isOpen, selectedVideo]);
 
-  // Cleanup player when closing or selecting different video
-  useEffect(() => {
-    if (!isOpen || selectedVideo) {
-      if (welcomePlayerRef.current) {
-        welcomePlayerRef.current.pause();
-      }
-    }
-  }, [isOpen, selectedVideo]);
-
-  // Hide Wistia's native unmute overlay
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .wistia_click_to_play,
-      .wistia_placeholderImage_overlay,
-      .w-big-play-button,
-      .w-unmute-button,
-      .wistia_unmute_button {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
-
-  // Build Wistia iframe URL for selected videos (these play with controls)
-  const getWistiaEmbedUrl = (videoId, options = {}) => {
-    if (!videoId) return '';
-    
-    const {
-      autoPlay = true,
-      muted = false,
-      loop = false,
-      controls = true
-    } = options;
-    
-    const params = new URLSearchParams({
-      autoPlay: autoPlay.toString(),
-      muted: muted.toString(),
-      endVideoBehavior: loop ? 'loop' : 'default',
-      playbar: controls.toString(),
-      controlsVisibleOnLoad: controls.toString(),
-      settingsControl: 'false',
-      fullscreenButton: controls.toString(),
-      volumeControl: controls.toString(),
-      fitStrategy: 'cover',
-      videoFoam: 'false'
-    });
-    
-    return `https://fast.wistia.net/embed/iframe/${videoId}?${params.toString()}`;
-  };
-
   if (!settings.is_enabled) return null;
 
-  // Collapsed state - just show play button
+  // Collapsed state
   if (!isOpen) {
     return (
       <motion.button
@@ -180,11 +235,16 @@ export default function FirstLook({ config }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="w-full h-full flex flex-col relative"
+            onClick={togglePlayPause}
           >
             {/* Header with back button */}
             <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-2 z-10 bg-gradient-to-b from-black/60 to-transparent">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (selectedPlayerRef.current) {
+                    selectedPlayerRef.current.pause();
+                  }
                   setSelectedVideo(null);
                   setIsMuted(true);
                   setShowUnmuteHint(true);
@@ -198,19 +258,45 @@ export default function FirstLook({ config }) {
               </span>
             </div>
             
-            {/* Full video player with controls */}
+            {/* Wistia video container */}
             <div className="w-full h-full bg-black">
-              <iframe
-                src={getWistiaEmbedUrl(
-                  settings.video_options?.find(v => v.id === selectedVideo)?.video_id,
-                  { autoPlay: true, muted: false, loop: false, controls: true }
-                )}
-                className="w-full h-full"
-                allow="autoplay; fullscreen"
-                allowFullScreen
-                frameBorder="0"
-                title="Video player"
+              <div
+                className={`wistia_embed wistia_async_${settings.video_options?.find(v => v.id === selectedVideo)?.video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false playPauseNotifier=false`}
+                style={{ width: '100%', height: '100%' }}
               />
+            </div>
+
+            {/* Custom play/pause overlay - shows when paused */}
+            <AnimatePresence>
+              {!isPlaying && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/30 z-10"
+                  onClick={togglePlayPause}
+                >
+                  <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Play className="w-8 h-8 text-white ml-1" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Custom progress bar */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent z-10">
+              <div 
+                className="w-full h-1 bg-white/30 rounded-full cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleProgressClick(e);
+                }}
+              >
+                <div 
+                  className="h-full bg-white rounded-full transition-all duration-100"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           </motion.div>
         ) : (
@@ -227,12 +313,11 @@ export default function FirstLook({ config }) {
               }
             }}
           >
-            {/* Background: Wistia video embed using JS API OR fallback image */}
+            {/* Background: Wistia video */}
             <div className="absolute inset-0">
               {settings.welcome_video_id ? (
                 <div
-                  ref={welcomeContainerRef}
-                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false playlistLinks=false muted=true qualityControl=false`}
+                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false muted=true`}
                   style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
                 />
               ) : settings.welcome_video_thumbnail ? (
@@ -244,7 +329,6 @@ export default function FirstLook({ config }) {
               ) : (
                 <div className="w-full h-full bg-gradient-to-b from-stone-700 to-stone-900" />
               )}
-              {/* Gradient overlay for text readability */}
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 pointer-events-none" />
             </div>
 
@@ -259,7 +343,7 @@ export default function FirstLook({ config }) {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Mute/Unmute Button - only show if there's a welcome video */}
+            {/* Mute/Unmute Button */}
             {settings.welcome_video_id && (
               <button
                 onClick={(e) => {
@@ -272,7 +356,7 @@ export default function FirstLook({ config }) {
               </button>
             )}
 
-            {/* Tap to Unmute Hint - auto-hides after 5 seconds */}
+            {/* Tap to Unmute Hint */}
             <AnimatePresence>
               {isMuted && showUnmuteHint && settings.welcome_video_id && (
                 <motion.div
@@ -297,7 +381,6 @@ export default function FirstLook({ config }) {
 
             {/* Content - Bottom section */}
             <div className="absolute inset-0 flex flex-col justify-end p-5">
-              {/* Host intro text */}
               <div className="mb-5">
                 <h3 className="text-white text-xl font-semibold mb-1">
                   Hi, I'm {settings.host_name}
@@ -307,7 +390,6 @@ export default function FirstLook({ config }) {
                 </p>
               </div>
 
-              {/* Video menu options */}
               {settings.video_options && settings.video_options.length > 0 && (
                 <div className="space-y-2.5">
                   {settings.video_options.map((option) => (
@@ -329,7 +411,6 @@ export default function FirstLook({ config }) {
                 </div>
               )}
 
-              {/* Branding */}
               <p className="text-center text-white/40 text-xs mt-4 font-medium tracking-wide">
                 FIRST LOOK
               </p>
