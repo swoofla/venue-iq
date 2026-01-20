@@ -14,255 +14,350 @@ const SDXL_DIMENSIONS = [
   { width: 896, height: 1152, ratio: 0.778 },
 ];
 
-Deno.serve(async (req) => {
-  try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    
-    if (!user) {
-      return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+// Pure JS base64 encoding (no external dependencies)
+function uint8ArrayToBase64(uint8Array) {
+  const CHUNK_SIZE = 0x8000; // 32KB chunks
+  let result = '';
+  for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+    // Build string character by character to avoid call stack issues
+    let chunkStr = '';
+    for (let j = 0; j < chunk.length; j++) {
+      chunkStr += String.fromCharCode(chunk[j]);
     }
+    result += chunkStr;
+  }
+  return btoa(result);
+}
 
+Deno.serve(async (req) => {
+  const startTime = Date.now();
+  console.log('=== generateVenueVisualization START ===');
+  
+  try {
+    // Step 1: Auth check (OPTIONAL - allow public access for chatbot users)
+    console.log('Step 1: Checking authentication...');
+    const base44 = createClientFromRequest(req);
+    let user = null;
+    try {
+      user = await base44.auth.me();
+      console.log('Step 1 PASSED: User authenticated:', user?.id || user?.email || 'anonymous');
+    } catch (authError) {
+      console.log('Step 1 WARNING: Auth check failed, proceeding as anonymous user');
+      console.log('  - Auth error:', authError.message);
+    }
+    // Allow unauthenticated users (public chatbot)
+    console.log('Step 1 COMPLETE: Proceeding with request (user:', user ? 'authenticated' : 'anonymous', ')');
+
+    // Step 2: Parse request body
+    console.log('Step 2: Parsing request body...');
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.log('ERROR: Failed to parse request body:', parseError.message);
+      return Response.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+    }
+    
     const { 
       baseImageUrl,
       photoDescription,
       transformationHints,
       designChoices,
       provider = 'stability'
-    } = await req.json();
+    } = requestBody;
+    
+    console.log('Step 2 PASSED: Request body parsed');
+    console.log('  - baseImageUrl:', baseImageUrl ? baseImageUrl.substring(0, 80) + '...' : 'MISSING');
+    console.log('  - photoDescription:', photoDescription ? 'present' : 'missing');
+    console.log('  - designChoices:', designChoices ? JSON.stringify(designChoices).substring(0, 100) : 'MISSING');
 
     if (!baseImageUrl || !designChoices) {
-      return Response.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+      console.log('ERROR: Missing required fields');
+      return Response.json({ success: false, error: 'Missing required fields: baseImageUrl and designChoices' }, { status: 400 });
     }
 
-    // Build transformation prompt
+    // Step 3: Build prompt
+    console.log('Step 3: Building transformation prompt...');
     const prompt = buildTransformationPrompt(photoDescription, transformationHints, designChoices);
-    console.log('Transformation prompt:', prompt);
+    console.log('Step 3 PASSED: Prompt built');
+    console.log('  - Prompt preview:', prompt.substring(0, 150) + '...');
 
-    // Generate with Stability AI
-    const result = await generateWithStability(baseImageUrl, prompt, designChoices);
-    return Response.json(result);
+    // Step 4: Check API key
+    console.log('Step 4: Checking Stability API key...');
+    const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
+    if (!STABILITY_API_KEY) {
+      console.log('ERROR: STABILITY_API_KEY not found in environment');
+      return Response.json({ success: false, error: 'Stability API key not configured' }, { status: 500 });
+    }
+    console.log('Step 4 PASSED: API key present (length:', STABILITY_API_KEY.length, ')');
+
+    // Step 5: Fetch source image
+    console.log('Step 5: Fetching source image from URL...');
+    const fetchStartTime = Date.now();
+    let imageResponse;
+    try {
+      imageResponse = await fetch(baseImageUrl, {
+        headers: {
+          'Accept': 'image/*'
+        }
+      });
+    } catch (fetchError) {
+      console.log('ERROR: Failed to fetch image:', fetchError.message);
+      return Response.json({ success: false, error: `Failed to fetch source image: ${fetchError.message}` }, { status: 500 });
+    }
+    
+    if (!imageResponse.ok) {
+      console.log('ERROR: Image fetch returned status:', imageResponse.status);
+      return Response.json({ success: false, error: `Image fetch failed with status ${imageResponse.status}` }, { status: 500 });
+    }
+    console.log('Step 5 PASSED: Image fetched in', Date.now() - fetchStartTime, 'ms');
+    console.log('  - Content-Type:', imageResponse.headers.get('content-type'));
+    console.log('  - Content-Length:', imageResponse.headers.get('content-length'));
+
+    // Step 6: Convert to buffer
+    console.log('Step 6: Converting image to buffer...');
+    let imageBuffer;
+    try {
+      imageBuffer = await imageResponse.arrayBuffer();
+    } catch (bufferError) {
+      console.log('ERROR: Failed to convert to buffer:', bufferError.message);
+      return Response.json({ success: false, error: `Buffer conversion failed: ${bufferError.message}` }, { status: 500 });
+    }
+    console.log('Step 6 PASSED: Buffer created, size:', imageBuffer.byteLength, 'bytes');
+
+    // Step 7: Resize image to SDXL dimensions
+    console.log('Step 7: Resizing image to SDXL dimensions...');
+    let resizedImageBytes;
+    try {
+      const image = await Image.decode(new Uint8Array(imageBuffer));
+      const originalWidth = image.width;
+      const originalHeight = image.height;
+      const originalRatio = originalWidth / originalHeight;
+      console.log('  - Original dimensions:', originalWidth, 'x', originalHeight, '(ratio:', originalRatio.toFixed(3), ')');
+
+      // Find closest SDXL dimension
+      let closestDim = SDXL_DIMENSIONS[0];
+      let closestDiff = Math.abs(originalRatio - closestDim.ratio);
+      for (const dim of SDXL_DIMENSIONS) {
+        const diff = Math.abs(originalRatio - dim.ratio);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closestDim = dim;
+        }
+      }
+      console.log('  - Target dimensions:', closestDim.width, 'x', closestDim.height);
+
+      // Resize
+      image.resize(closestDim.width, closestDim.height);
+      resizedImageBytes = await image.encode();
+      console.log('Step 7 PASSED: Image resized, new size:', resizedImageBytes.length, 'bytes');
+    } catch (resizeError) {
+      console.log('ERROR: Image resize failed:', resizeError.message);
+      console.log('  - Stack:', resizeError.stack);
+      return Response.json({ success: false, error: `Image resize failed: ${resizeError.message}` }, { status: 500 });
+    }
+
+    // Step 8: Convert to base64
+    console.log('Step 8: Converting to base64...');
+    let base64Image;
+    try {
+      base64Image = uint8ArrayToBase64(resizedImageBytes);
+      console.log('Step 8 PASSED: Base64 created, length:', base64Image.length);
+    } catch (base64Error) {
+      console.log('ERROR: Base64 conversion failed:', base64Error.message);
+      return Response.json({ success: false, error: `Base64 conversion failed: ${base64Error.message}` }, { status: 500 });
+    }
+
+    // Step 9: Call Stability AI
+    console.log('Step 9: Calling Stability AI...');
+    const stabilityStartTime = Date.now();
+    
+    // Determine strength based on user selection
+    const strengthMap = {
+      'subtle': 0.45,
+      'balanced': 0.60,
+      'dramatic': 0.75
+    };
+    const strength = strengthMap[designChoices.transformationStrength] || 0.60;
+    console.log('  - Transformation strength:', strength);
+
+    // Build FormData
+    const formData = new FormData();
+    
+    // Convert base64 back to blob for FormData
+    const binaryString = atob(base64Image);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const imageBlob = new Blob([bytes], { type: 'image/png' });
+    
+    formData.append('init_image', imageBlob, 'venue.png');
+    formData.append('init_image_mode', 'IMAGE_STRENGTH');
+    formData.append('image_strength', (1 - strength).toString());
+    formData.append('text_prompts[0][text]', prompt);
+    formData.append('text_prompts[0][weight]', '1');
+    formData.append('text_prompts[1][text]', 'blurry, distorted, low quality, cartoon, anime, illustration, painting, drawing');
+    formData.append('text_prompts[1][weight]', '-1');
+    formData.append('cfg_scale', '7');
+    formData.append('samples', '1');
+    formData.append('steps', '30');
+
+    let stabilityResponse;
+    try {
+      stabilityResponse = await fetch(
+        'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${STABILITY_API_KEY}`,
+            'Accept': 'application/json'
+          },
+          body: formData
+        }
+      );
+    } catch (stabilityFetchError) {
+      console.log('ERROR: Stability API fetch failed:', stabilityFetchError.message);
+      return Response.json({ success: false, error: `Stability API connection failed: ${stabilityFetchError.message}` }, { status: 500 });
+    }
+
+    console.log('  - Stability API status:', stabilityResponse.status);
+    console.log('  - Stability API time:', Date.now() - stabilityStartTime, 'ms');
+
+    if (!stabilityResponse.ok) {
+      let errorText;
+      try {
+        errorText = await stabilityResponse.text();
+      } catch {
+        errorText = 'Could not read error response';
+      }
+      console.log('ERROR: Stability API error:', errorText);
+      return Response.json({ 
+        success: false, 
+        error: `Stability AI error: ${stabilityResponse.status}`,
+        details: errorText
+      }, { status: 500 });
+    }
+
+    // Step 10: Parse response
+    console.log('Step 10: Parsing Stability AI response...');
+    let stabilityData;
+    try {
+      stabilityData = await stabilityResponse.json();
+    } catch (parseError) {
+      console.log('ERROR: Failed to parse Stability response:', parseError.message);
+      return Response.json({ success: false, error: 'Failed to parse AI response' }, { status: 500 });
+    }
+
+    if (!stabilityData.artifacts || stabilityData.artifacts.length === 0) {
+      console.log('ERROR: No artifacts in response');
+      console.log('  - Response keys:', Object.keys(stabilityData));
+      return Response.json({ success: false, error: 'No image generated' }, { status: 500 });
+    }
+
+    const generatedBase64 = stabilityData.artifacts[0].base64;
+    console.log('Step 10 PASSED: Got generated image, base64 length:', generatedBase64.length);
+
+    // Success!
+    const totalTime = Date.now() - startTime;
+    console.log('=== generateVenueVisualization SUCCESS ===');
+    console.log('Total time:', totalTime, 'ms');
+
+    return Response.json({
+      success: true,
+      image: `data:image/png;base64,${generatedBase64}`,
+      prompt: prompt,
+      processingTime: totalTime
+    });
 
   } catch (error) {
-    console.error('generateVenueVisualization error:', error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    console.log('=== UNEXPECTED ERROR ===');
+    console.log('Error:', error.message);
+    console.log('Stack:', error.stack);
+    return Response.json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack
+    }, { status: 500 });
   }
 });
 
 function buildTransformationPrompt(photoDescription, transformationHints, designChoices) {
   const { style, colorPalette, florals, lighting, tableSettings } = designChoices;
 
-  const styleKeywords = {
-    romantic: 'romantic elegant wedding decor, soft flowing fabrics, classic romance, dreamy atmosphere',
-    rustic: 'rustic wedding decor, natural wood elements, greenery garlands, barn wedding style',
-    modern: 'modern minimalist wedding decor, clean lines, geometric elements, contemporary',
-    bohemian: 'bohemian wedding decor, macrame backdrops, pampas grass, eclectic, free-spirited',
-    garden: 'garden party wedding decor, lush overflowing florals, outdoor elegance, whimsical',
-    glamorous: 'glamorous luxury wedding decor, crystal accents, dramatic lighting, opulent, gold details',
-    vintage: 'vintage wedding decor, antique charm, lace details, nostalgic beauty, soft pastels',
-    coastal: 'coastal wedding decor, beach-inspired, airy natural textures, seaside elegance'
+  // Style descriptions
+  const styleDescriptions = {
+    'romantic': 'romantic, soft, dreamy, elegant atmosphere with flowing fabrics and gentle curves',
+    'modern': 'modern, minimalist, clean lines, contemporary design with sleek furnishings',
+    'rustic': 'rustic, natural, organic, barn-style with wooden elements and natural textures',
+    'classic': 'classic, timeless, traditional elegance with refined details',
+    'bohemian': 'bohemian, free-spirited, eclectic mix of patterns, textures, and global influences',
+    'glamorous': 'glamorous, luxurious, opulent with crystal, gold accents, and rich fabrics'
   };
 
-  const colorKeywords = {
-    blush_gold: 'blush pink and gold color scheme, white accents, romantic warm tones',
-    sage_cream: 'sage green and cream colors, ivory accents, natural earth tones',
-    dusty_blue: 'dusty blue and silver color palette, elegant cool tones',
-    burgundy_navy: 'burgundy and navy color scheme, rich jewel tones, gold accents',
-    terracotta: 'terracotta and rust colors, burnt orange, warm earth tones',
-    lavender: 'lavender and purple color palette, soft violet tones',
-    classic_white: 'classic white and green, timeless elegance, ivory and forest green',
-    sunset: 'coral and peach colors, warm pink tones, golden yellow accents'
+  // Color palette descriptions
+  const colorDescriptions = {
+    'blush-gold': 'blush pink and gold color scheme, soft rose tones with warm metallic accents',
+    'sage-white': 'sage green and white color scheme, natural greens with crisp white',
+    'navy-burgundy': 'navy blue and burgundy color scheme, deep rich jewel tones',
+    'terracotta': 'terracotta and earth tones, warm burnt orange with natural browns',
+    'lavender': 'lavender and soft purple tones, romantic purple hues',
+    'classic-white': 'all white and ivory color scheme, pure and elegant'
   };
 
-  const floralKeywords = {
-    lush_garden: 'lush overflowing garden roses, peonies, ranunculus, abundant blooms',
-    wildflower: 'wildflower arrangements, natural loose florals, meadow flowers',
-    tropical: 'tropical flowers, orchids, birds of paradise, monstera leaves',
-    minimal_modern: 'minimal modern florals, single stem arrangements, architectural',
-    dried_preserved: 'dried flowers, pampas grass, preserved arrangements, earth tones',
-    greenery_focused: 'lush greenery garlands, eucalyptus, ferns, foliage-focused',
-    classic_elegant: 'classic roses, hydrangeas, elegant traditional arrangements'
+  // Floral descriptions
+  const floralDescriptions = {
+    'lush-garden': 'lush overflowing garden-style floral arrangements with abundant greenery',
+    'minimal': 'minimal, carefully curated floral accents with simple elegant stems',
+    'wildflower': 'wildflower meadow style, natural and organic loose arrangements',
+    'tropical': 'tropical exotic flowers, bold colors and dramatic leaves',
+    'classic-roses': 'classic rose arrangements, timeless and romantic',
+    'dried-flowers': 'dried flower arrangements with pampas grass and preserved botanicals'
   };
 
-  const lightingKeywords = {
-    string_lights: 'romantic string lights, fairy lights, twinkling overhead, bistro lighting',
-    candles: 'candlelit ambiance, pillar candles, votives, warm flickering candlelight',
-    chandeliers: 'crystal chandeliers, elegant dramatic lighting fixtures, glamorous sparkle',
-    lanterns: 'lanterns, moroccan-style lighting, bohemian atmospheric glow',
-    natural: 'natural daylight, golden hour sunlight, sun-drenched atmosphere',
-    edison_bulbs: 'edison bulb string lights, industrial vintage lighting, warm filament',
-    mixed: 'mixed romantic lighting, candles and string lights, layered warm glow'
+  // Lighting descriptions
+  const lightingDescriptions = {
+    'warm-ambient': 'warm ambient lighting with soft glowing candles and string lights',
+    'bright-airy': 'bright and airy natural light flooding the space',
+    'dramatic': 'dramatic lighting with spotlights and shadows creating depth',
+    'fairy-lights': 'magical fairy lights and twinkling string lights everywhere',
+    'candlelit': 'romantic candlelit atmosphere with flickering warm light',
+    'golden-hour': 'golden hour sunset lighting with warm orange and pink hues'
   };
 
-  const tableKeywords = {
-    round_elegant: 'round tables with fine china, elegant place settings, crystal glassware',
-    long_feasting: 'long wooden feasting tables, family style, rustic communal dining',
-    mixed_eclectic: 'mixed table sizes, eclectic varied seating arrangements',
-    minimalist: 'minimalist modern table settings, clean simple elegance'
-  };
+  // Build the prompt
+  let promptParts = [
+    'professional wedding photography',
+    'high quality realistic photo',
+    photoDescription || 'beautiful wedding venue'
+  ];
 
-  let prompt = `Transform this wedding venue photo: ${photoDescription || 'wedding venue space'}. `;
-  prompt += `Add beautiful wedding decorations: ${transformationHints || 'add floral arrangements, table settings, and lighting'}. `;
-  
-  if (style && styleKeywords[style]) prompt += `Style: ${styleKeywords[style]}. `;
-  if (colorPalette && colorKeywords[colorPalette]) prompt += `Colors: ${colorKeywords[colorPalette]}. `;
-  if (florals && floralKeywords[florals]) prompt += `Florals: ${floralKeywords[florals]}. `;
-  if (lighting && lightingKeywords[lighting]) prompt += `Lighting: ${lightingKeywords[lighting]}. `;
-  if (tableSettings && tableKeywords[tableSettings]) prompt += `Tables: ${tableKeywords[tableSettings]}. `;
-
-  prompt += `Professional wedding photography, editorial quality, photorealistic, beautifully decorated, magazine-worthy, 8K quality.`;
-
-  return prompt;
-}
-
-// Find the best SDXL dimension for a given aspect ratio
-function findBestDimension(width, height) {
-  const aspectRatio = width / height;
-  
-  let bestMatch = SDXL_DIMENSIONS[0];
-  let smallestDiff = Math.abs(aspectRatio - bestMatch.ratio);
-  
-  for (const dim of SDXL_DIMENSIONS) {
-    const diff = Math.abs(aspectRatio - dim.ratio);
-    if (diff < smallestDiff) {
-      smallestDiff = diff;
-      bestMatch = dim;
-    }
-  }
-  
-  return bestMatch;
-}
-
-async function generateWithStability(baseImageUrl, prompt, designChoices) {
-  const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
-  
-  if (!STABILITY_API_KEY) {
-    throw new Error('STABILITY_API_KEY not configured. Add it to your Base44 Secrets.');
+  if (style && styleDescriptions[style]) {
+    promptParts.push(styleDescriptions[style]);
   }
 
-  console.log('[VenueVisualizer] Starting generation with URL:', baseImageUrl);
-
-  try {
-    // Fetch base image
-    console.log('[VenueVisualizer] Fetching base image...');
-    const imageResponse = await fetch(baseImageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text();
-      console.error('[VenueVisualizer] Failed to fetch image. Status:', imageResponse.status, 'Error:', errorText);
-      throw new Error(`Failed to fetch base image: ${imageResponse.status}`);
-    }
-    
-    console.log('[VenueVisualizer] Image fetch successful. Content-Type:', imageResponse.headers.get('content-type'));
-    
-    const imageBuffer = await imageResponse.arrayBuffer();
-    console.log(`[VenueVisualizer] Image buffer size: ${imageBuffer.byteLength} bytes`);
-
-    // Decode image using imagescript (pure JS - works in Deno)
-    console.log('[VenueVisualizer] Decoding image...');
-    const image = await Image.decode(new Uint8Array(imageBuffer));
-    const originalWidth = image.width;
-    const originalHeight = image.height;
-    
-    console.log(`[VenueVisualizer] Original dimensions: ${originalWidth}x${originalHeight}`);
-    
-    // Find best matching SDXL dimension
-    const targetDim = findBestDimension(originalWidth, originalHeight);
-    console.log(`[VenueVisualizer] Target SDXL dimension: ${targetDim.width}x${targetDim.height}`);
-    
-    // Resize image using cover fit (resize + crop to fill)
-    const scaleX = targetDim.width / originalWidth;
-    const scaleY = targetDim.height / originalHeight;
-    const scale = Math.max(scaleX, scaleY);
-    
-    const scaledWidth = Math.round(originalWidth * scale);
-    const scaledHeight = Math.round(originalHeight * scale);
-    
-    console.log('[VenueVisualizer] Resizing to:', scaledWidth, 'x', scaledHeight);
-    image.resize(scaledWidth, scaledHeight);
-    
-    const cropX = Math.round((scaledWidth - targetDim.width) / 2);
-    const cropY = Math.round((scaledHeight - targetDim.height) / 2);
-    console.log('[VenueVisualizer] Cropping at:', cropX, cropY);
-    image.crop(cropX, cropY, targetDim.width, targetDim.height);
-    
-    console.log('[VenueVisualizer] Encoding resized image...');
-    const resizedBuffer = await image.encode();
-    
-    console.log(`[VenueVisualizer] Resized image encoded: ${resizedBuffer.length} bytes`);
-  } catch (imageError) {
-    console.error('[VenueVisualizer] Image processing error:', imageError.message, imageError.stack);
-    throw new Error(`Image processing failed: ${imageError.message}`);
+  if (colorPalette && colorDescriptions[colorPalette]) {
+    promptParts.push(colorDescriptions[colorPalette]);
   }
 
-  const strength = designChoices.transformationStrength || 0.60;
-  const imageStrength = 1 - strength;
-
-  console.log('Calling Stability AI with image_strength:', imageStrength);
-
-  // Create FormData for multipart/form-data request
-  const formData = new FormData();
-  
-  // Add the resized image as a Blob
-  const imageBlob = new Blob([resizedBuffer], { type: 'image/png' });
-  formData.append('init_image', imageBlob, 'image.png');
-  
-  // Add other parameters
-  formData.append('init_image_mode', 'IMAGE_STRENGTH');
-  formData.append('image_strength', imageStrength.toString());
-  formData.append('text_prompts[0][text]', prompt);
-  formData.append('text_prompts[0][weight]', '1');
-  formData.append('text_prompts[1][text]', 'blurry, low quality, distorted, unrealistic, cartoon, anime, people, guests');
-  formData.append('text_prompts[1][weight]', '-1');
-  formData.append('cfg_scale', '7');
-  formData.append('samples', '1');
-  formData.append('steps', '40');
-  formData.append('style_preset', 'photographic');
-
-  console.log('[VenueVisualizer] Sending request to Stability AI...');
-  
-  const response = await fetch(
-    'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${STABILITY_API_KEY}`,
-        'Accept': 'application/json',
-      },
-      body: formData
-    }
-  );
-
-  console.log('[VenueVisualizer] Stability AI response status:', response.status);
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error('[VenueVisualizer] Stability AI error:', errorData);
-    if (response.status === 402) throw new Error('Insufficient Stability AI credits');
-    if (response.status === 400) throw new Error(`Stability API bad request: ${JSON.stringify(errorData)}`);
-    if (response.status === 401) throw new Error('Invalid Stability API key');
-    throw new Error(`Stability API error: ${errorData?.message || response.status}`);
+  if (florals && floralDescriptions[florals]) {
+    promptParts.push(floralDescriptions[florals]);
   }
 
-  console.log('[VenueVisualizer] Parsing Stability AI response...');
-  const data = await response.json();
-  
-  if (!data.artifacts || data.artifacts.length === 0) {
-    console.error('[VenueVisualizer] No artifacts in response:', data);
-    throw new Error('No image generated');
+  if (lighting && lightingDescriptions[lighting]) {
+    promptParts.push(lightingDescriptions[lighting]);
   }
 
-  console.log('[VenueVisualizer] Image generated successfully');
+  if (tableSettings) {
+    promptParts.push(`${tableSettings} table settings and place settings`);
+  }
 
-  return {
-    success: true,
-    imageUrl: `data:image/png;base64,${data.artifacts[0].base64}`,
-    provider: 'stability',
-    prompt: prompt,
-    dimensions: `${targetDim.width}x${targetDim.height}`
-  };
+  if (transformationHints) {
+    promptParts.push(transformationHints);
+  }
+
+  promptParts.push('wedding decor, celebration setup, detailed, photorealistic');
+
+  return promptParts.join(', ');
 }
