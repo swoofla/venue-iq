@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
+import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 
 
 export const PAGES = {
@@ -17,6 +18,7 @@ export const PAGES = {
     "Home": Home,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
+    "AdminVisualizerSettings": AdminVisualizerSettings,
 }
 
 export const pagesConfig = {

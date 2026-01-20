@@ -262,11 +262,33 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     enabled: !!venueId
   });
 
+  const { data: heroImages = [], isLoading: isLoadingHeroImages } = useQuery({
+    queryKey: ['visualizerHeroImages'],
+    queryFn: async () => {
+      const images = await base44.entities.VisualizerHeroImage.filter({ is_active: true });
+      return images.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+  });
+
   const photosByCategory = venuePhotos.reduce((acc, photo) => {
     if (!acc[photo.category]) acc[photo.category] = [];
     acc[photo.category].push(photo);
     return acc;
   }, {});
+
+  // Group hero images by category, with fallbacks to hardcoded constants
+  const vibes = heroImages.filter(img => img.category === 'vibe').length > 0
+    ? heroImages.filter(img => img.category === 'vibe')
+    : VIBES;
+  const densities = heroImages.filter(img => img.category === 'density').length > 0
+    ? heroImages.filter(img => img.category === 'density')
+    : DENSITIES;
+  const colorPalettes = heroImages.filter(img => img.category === 'colors').length > 0
+    ? heroImages.filter(img => img.category === 'colors')
+    : COLOR_PALETTES;
+  const seasons = heroImages.filter(img => img.category === 'season').length > 0
+    ? heroImages.filter(img => img.category === 'season')
+    : SEASONS;
 
   const handleSelect = (key, value) => {
     setSelections(prev => ({ ...prev, [key]: value }));
@@ -299,11 +321,11 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     try {
       console.log('Calling generateVenueVisualization...');
       
-      // Build the final prompt
-      const vibe = VIBES.find(v => v.id === selections.vibe);
-      const density = DENSITIES.find(d => d.id === selections.density);
-      const colors = COLOR_PALETTES.find(c => c.id === selections.colors);
-      const season = SEASONS.find(s => s.id === selections.season);
+      // Build the final prompt (using dynamic or fallback constants)
+      const vibe = vibes.find(v => v.id === selections.vibe || v.option_id === selections.vibe);
+      const density = densities.find(d => d.id === selections.density || d.option_id === selections.density);
+      const colors = colorPalettes.find(c => c.id === selections.colors || c.option_id === selections.colors);
+      const season = seasons.find(s => s.id === selections.season || s.option_id === selections.season);
       
       const spaceDescription = selections.space.photo_description || 'outdoor wedding venue';
       
@@ -648,10 +670,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
 
   // --- Review View ---
   if (step === 5) {
-    const vibe = VIBES.find(v => v.id === selections.vibe);
-    const density = DENSITIES.find(d => d.id === selections.density);
-    const colors = COLOR_PALETTES.find(c => c.id === selections.colors);
-    const season = SEASONS.find(s => s.id === selections.season);
+    const vibe = vibes.find(v => v.id === selections.vibe || v.option_id === selections.vibe);
+    const density = densities.find(d => d.id === selections.density || d.option_id === selections.density);
+    const colors = colorPalettes.find(c => c.id === selections.colors || c.option_id === selections.colors);
+    const season = seasons.find(s => s.id === selections.season || s.option_id === selections.season);
 
     return (
       <motion.div 
@@ -803,13 +825,13 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
       case 'vibe':
       case 'density':
       case 'season':
-        const options = currentStepData.key === 'vibe' ? VIBES : currentStepData.key === 'density' ? DENSITIES : SEASONS;
+        const options = currentStepData.key === 'vibe' ? vibes : currentStepData.key === 'density' ? densities : seasons;
         return (
           <div className="space-y-3">
             {options.map((opt) => (
               <button 
-                key={opt.id} 
-                onClick={() => handleSelect(currentStepData.key, opt.id)}
+                key={opt.id || opt.option_id} 
+                onClick={() => handleSelect(currentStepData.key, opt.id || opt.option_id)}
                 className={cn(
                   "relative w-full rounded-xl overflow-hidden border-2 transition-all",
                   selections[currentStepData.key] === opt.id 
@@ -842,10 +864,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
       case 'colors':
         return (
           <div className="space-y-3">
-            {COLOR_PALETTES.map((opt) => (
+            {colorPalettes.map((opt) => (
               <button 
-                key={opt.id} 
-                onClick={() => handleSelect('colors', opt.id)}
+                key={opt.id || opt.option_id} 
+                onClick={() => handleSelect('colors', opt.id || opt.option_id)}
                 className={cn(
                   "relative w-full rounded-xl overflow-hidden border-2 transition-all",
                   selections.colors === opt.id 
