@@ -61,6 +61,29 @@ const TRANSFORMATION_STRENGTHS = [
   { id: 'dramatic', label: 'Dramatic', value: 0.75, description: 'More creative changes' },
 ];
 
+// Helper function to convert base64 data URL to Blob URL (mobile-friendly)
+const base64ToBlobUrl = (base64DataUrl) => {
+  try {
+    // Extract the base64 data (remove the data:image/png;base64, prefix)
+    const base64Data = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
+    
+    // Decode base64 to binary
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Create blob and URL
+    const blob = new Blob([bytes], { type: 'image/png' });
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.error('Failed to convert base64 to blob:', error);
+    // Fall back to data URL if conversion fails
+    return base64DataUrl;
+  }
+};
+
 export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddings', onComplete, onCancel }) {
   const [step, setStep] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -117,6 +140,8 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
 
     try {
       const strengthValue = TRANSFORMATION_STRENGTHS.find(s => s.id === selections.transformationStrength)?.value || 0.6;
+      
+      console.log('Calling generateVenueVisualization...');
       const result = await base44.functions.invoke('generateVenueVisualization', {
         baseImageUrl: selectedPhoto.photo_url,
         photoDescription: selectedPhoto.photo_description,
@@ -124,13 +149,26 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         designChoices: { ...selections, transformationStrength: strengthValue },
       });
 
-      if (result.data?.success && result.data?.imageUrl) {
-        setGeneratedImage(result.data.imageUrl);
+      console.log('Result received:', result.data ? 'has data' : 'no data');
+      
+      // FIX: Backend returns 'image', not 'imageUrl'
+      if (result.data?.success && result.data?.image) {
+        console.log('Image data length:', result.data.image.length);
+        
+        // Convert base64 to Blob URL for better mobile performance
+        const blobUrl = base64ToBlobUrl(result.data.image);
+        console.log('Blob URL created:', blobUrl.substring(0, 50));
+        
+        setGeneratedImage(blobUrl);
       } else {
-        throw new Error(result.data?.error || 'Failed to generate');
+        // Show more detailed error info
+        const errorMsg = result.data?.error || result.data?.message || 'Failed to generate image';
+        console.error('Generation failed:', errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (err) {
-      setError(err.message);
+      console.error('Full error:', err);
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setIsGenerating(false);
     }
@@ -141,13 +179,36 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
 
   const handleDownload = async () => {
     if (!generatedImage) return;
-    const link = document.createElement('a');
-    link.href = generatedImage;
-    link.download = `${venueName.replace(/\s+/g, '-')}-visualization.png`;
-    link.click();
+    
+    try {
+      // Check if iOS Safari (needs different handling)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      if (isIOS) {
+        // For iOS, open in new tab so user can long-press to save
+        window.open(generatedImage, '_blank');
+        return;
+      }
+      
+      // For other browsers, trigger download
+      const link = document.createElement('a');
+      link.href = generatedImage;
+      link.download = `${venueName.replace(/\s+/g, '-')}-visualization.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Download failed:', err);
+      // Fallback: open in new tab
+      window.open(generatedImage, '_blank');
+    }
   };
 
   const handleStartOver = () => {
+    // Clean up the blob URL to free memory
+    if (generatedImage && generatedImage.startsWith('blob:')) {
+      URL.revokeObjectURL(generatedImage);
+    }
     setStep(0);
     setSelectedPhoto(null);
     setGeneratedImage(null);
