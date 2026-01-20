@@ -352,13 +352,14 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
       const result = await base44.functions.invoke('generateVenueVisualization', {
         baseImageUrl: selections.space.photo_url,
         maskImageUrl: selections.space.mask_url,
-        prompt: finalPrompt,
-        metadata: {
-          vibe: selections.vibe,
-          density: selections.density,
-          colors: selections.colors,
-          season: selections.season,
-          spaceCategory: selections.space?.category
+        photoDescription: selections.space.photo_description,
+        transformationHints: selections.space.transformation_hints,
+        designChoices: {
+          style: selections.vibe,
+          colorPalette: selections.colors,
+          florals: selections.density,
+          lighting: selections.season,
+          transformationStrength: 'balanced'
         }
       });
       
