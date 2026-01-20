@@ -18,52 +18,203 @@ import {
 } from "@/components/ui/drawer";
 
 // --- Constants ---
-const STYLES = [
-  { id: 'romantic', label: 'Romantic & Elegant', description: 'Soft, flowing, classic romance', icon: '💕' },
-  { id: 'rustic', label: 'Rustic Charm', description: 'Natural wood, greenery, warmth', icon: '🌿' },
-  { id: 'modern', label: 'Modern Minimalist', description: 'Clean lines, geometric shapes', icon: '◻️' },
-  { id: 'bohemian', label: 'Bohemian', description: 'Free-spirited, eclectic, organic', icon: '🌾' },
-  { id: 'garden', label: 'Garden Party', description: 'Lush florals, outdoor elegance', icon: '🌸' },
-  { id: 'glamorous', label: 'Glamorous & Luxe', description: 'Opulent, dramatic, bold', icon: '✨' },
-  { id: 'vintage', label: 'Vintage Romance', description: 'Antique charm, nostalgic', icon: '🕰️' },
-  { id: 'coastal', label: 'Coastal Elegance', description: 'Beach-inspired, airy, relaxed', icon: '🌊' },
+const VIBES = [
+  {
+    id: 'romantic_garden',
+    label: 'Romantic & Garden-Inspired',
+    description: 'Soft, lush, floral-forward, dreamy',
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800',
+    prompt: 'romantic garden wedding, soft flowing fabrics, lush floral arrangements, roses, peonies, delicate greenery, dreamy atmosphere, elegant and feminine, abundant blooms'
+  },
+  {
+    id: 'modern_clean',
+    label: 'Modern & Clean',
+    description: 'Minimal, geometric, sophisticated',
+    image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800',
+    prompt: 'modern minimalist wedding, clean lines, geometric shapes, architectural florals, sophisticated and sleek, contemporary elegance, intentional negative space'
+  },
+  {
+    id: 'timeless_elegant',
+    label: 'Timeless & Elegant',
+    description: 'Classic, refined, traditional beauty',
+    image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800',
+    prompt: 'timeless elegant wedding, classic symmetrical arrangements, refined and polished, formal elegance, traditional beauty, graceful décor'
+  },
+  {
+    id: 'warm_european',
+    label: 'Warm & European',
+    description: 'Tuscan, candlelit, intimate, old-world',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
+    prompt: 'warm European wedding, Tuscan villa style, abundant candlelight, rustic elegance, old-world charm, intimate atmosphere, warm golden lighting, romantic candles'
+  },
+  {
+    id: 'earthy_natural',
+    label: 'Earthy & Natural',
+    description: 'Organic, muted tones, textural, grounded',
+    image: 'https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800',
+    prompt: 'earthy natural wedding, organic textures, dried florals, pampas grass, grounded and authentic, natural materials, raw beauty, tactile elements'
+  },
+  {
+    id: 'bold_glamorous',
+    label: 'Bold & Glamorous',
+    description: 'Dramatic, luxe, statement-making, opulent',
+    image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800',
+    prompt: 'bold glamorous wedding, dramatic statement pieces, luxurious textures, opulent floral installations, crystal details, high-impact design, showstopping décor'
+  }
+];
+
+const DENSITIES = [
+  {
+    id: 'light',
+    label: 'Light & Airy',
+    description: 'Minimal, breathing room, understated elegance',
+    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800',
+    prompt: 'minimal décor, sparse elegant arrangements, lots of negative space, understated beauty, breathing room, less is more, refined simplicity'
+  },
+  {
+    id: 'balanced',
+    label: 'Balanced & Polished',
+    description: 'Just right, intentional, curated',
+    image: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800',
+    prompt: 'balanced décor, intentionally curated arrangements, polished styling, medium density florals, well-proportioned, thoughtfully placed'
+  },
+  {
+    id: 'lush',
+    label: 'Lush & Statement-Making',
+    description: 'Abundant, full, dramatic impact',
+    image: 'https://images.unsplash.com/photo-1507504031003-b417219a0fde?w=800',
+    prompt: 'lush abundant décor, overflowing florals, dramatic installations, maximum impact, full and luxurious, statement-making arrangements, no empty space'
+  }
 ];
 
 const COLOR_PALETTES = [
-  { id: 'blush_gold', label: 'Blush & Gold', colors: ['#F8E1E1', '#D4AF37', '#FFFFFF'] },
-  { id: 'sage_cream', label: 'Sage & Cream', colors: ['#9CAF88', '#FFFDD0', '#F5F5DC'] },
-  { id: 'dusty_blue', label: 'Dusty Blue & Silver', colors: ['#6B8E9F', '#C0C0C0', '#FFFFFF'] },
-  { id: 'burgundy_navy', label: 'Burgundy & Navy', colors: ['#800020', '#000080', '#D4AF37'] },
-  { id: 'terracotta', label: 'Terracotta & Rust', colors: ['#E07B53', '#8B4513', '#DEB887'] },
-  { id: 'lavender', label: 'Lavender Dreams', colors: ['#E6E6FA', '#9370DB', '#DDA0DD'] },
-  { id: 'classic_white', label: 'Classic White & Green', colors: ['#FFFFFF', '#228B22', '#FFFAF0'] },
-  { id: 'sunset', label: 'Sunset Coral', colors: ['#FF7F50', '#FFB6C1', '#FFD700'] },
+  {
+    id: 'classic_white_green',
+    label: 'Classic White & Green',
+    description: 'White, ivory, soft green, eucalyptus',
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800',
+    colors: ['#FFFFFF', '#F5F5F0', '#9CAF88'],
+    prompt: 'classic white and green palette, white flowers, ivory roses, soft green foliage, eucalyptus, elegant greenery, fresh and timeless'
+  },
+  {
+    id: 'soft_blush_neutrals',
+    label: 'Soft Blush Neutrals',
+    description: 'Blush, champagne, taupe, soft ivory',
+    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800',
+    colors: ['#F8E1E1', '#F5E6D3', '#B8A99A'],
+    prompt: 'soft blush neutral palette, blush pink flowers, champagne tones, taupe accents, soft ivory, warm romantic neutrals, gentle feminine colors'
+  },
+  {
+    id: 'romantic_pastels',
+    label: 'Romantic Pastels',
+    description: 'Blush, lavender, dusty blue, soft peach',
+    image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800',
+    colors: ['#F8E1E1', '#E6E6FA', '#6B8E9F'],
+    prompt: 'romantic pastel palette, blush pink, soft lavender, dusty blue, pale peach, dreamy soft colors, delicate and feminine'
+  },
+  {
+    id: 'earthy_neutrals',
+    label: 'Earthy Neutrals',
+    description: 'Cream, beige, caramel, terracotta, muted green',
+    image: 'https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800',
+    colors: ['#F5F5DC', '#C4A77D', '#E07B53'],
+    prompt: 'earthy neutral palette, cream and beige tones, caramel accents, terracotta, muted sage green, organic earth tones, warm natural colors'
+  },
+  {
+    id: 'moody_jewel',
+    label: 'Moody Jewel Tones',
+    description: 'Burgundy, plum, emerald, deep navy',
+    image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800',
+    colors: ['#800020', '#8E4585', '#046307'],
+    prompt: 'moody jewel tone palette, deep burgundy, rich plum, emerald green, navy blue, dramatic saturated colors, luxurious and bold'
+  },
+  {
+    id: 'autumn_warm',
+    label: 'Autumn Tones',
+    description: 'Peach, coral, apricot, terracotta, soft yellow',
+    image: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=800',
+    colors: ['#FFCBA4', '#FF7F50', '#E07B53'],
+    prompt: 'warm autumn palette, soft peach, coral, apricot, terracotta, muted yellow, golden warm tones, harvest-inspired colors'
+  },
+  {
+    id: 'wildflower_mix',
+    label: 'Wildflower Mix',
+    description: 'Soft blue, lavender, buttery yellow, white, greenery',
+    image: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800',
+    colors: ['#6B8E9F', '#E6E6FA', '#F5E6A3'],
+    prompt: 'wildflower color palette, soft blue, lavender purple, buttery yellow, white blooms, abundant greenery, meadow-inspired, natural and whimsical'
+  },
+  {
+    id: 'garden_greens',
+    label: 'Garden Greens & Whites',
+    description: 'White, cream, varied greens, hints of pale yellow',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
+    colors: ['#FFFFFF', '#228B22', '#F5F5DC'],
+    prompt: 'garden greens and white palette, crisp white flowers, cream accents, varied shades of green, pale yellow hints, lush botanical, fresh garden style'
+  },
+  {
+    id: 'all_white',
+    label: 'White + Creams',
+    description: 'All white, all blush, all neutral with subtle variation',
+    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=800',
+    colors: ['#FFFFFF', '#FFFAF0', '#F5F5F0'],
+    prompt: 'monochromatic white and cream palette, all white flowers, ivory, soft cream, subtle tonal variation, pure and elegant, sophisticated simplicity'
+  },
+  {
+    id: 'vibrant_colorful',
+    label: 'Vibrant & Colorful',
+    description: 'Fuchsia, rust, burnt orange, deep red, mauve',
+    image: 'https://images.unsplash.com/photo-1507504031003-b417219a0fde?w=800',
+    colors: ['#FF00FF', '#B7410E', '#C71585'],
+    prompt: 'vibrant colorful palette, bold fuchsia, rust orange, burnt sienna, deep red, mauve, saturated statement colors, joyful and energetic'
+  },
+  {
+    id: 'black_white',
+    label: 'Black & White',
+    description: 'Dramatic monochrome, high contrast, modern edge',
+    image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800',
+    colors: ['#000000', '#FFFFFF', '#333333'],
+    prompt: 'black and white palette, dramatic monochrome, high contrast, crisp white flowers, black accents, modern sophisticated edge, bold and striking'
+  }
 ];
 
-const FLORALS = [
-  { id: 'lush_garden', label: 'Lush Garden Roses', description: 'Overflowing romantic blooms' },
-  { id: 'wildflower', label: 'Wildflower Meadow', description: 'Natural, whimsical arrangement' },
-  { id: 'minimal_modern', label: 'Modern & Minimal', description: 'Architectural, structured' },
-  { id: 'dried_preserved', label: 'Dried & Preserved', description: 'Pampas grass, earth tones' },
-  { id: 'greenery', label: 'Greenery Focused', description: 'Eucalyptus, ferns, foliage' },
-  { id: 'classic', label: 'Classic & Elegant', description: 'Timeless roses and hydrangeas' },
-];
-
-const LIGHTING = [
-  { id: 'string_lights', label: 'Romantic String Lights', description: 'Twinkling fairy lights' },
-  { id: 'candles', label: 'Candlelit Ambiance', description: 'Warm, flickering glow' },
-  { id: 'chandeliers', label: 'Crystal Chandeliers', description: 'Elegant and glamorous' },
-  { id: 'lanterns', label: 'Lanterns', description: 'Cozy, bohemian warmth' },
-  { id: 'natural', label: 'Natural Daylight', description: 'Sun-drenched, golden hour' },
-  { id: 'mixed', label: 'Mixed Romantic', description: 'Candles + string lights combined' },
+const SEASONS = [
+  {
+    id: 'spring',
+    label: 'Spring',
+    description: 'Fresh, bright, new beginnings',
+    image: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800',
+    prompt: 'spring wedding atmosphere, fresh blooms, bright natural light, cherry blossoms, tulips, new growth, airy and light feeling'
+  },
+  {
+    id: 'summer',
+    label: 'Summer',
+    description: 'Warm, vibrant, sun-drenched',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
+    prompt: 'summer wedding atmosphere, warm sunlight, lush greenery, vibrant energy, golden sunshine, garden party feeling'
+  },
+  {
+    id: 'fall',
+    label: 'Fall',
+    description: 'Rich, warm, golden hour magic',
+    image: 'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=800',
+    prompt: 'fall wedding atmosphere, warm amber tones, golden hour light, rich textures, autumn warmth, cozy romantic feeling'
+  },
+  {
+    id: 'winter',
+    label: 'Winter',
+    description: 'Crisp, elegant, cozy warmth',
+    image: 'https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?w=800',
+    prompt: 'winter wedding atmosphere, crisp elegant feeling, candlelit warmth, evergreen accents, cozy romantic ambiance, soft glowing light'
+  }
 ];
 
 const STEPS = [
   { key: 'space', title: 'Choose a Space', subtitle: 'Select which area to transform' },
-  { key: 'style', title: 'Wedding Style', subtitle: "What's your aesthetic?" },
-  { key: 'colorPalette', title: 'Color Palette', subtitle: 'Choose your colors' },
-  { key: 'florals', title: 'Florals', subtitle: 'Your floral vision' },
-  { key: 'lighting', title: 'Lighting', subtitle: 'Set the mood' },
+  { key: 'vibe', title: 'What feeling do you want?', subtitle: 'Pick the vibe that speaks to you' },
+  { key: 'density', title: 'How much décor?', subtitle: 'Choose your styling density' },
+  { key: 'colors', title: 'What colors speak to you?', subtitle: 'Choose your palette' },
+  { key: 'season', title: 'What season?', subtitle: 'This influences lighting and atmosphere' },
 ];
 
 // Helper to convert base64 to blob URL
@@ -88,10 +239,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
   const [editingFrom, setEditingFrom] = useState(null);
   const [selections, setSelections] = useState({
     space: null,
-    style: null, 
-    colorPalette: null, 
-    florals: null, 
-    lighting: null,
+    vibe: null,
+    density: null,
+    colors: null,
+    season: null,
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
@@ -147,16 +298,45 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
   
     try {
       console.log('Calling generateVenueVisualization...');
+      
+      // Build the final prompt
+      const vibe = VIBES.find(v => v.id === selections.vibe);
+      const density = DENSITIES.find(d => d.id === selections.density);
+      const colors = COLOR_PALETTES.find(c => c.id === selections.colors);
+      const season = SEASONS.find(s => s.id === selections.season);
+      
+      const spaceDescription = selections.space.photo_description || 'outdoor wedding venue';
+      
+      const preservationPrompt = 'CRITICAL: Preserve exact architecture, trees, landscape, camera angle, and perspective. Only add décor elements. Do not change the structure or environment.';
+      
+      const promptParts = [
+        'professional wedding photography',
+        'high quality realistic photo',
+        spaceDescription,
+        vibe?.prompt || '',
+        density?.prompt || '',
+        colors?.prompt || '',
+        season?.prompt || '',
+        'beautifully decorated wedding ceremony',
+        'floral arrangements, elegant décor',
+        preservationPrompt,
+        'photorealistic, 8K quality, editorial wedding photography'
+      ].filter(Boolean);
+      
+      const finalPrompt = promptParts.join(', ');
+      
+      console.log('Generated prompt:', finalPrompt);
+      
       const result = await base44.functions.invoke('generateVenueVisualization', {
         baseImageUrl: selections.space.photo_url,
-        photoDescription: selections.space.photo_description,
-        transformationHints: selections.space.transformation_hints,
-        designChoices: {
-          style: selections.style,
-          colorPalette: selections.colorPalette,
-          florals: selections.florals,
-          lighting: selections.lighting,
-        },
+        prompt: finalPrompt,
+        metadata: {
+          vibe: selections.vibe,
+          density: selections.density,
+          colors: selections.colors,
+          season: selections.season,
+          spaceCategory: selections.space?.category
+        }
       });
       
       console.log('Result received:', result);
@@ -238,7 +418,7 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
       URL.revokeObjectURL(generatedImage);
     }
     setStep(0);
-    setSelections({ space: null, style: null, colorPalette: null, florals: null, lighting: null });
+    setSelections({ space: null, vibe: null, density: null, colors: null, season: null });
     setGeneratedImage(null);
     setError(null);
     setShowFullscreen(false);
@@ -468,13 +648,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
 
   // --- Review View ---
   if (step === 5) {
-    const getOptionLabel = (key, id) => {
-      if (id === 'no_preference') return 'No Preference';
-      const options = { style: STYLES, colorPalette: COLOR_PALETTES, florals: FLORALS, lighting: LIGHTING }[key];
-      return options?.find(opt => opt.id === id)?.label || 'N/A';
-    };
-
-    const getColors = (id) => COLOR_PALETTES.find(p => p.id === id)?.colors || [];
+    const vibe = VIBES.find(v => v.id === selections.vibe);
+    const density = DENSITIES.find(d => d.id === selections.density);
+    const colors = COLOR_PALETTES.find(c => c.id === selections.colors);
+    const season = SEASONS.find(s => s.id === selections.season);
 
     return (
       <motion.div 
@@ -502,30 +679,60 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
           </div>
 
           <div className="space-y-3">
-            {STEPS.filter(s => s.key !== 'space').map((s, index) => (
-              <button 
-                key={s.key} 
-                onClick={() => handleEditSelection(index + 1)}
-                className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
-              >
-                <div className="flex-1">
-                  <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">{s.title}</p>
-                  {s.key === 'colorPalette' ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex -space-x-1">
-                        {getColors(selections[s.key])?.map((c, i) => (
-                          <div key={i} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: c }} />
-                        ))}
-                      </div>
-                      <span className="font-light text-stone-900">{getOptionLabel(s.key, selections[s.key])}</span>
+            <button 
+              onClick={() => handleEditSelection(1)}
+              className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
+            >
+              <div className="flex-1">
+                <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Vibe</p>
+                <p className="font-light text-stone-900">{vibe?.label || 'Not selected'}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-stone-400" />
+            </button>
+
+            <button 
+              onClick={() => handleEditSelection(2)}
+              className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
+            >
+              <div className="flex-1">
+                <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Density</p>
+                <p className="font-light text-stone-900">{density?.label || 'Not selected'}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-stone-400" />
+            </button>
+
+            <button 
+              onClick={() => handleEditSelection(3)}
+              className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
+            >
+              <div className="flex-1">
+                <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Colors</p>
+                {colors?.colors ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-1">
+                      {colors.colors.map((c, i) => (
+                        <div key={i} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: c }} />
+                      ))}
                     </div>
-                  ) : (
-                    <p className="font-light text-stone-900">{getOptionLabel(s.key, selections[s.key])}</p>
-                  )}
-                </div>
-                <ArrowRight className="w-4 h-4 text-stone-400" />
-              </button>
-            ))}
+                    <span className="font-light text-stone-900">{colors.label}</span>
+                  </div>
+                ) : (
+                  <p className="font-light text-stone-900">Not selected</p>
+                )}
+              </div>
+              <ArrowRight className="w-4 h-4 text-stone-400" />
+            </button>
+
+            <button 
+              onClick={() => handleEditSelection(4)}
+              className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
+            >
+              <div className="flex-1">
+                <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Season</p>
+                <p className="font-light text-stone-900">{season?.label || 'Not selected'}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-stone-400" />
+            </button>
           </div>
           
           {error && (
@@ -536,7 +743,7 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
 
           <Button 
             onClick={generateVisualization} 
-            disabled={!selections.space || !selections.style || !selections.colorPalette || !selections.florals || !selections.lighting} 
+            disabled={!selections.space || !selections.vibe || !selections.density || !selections.colors || !selections.season} 
             className="w-full mt-6 rounded-full bg-black hover:bg-stone-800 h-12"
           >
             <Sparkles className="w-4 h-4 mr-2" />
@@ -593,186 +800,89 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
           </div>
         );
       
-      case 'style':
+      case 'vibe':
+      case 'density':
+      case 'season':
+        const options = currentStepData.key === 'vibe' ? VIBES : currentStepData.key === 'density' ? DENSITIES : SEASONS;
         return (
           <div className="space-y-3">
-            {STYLES.map((opt) => (
+            {options.map((opt) => (
               <button 
                 key={opt.id} 
-                onClick={() => handleSelect('style', opt.id)}
+                onClick={() => handleSelect(currentStepData.key, opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl text-left border transition-all flex items-start gap-4",
-                  selections.style === opt.id 
-                    ? 'border-black bg-black text-white' 
-                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
+                  "relative w-full rounded-xl overflow-hidden border-2 transition-all",
+                  selections[currentStepData.key] === opt.id 
+                    ? "border-black" 
+                    : "border-transparent hover:border-stone-200"
                 )}
               >
-                <span className="text-2xl pt-1">{opt.icon}</span>
-                <div className="flex-1">
-                  <p className="font-light text-base">{opt.label}</p>
-                  <p className={cn("text-sm mt-1 font-light", selections.style === opt.id ? 'text-white/70' : 'text-stone-500')}>
-                    {opt.description}
-                  </p>
+                <div className="aspect-[16/9] relative">
+                  <img 
+                    src={opt.image} 
+                    alt={opt.label} 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-white font-medium text-lg">{opt.label}</p>
+                    <p className="text-white/70 text-sm mt-1">{opt.description}</p>
+                  </div>
+                  {selections[currentStepData.key] === opt.id && (
+                    <div className="absolute top-3 right-3 w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
                 </div>
-                {selections.style === opt.id && (
-                  <motion.div 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center flex-shrink-0"
-                  >
-                    <CheckCircle className="w-4 h-4 text-black" />
-                  </motion.div>
-                )}
               </button>
             ))}
           </div>
         );
       
-      case 'colorPalette':
+      case 'colors':
         return (
           <div className="space-y-3">
             {COLOR_PALETTES.map((opt) => (
               <button 
                 key={opt.id} 
-                onClick={() => handleSelect('colorPalette', opt.id)}
+                onClick={() => handleSelect('colors', opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl flex items-center gap-4 border transition-all",
-                  selections.colorPalette === opt.id 
-                    ? 'border-black bg-black text-white' 
-                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
+                  "relative w-full rounded-xl overflow-hidden border-2 transition-all",
+                  selections.colors === opt.id 
+                    ? "border-black" 
+                    : "border-transparent hover:border-stone-200"
                 )}
               >
-                <div className="flex -space-x-1">
-                  {opt.colors.map((c, i) => (
-                    <div 
-                      key={i} 
-                      className="w-8 h-8 rounded-full border-2 border-white shadow-sm" 
-                      style={{ backgroundColor: c }} 
-                    />
-                  ))}
+                <div className="aspect-[16/9] relative">
+                  <img 
+                    src={opt.image} 
+                    alt={opt.label} 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex -space-x-1">
+                        {opt.colors.map((color, i) => (
+                          <div 
+                            key={i} 
+                            className="w-6 h-6 rounded-full border-2 border-white shadow-sm" 
+                            style={{ backgroundColor: color }} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-white font-medium text-lg">{opt.label}</p>
+                    <p className="text-white/70 text-sm mt-1">{opt.description}</p>
+                  </div>
+                  {selections.colors === opt.id && (
+                    <div className="absolute top-3 right-3 w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
                 </div>
-                <span className="font-light flex-1">{opt.label}</span>
-                {selections.colorPalette === opt.id && (
-                  <motion.div 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
-                  >
-                    <CheckCircle className="w-4 h-4 text-black" />
-                  </motion.div>
-                )}
               </button>
             ))}
-          </div>
-        );
-      
-      case 'florals':
-        return (
-          <div className="space-y-3">
-            {FLORALS.map((opt) => (
-              <button 
-                key={opt.id} 
-                onClick={() => handleSelect('florals', opt.id)}
-                className={cn(
-                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border transition-all",
-                  selections.florals === opt.id 
-                    ? 'border-black bg-black text-white' 
-                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
-                )}
-              >
-                <div className="flex-1">
-                  <p className="font-light text-base">{opt.label}</p>
-                  <p className={cn("text-sm mt-1 font-light", selections.florals === opt.id ? 'text-white/70' : 'text-stone-500')}>
-                    {opt.description}
-                  </p>
-                </div>
-                {selections.florals === opt.id && (
-                  <motion.div 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
-                  >
-                    <CheckCircle className="w-4 h-4 text-black" />
-                  </motion.div>
-                )}
-              </button>
-            ))}
-            <button 
-              onClick={() => handleSelect('florals', 'no_preference')}
-              className={cn(
-                "w-full p-4 rounded-xl flex items-center justify-center gap-4 border-2 border-dashed transition-all",
-                selections.florals === 'no_preference' 
-                  ? 'border-black bg-black text-white' 
-                  : 'border-stone-300 text-stone-500 hover:border-stone-400'
-              )}
-            >
-              <Minus className="w-5 h-5" />
-              <span className="font-light">No Preference</span>
-              {selections.florals === 'no_preference' && (
-                <motion.div 
-                  initial={{ scale: 0 }} 
-                  animate={{ scale: 1 }} 
-                  className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
-                >
-                  <CheckCircle className="w-4 h-4 text-black" />
-                </motion.div>
-              )}
-            </button>
-          </div>
-        );
-      
-      case 'lighting':
-        return (
-          <div className="space-y-3">
-            {LIGHTING.map((opt) => (
-              <button 
-                key={opt.id} 
-                onClick={() => handleSelect('lighting', opt.id)}
-                className={cn(
-                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border transition-all",
-                  selections.lighting === opt.id 
-                    ? 'border-black bg-black text-white' 
-                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
-                )}
-              >
-                <div className="flex-1">
-                  <p className="font-light text-base">{opt.label}</p>
-                  <p className={cn("text-sm mt-1 font-light", selections.lighting === opt.id ? 'text-white/70' : 'text-stone-500')}>
-                    {opt.description}
-                  </p>
-                </div>
-                {selections.lighting === opt.id && (
-                  <motion.div 
-                    initial={{ scale: 0 }} 
-                    animate={{ scale: 1 }} 
-                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
-                  >
-                    <CheckCircle className="w-4 h-4 text-black" />
-                  </motion.div>
-                )}
-              </button>
-            ))}
-            <button 
-              onClick={() => handleSelect('lighting', 'no_preference')}
-              className={cn(
-                "w-full p-4 rounded-xl flex items-center justify-center gap-4 border-2 border-dashed transition-all",
-                selections.lighting === 'no_preference' 
-                  ? 'border-black bg-black text-white' 
-                  : 'border-stone-300 text-stone-500 hover:border-stone-400'
-              )}
-            >
-              <Minus className="w-5 h-5" />
-              <span className="font-light">No Preference</span>
-              {selections.lighting === 'no_preference' && (
-                <motion.div 
-                  initial={{ scale: 0 }} 
-                  animate={{ scale: 1 }} 
-                  className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
-                >
-                  <CheckCircle className="w-4 h-4 text-black" />
-                </motion.div>
-              )}
-            </button>
           </div>
         );
       
