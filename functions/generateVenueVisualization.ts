@@ -223,6 +223,8 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
   formData.append('steps', '40');
   formData.append('style_preset', 'photographic');
 
+  console.log('[VenueVisualizer] Sending request to Stability AI...');
+  
   const response = await fetch(
     'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
     {
@@ -235,7 +237,7 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     }
   );
 
-  console.log('Stability AI response status:', response.status);
+  console.log('[VenueVisualizer] Stability AI response status:', response.status);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
