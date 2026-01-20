@@ -15,10 +15,9 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer"
+} from "@/components/ui/drawer";
 
-// --- Style Constants ---
+// --- Constants ---
 const STYLES = [
   { id: 'romantic', label: 'Romantic & Elegant', description: 'Soft, flowing, classic romance', icon: '💕' },
   { id: 'rustic', label: 'Rustic Charm', description: 'Natural wood, greenery, warmth', icon: '🌿' },
@@ -43,7 +42,7 @@ const COLOR_PALETTES = [
 
 const FLORALS = [
   { id: 'lush_garden', label: 'Lush Garden Roses', description: 'Overflowing romantic blooms' },
-  { id: 'wildflower_meadow', label: 'Wildflower Meadow', description: 'Natural, whimsical arrangement' },
+  { id: 'wildflower', label: 'Wildflower Meadow', description: 'Natural, whimsical arrangement' },
   { id: 'minimal_modern', label: 'Modern & Minimal', description: 'Architectural, structured' },
   { id: 'dried_preserved', label: 'Dried & Preserved', description: 'Pampas grass, earth tones' },
   { id: 'greenery', label: 'Greenery Focused', description: 'Eucalyptus, ferns, foliage' },
@@ -57,6 +56,14 @@ const LIGHTING = [
   { id: 'lanterns', label: 'Lanterns', description: 'Cozy, bohemian warmth' },
   { id: 'natural', label: 'Natural Daylight', description: 'Sun-drenched, golden hour' },
   { id: 'mixed', label: 'Mixed Romantic', description: 'Candles + string lights combined' },
+];
+
+const STEPS = [
+  { key: 'space', title: 'Choose a Space', subtitle: 'Select which area to transform' },
+  { key: 'style', title: 'Wedding Style', subtitle: "What's your aesthetic?" },
+  { key: 'colorPalette', title: 'Color Palette', subtitle: 'Choose your colors' },
+  { key: 'florals', title: 'Florals', subtitle: 'Your floral vision' },
+  { key: 'lighting', title: 'Lighting', subtitle: 'Set the mood' },
 ];
 
 // Helper to convert base64 to blob URL
@@ -78,7 +85,7 @@ const base64ToBlobUrl = (base64DataUrl) => {
 
 export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddings', onComplete, onCancel }) {
   const [step, setStep] = useState(0); // 0-4 for questions, 5 for review
-  const [editingFromStep, setEditingFromStep] = useState(null);
+  const [editingFrom, setEditingFrom] = useState(null);
   const [selections, setSelections] = useState({
     space: null,
     style: null, 
@@ -88,11 +95,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
-  const [showComparison, setShowComparison] = useState(false);
-  const [error, setError] = useState(null);
-  const [showFullscreenViewer, setShowFullscreenViewer] = useState(false);
-  const [fullscreenImageIndex, setFullscreenImageIndex] = useState(0);
+  const [showFullscreen, setShowFullscreen] = useState(false);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0); // 0 = transformed, 1 = original
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [error, setError] = useState(null);
 
   const { data: venuePhotos = [], isLoading: isLoadingPhotos } = useQuery({
     queryKey: ['venueVisualizationPhotos', venueId],
@@ -111,33 +117,23 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     return acc;
   }, {});
 
-  const STEPS = [
-    { key: 'space', title: 'Choose a Space', subtitle: 'Select which area to transform' },
-    { key: 'style', title: 'Wedding Style', subtitle: 'What\'s your aesthetic?', options: STYLES },
-    { key: 'colorPalette', title: 'Color Palette', subtitle: 'Choose your colors', options: COLOR_PALETTES },
-    { key: 'florals', title: 'Florals', subtitle: 'Your floral vision', options: FLORALS },
-    { key: 'lighting', title: 'Lighting', subtitle: 'Set the mood', options: LIGHTING },
-  ];
-
-  const currentStepData = STEPS[step];
-  
   const handleSelect = (key, value) => {
     setSelections(prev => ({ ...prev, [key]: value }));
     
     setTimeout(() => {
-      if (editingFromStep !== null) {
-        setStep(5);
-        setEditingFromStep(null);
+      if (editingFrom !== null) {
+        setStep(5); // Return to review
+        setEditingFrom(null);
       } else if (step < 4) {
         setStep(step + 1);
       } else {
-        setStep(5);
+        setStep(5); // Go to review
       }
     }, 300);
   };
 
   const handleEditSelection = (stepIndex) => {
-    setEditingFromStep(stepIndex);
+    setEditingFrom(stepIndex);
     setStep(stepIndex);
   };
 
@@ -168,10 +164,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
       } else {
         const errorMsg = result.data?.error || result.data?.message || 'Failed to generate image';
         setError(errorMsg);
+        setIsGenerating(false);
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred during generation.');
-    } finally {
       setIsGenerating(false);
     }
   };
@@ -192,10 +188,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         document.body.removeChild(link);
       }
       setShowShareSheet(false);
-      toast.success('Image downloaded!');
+      toast.success('Image downloaded');
     } catch (err) {
       console.error('Download failed:', err);
-      toast.error('Failed to download image.');
+      toast.error('Failed to download image');
     }
   };
 
@@ -213,10 +209,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         setShowShareSheet(false);
       } catch (err) {
         console.log('Share failed:', err);
-        toast.error('Failed to share image.');
+        toast.error('Sharing not supported');
       }
     } else {
-      toast.info('Sharing is not supported on this browser.');
+      toast.info('Sharing not supported on this device');
     }
   };
 
@@ -228,34 +224,34 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     setSelections({ space: null, style: null, colorPalette: null, florals: null, lighting: null });
     setGeneratedImage(null);
     setError(null);
-    setShowComparison(false);
-    setShowFullscreenViewer(false);
-    setFullscreenImageIndex(0);
+    setShowFullscreen(false);
+    setFullscreenIndex(0);
+    setEditingFrom(null);
+    setIsGenerating(false);
   };
 
-  // Loading State
+  // --- Loading State ---
   if (isLoadingPhotos) {
     return (
       <div className="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 mb-4 flex items-center justify-center min-h-[300px]">
         <Loader2 className="w-8 h-8 text-stone-400 animate-spin" />
-        <span className="text-stone-600 ml-3">Loading venue photos...</span>
       </div>
     );
   }
 
-  // No Photos State
+  // --- No Photos State ---
   if (venuePhotos.length === 0) {
     return (
       <div className="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 mb-4 text-center">
         <Sparkles className="w-12 h-12 text-stone-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-stone-900 mb-2">Coming Soon!</h3>
-        <p className="text-stone-600 mb-4">Venue photos are being prepared. Schedule a tour to see our spaces!</p>
+        <p className="text-stone-600 mb-4">Venue photos are being prepared.</p>
         <Button onClick={onComplete} className="rounded-full bg-black hover:bg-stone-800">Schedule a Tour</Button>
       </div>
     );
   }
 
-  // Generating State
+  // --- Generating State ---
   if (isGenerating) {
     return (
       <motion.div 
@@ -263,36 +259,39 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         animate={{ opacity: 1 }} 
         className="fixed inset-0 bg-black z-50 flex items-center justify-center p-4"
       >
-        <div className="w-full max-w-2xl">
-          <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-6">
+        <div className="relative w-full max-w-2xl">
+          <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden">
             <img src={selections.space?.photo_url} alt="Base" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-6">
               <h3 className="text-2xl font-light text-white mb-2">Creating Your Vision</h3>
-              <p className="text-white/80 text-sm">
-                Transforming {selections.space?.name}
-              </p>
-              <div className="flex items-center space-x-1 mt-4">
+              <div className="flex items-center space-x-1 mb-8">
                 <motion.span 
                   className="text-white text-2xl"
-                  animate={{ opacity: [1, 0.3, 1] }}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
-                >.</motion.span>
+                >
+                  .
+                </motion.span>
                 <motion.span 
                   className="text-white text-2xl"
-                  animate={{ opacity: [1, 0.3, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
-                >.</motion.span>
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                >
+                  .
+                </motion.span>
                 <motion.span 
                   className="text-white text-2xl"
-                  animate={{ opacity: [1, 0.3, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
-                >.</motion.span>
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                >
+                  .
+                </motion.span>
               </div>
             </div>
           </div>
-          <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+          <div className="h-0.5 bg-white/20 rounded-full overflow-hidden mt-4">
             <motion.div 
-              className="h-full bg-white rounded-full" 
+              className="h-full bg-white" 
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
               transition={{ duration: 20, ease: "linear" }}
@@ -304,101 +303,78 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     );
   }
 
-  // Result View
+  // --- Result View ---
   if (generatedImage) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden mb-4">
-        <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="text-lg font-light text-stone-900">Your Wedding Vision</h3>
-          <button 
-            onClick={() => setShowComparison(!showComparison)} 
-            className="p-2 rounded-full hover:bg-stone-100 text-stone-500"
-          >
-            <Eye className="w-5 h-5" />
-          </button>
-        </div>
+      <>
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden mb-4"
+        >
+          <div className="px-6 py-4 border-b border-stone-100">
+            <h3 className="text-lg font-light text-stone-900">Your Wedding Vision</h3>
+          </div>
 
-        <div className="p-6">
-          {showComparison ? (
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="relative aspect-[4/3] rounded-xl overflow-hidden">
-                <img src={selections.space?.photo_url} alt="Original" className="w-full h-full object-cover" />
-                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/70 rounded text-xs text-white font-light">
-                  Original
-                </div>
-              </div>
-              <div className="relative aspect-[4/3] rounded-xl overflow-hidden">
-                <img src={generatedImage} alt="Vision" className="w-full h-full object-cover" />
-                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black rounded text-xs text-white font-light">
-                  Your Vision
-                </div>
-              </div>
-            </div>
-          ) : (
+          <div className="p-4">
             <button 
-              onClick={() => setShowFullscreenViewer(true)}
-              className="relative aspect-[4/3] rounded-xl overflow-hidden bg-stone-100 mb-4 w-full"
+              onClick={() => setShowFullscreen(true)}
+              className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-stone-100 group"
             >
-              <img src={generatedImage} alt="Your vision" className="w-full h-full object-cover" />
-            </button>
-          )}
-
-          <div className="flex gap-3 mb-6">
-            <Button onClick={generateVisualization} disabled={isGenerating} variant="outline" className="flex-1 rounded-full border-stone-200 hover:bg-stone-50">
-              <RefreshCw className={cn("w-4 h-4 mr-2", isGenerating && "animate-spin")} />
-              Regenerate
-            </Button>
-            <Drawer open={showShareSheet} onOpenChange={setShowShareSheet}>
-              <DrawerTrigger asChild>
-                <Button className="flex-1 rounded-full bg-black hover:bg-stone-800">
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader className="text-left">
-                  <DrawerTitle>Share Your Vision</DrawerTitle>
-                  <DrawerDescription>Download or share your wedding design</DrawerDescription>
-                </DrawerHeader>
-                <div className="p-4 flex flex-col gap-3 pb-8">
-                  <Button variant="outline" className="w-full rounded-full" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-2" /> Save to Photos
-                  </Button>
-                  {navigator.share && (
-                    <Button variant="outline" className="w-full rounded-full" onClick={handleShare}>
-                      <Share2 className="w-4 h-4 mr-2" /> Share via...
-                    </Button>
-                  )}
+              <img src={generatedImage} alt="Your personalized wedding vision" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                  <Eye className="w-6 h-6 text-black" />
                 </div>
-              </DrawerContent>
-            </Drawer>
+              </div>
+            </button>
+
+            <div className="flex gap-2 mt-4">
+              <Button 
+                onClick={generateVisualization} 
+                variant="outline" 
+                className="flex-1 rounded-full border-stone-200 text-stone-700 hover:bg-stone-50"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Regenerate
+              </Button>
+              <Button 
+                onClick={() => setShowShareSheet(true)} 
+                className="flex-1 rounded-full bg-black hover:bg-stone-800"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+            </div>
+
+            <div className="mt-6 p-6 bg-stone-50 rounded-xl text-center">
+              <p className="text-stone-900 mb-3 font-light">Love it? Let's make it real!</p>
+              <Button onClick={onComplete} className="rounded-full bg-black hover:bg-stone-800">
+                Schedule a Tour
+              </Button>
+            </div>
+
+            <button 
+              onClick={handleStartOver} 
+              className="w-full mt-4 py-3 text-sm text-stone-500 hover:text-stone-700 flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" /> Try Different Design
+            </button>
           </div>
+        </motion.div>
 
-          <div className="p-6 bg-stone-50 rounded-xl text-center mb-4">
-            <p className="text-stone-700 mb-3 text-lg font-light">Love it? Let's make it real!</p>
-            <Button onClick={onComplete} className="rounded-full bg-black hover:bg-stone-800">Schedule a Tour</Button>
-          </div>
-
-          <button onClick={handleStartOver} className="w-full py-2 text-sm text-stone-500 hover:text-stone-700 flex items-center justify-center gap-2">
-            <ArrowLeft className="w-4 h-4" /> Try Different Design
-          </button>
-        </div>
-
+        {/* Fullscreen Viewer */}
         <AnimatePresence>
-          {showFullscreenViewer && selections.space && (
+          {showFullscreen && selections.space && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black z-50 flex items-center justify-center p-4"
-              onClick={() => setShowFullscreenViewer(false)}
             >
               <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowFullscreenViewer(false);
-                }} 
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
+                onClick={() => setShowFullscreen(false)} 
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -406,39 +382,32 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
               <div className="relative w-full max-w-screen-lg">
                 <AnimatePresence mode="wait">
                   <motion.img
-                    key={fullscreenImageIndex}
-                    src={fullscreenImageIndex === 0 ? generatedImage : selections.space.photo_url}
-                    alt={fullscreenImageIndex === 0 ? "Generated Vision" : "Original Space"}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
+                    key={fullscreenIndex}
+                    src={fullscreenIndex === 0 ? generatedImage : selections.space.photo_url}
+                    alt={fullscreenIndex === 0 ? "Generated Vision" : "Original Space"}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="max-h-[85vh] max-w-full mx-auto object-contain"
-                    onClick={(e) => e.stopPropagation()}
+                    className="max-h-[85vh] max-w-full object-contain mx-auto"
                   />
                 </AnimatePresence>
                 
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3">
+                <div className="flex items-center justify-center gap-3 mt-6">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFullscreenImageIndex(0);
-                    }}
+                    onClick={() => setFullscreenIndex(0)}
                     className={cn(
-                      "px-4 py-2 rounded-full text-sm transition-all",
-                      fullscreenImageIndex === 0 ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"
+                      "px-4 py-2 rounded-full text-sm transition-colors",
+                      fullscreenIndex === 0 ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"
                     )}
                   >
                     Your Vision
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFullscreenImageIndex(1);
-                    }}
+                    onClick={() => setFullscreenIndex(1)}
                     className={cn(
-                      "px-4 py-2 rounded-full text-sm transition-all",
-                      fullscreenImageIndex === 1 ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"
+                      "px-4 py-2 rounded-full text-sm transition-colors",
+                      fullscreenIndex === 1 ? "bg-white text-black" : "bg-white/20 text-white hover:bg-white/30"
                     )}
                   >
                     Original
@@ -448,65 +417,93 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+
+        {/* Share Sheet */}
+        <Drawer open={showShareSheet} onOpenChange={setShowShareSheet}>
+          <DrawerContent>
+            <DrawerHeader className="text-left">
+              <DrawerTitle>Share Your Vision</DrawerTitle>
+              <DrawerDescription>Download or share your wedding design</DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 flex flex-col gap-3 pb-8">
+              <Button 
+                variant="outline" 
+                className="w-full rounded-full justify-start h-14" 
+                onClick={handleDownload}
+              >
+                <Download className="w-5 h-5 mr-3" /> 
+                <span className="flex-1 text-left">Save to Photos</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full rounded-full justify-start h-14" 
+                onClick={handleShare}
+              >
+                <Share2 className="w-5 h-5 mr-3" /> 
+                <span className="flex-1 text-left">Share via...</span>
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </>
     );
   }
 
-  // Review View
+  // --- Review View ---
   if (step === 5) {
     const getOptionLabel = (key, id) => {
       if (id === 'no_preference') return 'No Preference';
-      const stepOptions = STEPS.find(s => s.key === key)?.options;
-      return stepOptions?.find(opt => opt.id === id)?.label || 'N/A';
+      const options = { style: STYLES, colorPalette: COLOR_PALETTES, florals: FLORALS, lighting: LIGHTING }[key];
+      return options?.find(opt => opt.id === id)?.label || 'N/A';
     };
 
-    const getColorsForPalette = (id) => {
-      const palette = COLOR_PALETTES.find(p => p.id === id);
-      return palette ? palette.colors : [];
-    };
+    const getColors = (id) => COLOR_PALETTES.find(p => p.id === id)?.colors || [];
 
     return (
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }} 
         className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden mb-4"
       >
         <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
-          <button onClick={onCancel} className="p-2 rounded-full hover:bg-stone-100 text-stone-400">
+          <button 
+            onClick={onCancel} 
+            className="p-2 rounded-full hover:bg-stone-100 text-stone-500"
+          >
             <X className="w-5 h-5" />
           </button>
           <h3 className="text-lg font-light text-stone-900">Review Your Vision</h3>
           <div className="w-9" />
         </div>
-        
+
         <div className="p-6">
           <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-stone-100 mb-6">
             <img src={selections.space?.photo_url} alt={selections.space?.name} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
-              <p className="text-white text-lg font-light">{selections.space?.name}</p>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+              <p className="text-white font-light">{selections.space?.name}</p>
             </div>
           </div>
 
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3">
             {STEPS.filter(s => s.key !== 'space').map((s, index) => (
               <button 
                 key={s.key} 
                 onClick={() => handleEditSelection(index + 1)}
-                className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-stone-50 hover:bg-stone-100 text-left transition-colors"
+                className="w-full p-4 rounded-xl flex items-center gap-4 border border-stone-200 bg-white hover:bg-stone-50 text-left"
               >
                 <div className="flex-1">
-                  <p className="text-sm text-stone-500 font-light">{s.title}</p>
+                  <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">{s.title}</p>
                   {s.key === 'colorPalette' ? (
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2">
                       <div className="flex -space-x-1">
-                        {getColorsForPalette(selections[s.key])?.map((c, i) => (
-                          <div key={i} className="w-6 h-6 rounded-full border border-white shadow-sm" style={{ backgroundColor: c }} />
+                        {getColors(selections[s.key])?.map((c, i) => (
+                          <div key={i} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: c }} />
                         ))}
                       </div>
-                      <span className="font-normal text-stone-900">{getOptionLabel(s.key, selections[s.key])}</span>
+                      <span className="font-light text-stone-900">{getOptionLabel(s.key, selections[s.key])}</span>
                     </div>
                   ) : (
-                    <p className="font-normal text-stone-900 mt-1">{getOptionLabel(s.key, selections[s.key])}</p>
+                    <p className="font-light text-stone-900">{getOptionLabel(s.key, selections[s.key])}</p>
                   )}
                 </div>
                 <ArrowRight className="w-4 h-4 text-stone-400" />
@@ -514,12 +511,16 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
             ))}
           </div>
           
-          {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
 
           <Button 
             onClick={generateVisualization} 
-            disabled={isGenerating || !selections.space || !selections.style || !selections.colorPalette || !selections.florals || !selections.lighting} 
-            className="w-full rounded-full bg-black hover:bg-stone-800 h-12"
+            disabled={!selections.space || !selections.style || !selections.colorPalette || !selections.florals || !selections.lighting} 
+            className="w-full mt-6 rounded-full bg-black hover:bg-stone-800 h-12"
           >
             <Sparkles className="w-4 h-4 mr-2" />
             Create My Vision
@@ -529,15 +530,17 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     );
   }
 
-  // Questionnaire Steps
+  // --- Questionnaire Steps ---
+  const currentStepData = STEPS[step];
+
   const renderOptions = () => {
     switch (currentStepData.key) {
       case 'space':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {Object.entries(photosByCategory).map(([category, photos]) => (
               <div key={category}>
-                <h5 className="text-sm font-normal text-stone-500 uppercase tracking-wide mb-3">
+                <h5 className="text-xs uppercase tracking-wide text-stone-500 mb-3 font-light">
                   {category.replace('_', ' ')}
                 </h5>
                 <div className="space-y-3">
@@ -546,13 +549,15 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                       key={photo.id} 
                       onClick={() => handleSelect('space', photo)}
                       className={cn(
-                        "relative w-full aspect-[4/3] rounded-xl overflow-hidden border-2 transition-all",
-                        selections.space?.id === photo.id ? 'border-black' : 'border-stone-200 hover:border-stone-300'
+                        "relative w-full aspect-[4/3] rounded-xl overflow-hidden border-2 transition-all group",
+                        selections.space?.id === photo.id 
+                          ? 'border-black ring-2 ring-black' 
+                          : 'border-stone-200 hover:border-stone-300'
                       )}
                     >
                       <img src={photo.photo_url} alt={photo.name} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
-                        <p className="text-white text-lg font-light">{photo.name}</p>
+                        <p className="text-white font-light">{photo.name}</p>
                       </div>
                       {selections.space?.id === photo.id && (
                         <motion.div 
@@ -579,20 +584,26 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                 key={opt.id} 
                 onClick={() => handleSelect('style', opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl text-left border-2 transition-all flex items-start gap-4",
-                  selections.style === opt.id ? 'border-black bg-black text-white' : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                  "w-full p-4 rounded-xl text-left border transition-all flex items-start gap-4",
+                  selections.style === opt.id 
+                    ? 'border-black bg-black text-white' 
+                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
                 )}
               >
                 <span className="text-2xl pt-1">{opt.icon}</span>
                 <div className="flex-1">
-                  <p className="font-normal">{opt.label}</p>
-                  <p className={cn("text-sm mt-1", selections.style === opt.id ? 'text-white/70' : 'text-stone-500')}>
+                  <p className="font-light text-base">{opt.label}</p>
+                  <p className={cn("text-sm mt-1 font-light", selections.style === opt.id ? 'text-white/70' : 'text-stone-500')}>
                     {opt.description}
                   </p>
                 </div>
                 {selections.style === opt.id && (
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <CheckCircle className="w-5 h-5 text-white" />
+                  <motion.div 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
+                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center flex-shrink-0"
+                  >
+                    <CheckCircle className="w-4 h-4 text-black" />
                   </motion.div>
                 )}
               </button>
@@ -608,8 +619,10 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                 key={opt.id} 
                 onClick={() => handleSelect('colorPalette', opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl flex items-center gap-4 border-2 transition-all",
-                  selections.colorPalette === opt.id ? 'border-black bg-black text-white' : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                  "w-full p-4 rounded-xl flex items-center gap-4 border transition-all",
+                  selections.colorPalette === opt.id 
+                    ? 'border-black bg-black text-white' 
+                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
                 )}
               >
                 <div className="flex -space-x-1">
@@ -621,10 +634,14 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                     />
                   ))}
                 </div>
-                <span className="font-normal flex-1">{opt.label}</span>
+                <span className="font-light flex-1">{opt.label}</span>
                 {selections.colorPalette === opt.id && (
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <CheckCircle className="w-5 h-5 text-white" />
+                  <motion.div 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
+                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                  >
+                    <CheckCircle className="w-4 h-4 text-black" />
                   </motion.div>
                 )}
               </button>
@@ -640,19 +657,25 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                 key={opt.id} 
                 onClick={() => handleSelect('florals', opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border-2 transition-all",
-                  selections.florals === opt.id ? 'border-black bg-black text-white' : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border transition-all",
+                  selections.florals === opt.id 
+                    ? 'border-black bg-black text-white' 
+                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
                 )}
               >
                 <div className="flex-1">
-                  <p className="font-normal">{opt.label}</p>
-                  <p className={cn("text-sm mt-1", selections.florals === opt.id ? 'text-white/70' : 'text-stone-500')}>
+                  <p className="font-light text-base">{opt.label}</p>
+                  <p className={cn("text-sm mt-1 font-light", selections.florals === opt.id ? 'text-white/70' : 'text-stone-500')}>
                     {opt.description}
                   </p>
                 </div>
                 {selections.florals === opt.id && (
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <CheckCircle className="w-5 h-5 text-white" />
+                  <motion.div 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
+                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                  >
+                    <CheckCircle className="w-4 h-4 text-black" />
                   </motion.div>
                 )}
               </button>
@@ -660,15 +683,21 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
             <button 
               onClick={() => handleSelect('florals', 'no_preference')}
               className={cn(
-                "w-full p-4 rounded-xl flex items-center justify-center gap-3 border-2 border-dashed transition-all",
-                selections.florals === 'no_preference' ? 'border-black bg-black text-white' : 'border-stone-300 text-stone-500 hover:border-stone-400'
+                "w-full p-4 rounded-xl flex items-center justify-center gap-4 border-2 border-dashed transition-all",
+                selections.florals === 'no_preference' 
+                  ? 'border-black bg-black text-white' 
+                  : 'border-stone-300 text-stone-500 hover:border-stone-400'
               )}
             >
               <Minus className="w-5 h-5" />
-              <span className="font-normal">No Preference</span>
+              <span className="font-light">No Preference</span>
               {selections.florals === 'no_preference' && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                  <CheckCircle className="w-5 h-5 text-white" />
+                <motion.div 
+                  initial={{ scale: 0 }} 
+                  animate={{ scale: 1 }} 
+                  className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                >
+                  <CheckCircle className="w-4 h-4 text-black" />
                 </motion.div>
               )}
             </button>
@@ -683,19 +712,25 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
                 key={opt.id} 
                 onClick={() => handleSelect('lighting', opt.id)}
                 className={cn(
-                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border-2 transition-all",
-                  selections.lighting === opt.id ? 'border-black bg-black text-white' : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                  "w-full p-4 rounded-xl flex items-start gap-4 text-left border transition-all",
+                  selections.lighting === opt.id 
+                    ? 'border-black bg-black text-white' 
+                    : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-900'
                 )}
               >
                 <div className="flex-1">
-                  <p className="font-normal">{opt.label}</p>
-                  <p className={cn("text-sm mt-1", selections.lighting === opt.id ? 'text-white/70' : 'text-stone-500')}>
+                  <p className="font-light text-base">{opt.label}</p>
+                  <p className={cn("text-sm mt-1 font-light", selections.lighting === opt.id ? 'text-white/70' : 'text-stone-500')}>
                     {opt.description}
                   </p>
                 </div>
                 {selections.lighting === opt.id && (
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                    <CheckCircle className="w-5 h-5 text-white" />
+                  <motion.div 
+                    initial={{ scale: 0 }} 
+                    animate={{ scale: 1 }} 
+                    className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                  >
+                    <CheckCircle className="w-4 h-4 text-black" />
                   </motion.div>
                 )}
               </button>
@@ -703,15 +738,21 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
             <button 
               onClick={() => handleSelect('lighting', 'no_preference')}
               className={cn(
-                "w-full p-4 rounded-xl flex items-center justify-center gap-3 border-2 border-dashed transition-all",
-                selections.lighting === 'no_preference' ? 'border-black bg-black text-white' : 'border-stone-300 text-stone-500 hover:border-stone-400'
+                "w-full p-4 rounded-xl flex items-center justify-center gap-4 border-2 border-dashed transition-all",
+                selections.lighting === 'no_preference' 
+                  ? 'border-black bg-black text-white' 
+                  : 'border-stone-300 text-stone-500 hover:border-stone-400'
               )}
             >
               <Minus className="w-5 h-5" />
-              <span className="font-normal">No Preference</span>
+              <span className="font-light">No Preference</span>
               {selections.lighting === 'no_preference' && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                  <CheckCircle className="w-5 h-5 text-white" />
+                <motion.div 
+                  initial={{ scale: 0 }} 
+                  animate={{ scale: 1 }} 
+                  className="w-6 h-6 bg-white rounded-full flex items-center justify-center"
+                >
+                  <CheckCircle className="w-4 h-4 text-black" />
                 </motion.div>
               )}
             </button>
@@ -730,13 +771,13 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         initial={{ opacity: 0, x: 20 }} 
         animate={{ opacity: 1, x: 0 }} 
         exit={{ opacity: 0, x: -20 }} 
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        transition={{ duration: 0.2 }}
         className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden mb-4"
       >
         <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
           <button 
             onClick={step === 0 ? onCancel : () => setStep(prev => Math.max(0, prev - 1))} 
-            className="p-2 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-600"
+            className="p-2 rounded-full hover:bg-stone-100 text-stone-500"
           >
             {step === 0 ? <X className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
           </button>
@@ -755,12 +796,16 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
         </div>
 
         <div className="p-6">
-          <h4 className="text-2xl font-light text-stone-900 mb-1">{currentStepData?.title}</h4>
+          <h4 className="text-xl font-light text-stone-900 mb-1">{currentStepData?.title}</h4>
           <p className="text-stone-500 mb-6 font-light">{currentStepData?.subtitle}</p>
           <div className="max-h-[500px] overflow-y-auto pr-2">
             {renderOptions()}
           </div>
-          {error && <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>
