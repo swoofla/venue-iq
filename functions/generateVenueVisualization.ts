@@ -241,21 +241,22 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    console.error('Stability AI error:', errorData);
+    console.error('[VenueVisualizer] Stability AI error:', errorData);
     if (response.status === 402) throw new Error('Insufficient Stability AI credits');
     if (response.status === 400) throw new Error(`Stability API bad request: ${JSON.stringify(errorData)}`);
     if (response.status === 401) throw new Error('Invalid Stability API key');
     throw new Error(`Stability API error: ${errorData?.message || response.status}`);
   }
 
+  console.log('[VenueVisualizer] Parsing Stability AI response...');
   const data = await response.json();
   
   if (!data.artifacts || data.artifacts.length === 0) {
-    console.error('No artifacts in response:', data);
+    console.error('[VenueVisualizer] No artifacts in response:', data);
     throw new Error('No image generated');
   }
 
-  console.log('Image generated successfully');
+  console.log('[VenueVisualizer] Image generated successfully');
 
   return {
     success: true,
