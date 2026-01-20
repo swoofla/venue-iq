@@ -146,6 +146,7 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
     setError(null);
   
     try {
+      console.log('Calling generateVenueVisualization...');
       const result = await base44.functions.invoke('generateVenueVisualization', {
         baseImageUrl: selections.space.photo_url,
         photoDescription: selections.space.photo_description,
@@ -157,17 +158,33 @@ export default function VenueVisualizer({ venueId, venueName = 'Sugar Lake Weddi
           lighting: selections.lighting,
         },
       });
-  
+      
+      console.log('Result received:', result);
+      console.log('Result.data:', result.data);
+      
+      // Handle the response - backend returns { success: true, image: "base64..." }
       if (result.data?.success && result.data?.image) {
-        const blobUrl = base64ToBlobUrl(result.data.image);
+        console.log('Image data received, length:', result.data.image.length);
+        
+        // Convert base64 to blob URL for better mobile performance
+        const base64Data = result.data.image.replace(/^data:image\/\w+;base64,/, '');
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'image/png' });
+        const blobUrl = URL.createObjectURL(blob);
+        
         setGeneratedImage(blobUrl);
       } else {
-        const errorMsg = result.data?.error || result.data?.message || 'Failed to generate image';
-        setError(errorMsg);
-        setIsGenerating(false);
+        console.error('No image in response:', result.data);
+        throw new Error(result.data?.error || 'Failed to generate image');
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred during generation.');
+      console.error('Generation error:', err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
       setIsGenerating(false);
     }
   };
