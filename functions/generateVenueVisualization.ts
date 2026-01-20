@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
       photoDescription,
       transformationHints,
       designChoices,
+      prompt: customPrompt,
       provider = 'stability'
     } = requestBody;
     
@@ -71,16 +72,28 @@ Deno.serve(async (req) => {
     console.log('  - baseImageUrl:', baseImageUrl ? baseImageUrl.substring(0, 80) + '...' : 'MISSING');
     console.log('  - photoDescription:', photoDescription ? 'present' : 'missing');
     console.log('  - designChoices:', designChoices ? JSON.stringify(designChoices).substring(0, 100) : 'MISSING');
+    console.log('  - customPrompt:', customPrompt ? 'present' : 'missing');
 
-    if (!baseImageUrl || !designChoices) {
-      console.log('ERROR: Missing required fields');
-      return Response.json({ success: false, error: 'Missing required fields: baseImageUrl and designChoices' }, { status: 400 });
+    if (!baseImageUrl) {
+      console.log('ERROR: Missing baseImageUrl');
+      return Response.json({ success: false, error: 'Missing required field: baseImageUrl' }, { status: 400 });
+    }
+
+    if (!designChoices && !customPrompt) {
+      console.log('ERROR: Missing designChoices or customPrompt');
+      return Response.json({ success: false, error: 'Missing required field: designChoices or customPrompt' }, { status: 400 });
     }
 
     // Step 3: Build prompt
     console.log('Step 3: Building transformation prompt...');
-    const prompt = buildTransformationPrompt(photoDescription, transformationHints, designChoices);
-    console.log('Step 3 PASSED: Prompt built');
+    let prompt;
+    if (customPrompt) {
+      prompt = customPrompt;
+      console.log('Step 3 PASSED: Using custom prompt from frontend');
+    } else {
+      prompt = buildTransformationPrompt(photoDescription, transformationHints, designChoices);
+      console.log('Step 3 PASSED: Prompt built from designChoices');
+    }
     console.log('  - Prompt preview:', prompt.substring(0, 150) + '...');
 
     // Step 4: Check API key
