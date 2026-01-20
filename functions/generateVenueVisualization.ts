@@ -1,199 +1,89 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+// generateVenueVisualization.js - v2 with Spatially-Anchored Prompts
+// This version fixes the "minimal changes" problem by using structured edit instructions
+// instead of tag-soup prompts, and explicitly anchors decorations to visible geometry.
 
-// SDXL allowed dimensions (width x height)
-const SDXL_DIMENSIONS = [
-  { width: 1024, height: 1024, ratio: 1.0 },
-  { width: 1152, height: 896, ratio: 1.286 },
-  { width: 1216, height: 832, ratio: 1.462 },
-  { width: 1344, height: 768, ratio: 1.75 },
-  { width: 1536, height: 640, ratio: 2.4 },
-  { width: 640, height: 1536, ratio: 0.417 },
-  { width: 768, height: 1344, ratio: 0.571 },
-  { width: 832, height: 1216, ratio: 0.684 },
-  { width: 896, height: 1152, ratio: 0.778 },
-];
-
-// Pure JS base64 encoding (no external dependencies)
-function uint8ArrayToBase64(uint8Array) {
-  const CHUNK_SIZE = 0x8000; // 32KB chunks
-  let result = '';
-  for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
-    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
-    // Build string character by character to avoid call stack issues
-    let chunkStr = '';
-    for (let j = 0; j < chunk.length; j++) {
-      chunkStr += String.fromCharCode(chunk[j]);
-    }
-    result += chunkStr;
-  }
-  return btoa(result);
-}
+import { encodeBase64 } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+import * as imagescript from "https://deno.land/x/imagescript@1.2.15/mod.ts";
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
-  console.log('=== generateVenueVisualization START ===');
-  
-  try {
-    // Step 1: Auth check (OPTIONAL - allow public access for chatbot users)
-    console.log('Step 1: Checking authentication...');
-    const base44 = createClientFromRequest(req);
-    let user = null;
-    try {
-      user = await base44.auth.me();
-      console.log('Step 1 PASSED: User authenticated:', user?.id || user?.email || 'anonymous');
-    } catch (authError) {
-      console.log('Step 1 WARNING: Auth check failed, proceeding as anonymous user');
-      console.log('  - Auth error:', authError.message);
-    }
-    // Allow unauthenticated users (public chatbot)
-    console.log('Step 1 COMPLETE: Proceeding with request (user:', user ? 'authenticated' : 'anonymous', ')');
+  console.log('=== generateVenueVisualization v2 START ===');
 
-    // Step 2: Parse request body
-    console.log('Step 2: Parsing request body...');
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (parseError) {
-      console.log('ERROR: Failed to parse request body:', parseError.message);
-      return Response.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
-    }
-    
+  try {
     const { 
       baseImageUrl,
       photoDescription,
       transformationHints,
-      designChoices,
-      prompt: customPrompt,
-      provider = 'stability'
-    } = requestBody;
-    
-    console.log('Step 2 PASSED: Request body parsed');
-    console.log('  - baseImageUrl:', baseImageUrl ? baseImageUrl.substring(0, 80) + '...' : 'MISSING');
-    console.log('  - photoDescription:', photoDescription ? 'present' : 'missing');
-    console.log('  - designChoices:', designChoices ? JSON.stringify(designChoices).substring(0, 100) : 'MISSING');
-    console.log('  - customPrompt:', customPrompt ? 'present' : 'missing');
+      designChoices
+    } = await req.json();
 
-    if (!baseImageUrl) {
-      console.log('ERROR: Missing baseImageUrl');
-      return Response.json({ success: false, error: 'Missing required field: baseImageUrl' }, { status: 400 });
+    if (!baseImageUrl || !designChoices) {
+      return Response.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (!designChoices && !customPrompt) {
-      console.log('ERROR: Missing designChoices or customPrompt');
-      return Response.json({ success: false, error: 'Missing required field: designChoices or customPrompt' }, { status: 400 });
-    }
-
-    // Step 3: Build prompt
-    console.log('Step 3: Building transformation prompt...');
-    let prompt;
-    if (customPrompt) {
-      prompt = customPrompt;
-      console.log('Step 3 PASSED: Using custom prompt from frontend');
-    } else {
-      prompt = buildTransformationPrompt(photoDescription, transformationHints, designChoices);
-      console.log('Step 3 PASSED: Prompt built from designChoices');
-    }
-    console.log('  - Prompt preview:', prompt.substring(0, 150) + '...');
-
-    // Step 4: Check API key
-    console.log('Step 4: Checking Stability API key...');
+    // Get API key
     const STABILITY_API_KEY = Deno.env.get('STABILITY_API_KEY');
     if (!STABILITY_API_KEY) {
-      console.log('ERROR: STABILITY_API_KEY not found in environment');
       return Response.json({ success: false, error: 'Stability API key not configured' }, { status: 500 });
     }
-    console.log('Step 4 PASSED: API key present (length:', STABILITY_API_KEY.length, ')');
 
-    // Step 5: Fetch source image
-    console.log('Step 5: Fetching source image from URL...');
-    const fetchStartTime = Date.now();
-    let imageResponse;
-    try {
-      imageResponse = await fetch(baseImageUrl, {
-        headers: {
-          'Accept': 'image/*'
-        }
-      });
-    } catch (fetchError) {
-      console.log('ERROR: Failed to fetch image:', fetchError.message);
-      return Response.json({ success: false, error: `Failed to fetch source image: ${fetchError.message}` }, { status: 500 });
-    }
-    
+    // Build the improved prompt
+    const prompt = buildSpatiallyAnchoredPrompt(photoDescription, transformationHints, designChoices);
+    console.log('=== PROMPT ===');
+    console.log(prompt);
+    console.log('==============');
+
+    // Fetch and process the base image
+    console.log('Fetching base image...');
+    const imageResponse = await fetch(baseImageUrl);
     if (!imageResponse.ok) {
-      console.log('ERROR: Image fetch returned status:', imageResponse.status);
-      return Response.json({ success: false, error: `Image fetch failed with status ${imageResponse.status}` }, { status: 500 });
+      throw new Error(`Failed to fetch base image: ${imageResponse.status}`);
     }
-    console.log('Step 5 PASSED: Image fetched in', Date.now() - fetchStartTime, 'ms');
-    console.log('  - Content-Type:', imageResponse.headers.get('content-type'));
-    console.log('  - Content-Length:', imageResponse.headers.get('content-length'));
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const imageBytes = new Uint8Array(imageBuffer);
 
-    // Step 6: Convert to buffer
-    console.log('Step 6: Converting image to buffer...');
-    let imageBuffer;
-    try {
-      imageBuffer = await imageResponse.arrayBuffer();
-    } catch (bufferError) {
-      console.log('ERROR: Failed to convert to buffer:', bufferError.message);
-      return Response.json({ success: false, error: `Buffer conversion failed: ${bufferError.message}` }, { status: 500 });
-    }
-    console.log('Step 6 PASSED: Buffer created, size:', imageBuffer.byteLength, 'bytes');
-
-    // Step 7: Resize image to SDXL dimensions
-    console.log('Step 7: Resizing image to SDXL dimensions...');
-    let resizedImageBytes;
-    try {
-      const image = await Image.decode(new Uint8Array(imageBuffer));
-      const originalWidth = image.width;
-      const originalHeight = image.height;
-      const originalRatio = originalWidth / originalHeight;
-      console.log('  - Original dimensions:', originalWidth, 'x', originalHeight, '(ratio:', originalRatio.toFixed(3), ')');
-
-      // Find closest SDXL dimension
-      let closestDim = SDXL_DIMENSIONS[0];
-      let closestDiff = Math.abs(originalRatio - closestDim.ratio);
-      for (const dim of SDXL_DIMENSIONS) {
-        const diff = Math.abs(originalRatio - dim.ratio);
-        if (diff < closestDiff) {
-          closestDiff = diff;
-          closestDim = dim;
-        }
-      }
-      console.log('  - Target dimensions:', closestDim.width, 'x', closestDim.height);
-
-      // Resize
-      image.resize(closestDim.width, closestDim.height);
-      resizedImageBytes = await image.encode();
-      console.log('Step 7 PASSED: Image resized, new size:', resizedImageBytes.length, 'bytes');
-    } catch (resizeError) {
-      console.log('ERROR: Image resize failed:', resizeError.message);
-      console.log('  - Stack:', resizeError.stack);
-      return Response.json({ success: false, error: `Image resize failed: ${resizeError.message}` }, { status: 500 });
-    }
-
-    // Step 8: Convert to base64
-    console.log('Step 8: Converting to base64...');
-    let base64Image;
-    try {
-      base64Image = uint8ArrayToBase64(resizedImageBytes);
-      console.log('Step 8 PASSED: Base64 created, length:', base64Image.length);
-    } catch (base64Error) {
-      console.log('ERROR: Base64 conversion failed:', base64Error.message);
-      return Response.json({ success: false, error: `Base64 conversion failed: ${base64Error.message}` }, { status: 500 });
-    }
-
-    // Step 9: Call Stability AI
-    console.log('Step 9: Calling Stability AI...');
-    const stabilityStartTime = Date.now();
+    // Resize to valid dimensions for Stability AI
+    console.log('Resizing image...');
+    const image = await imagescript.decode(imageBytes);
+    const aspectRatio = image.width / image.height;
     
-    // Transformation strength is fixed to 'balanced' (0.60) as per new UI design
-    const strength = 0.60;
-    console.log('  - Transformation strength (fixed):', strength);
+    // SDXL valid dimensions (must be multiples of 64)
+    let targetWidth, targetHeight;
+    if (aspectRatio > 1.3) {
+      // Landscape
+      targetWidth = 1216;
+      targetHeight = 832;
+    } else if (aspectRatio < 0.77) {
+      // Portrait
+      targetWidth = 832;
+      targetHeight = 1216;
+    } else {
+      // Square-ish
+      targetWidth = 1024;
+      targetHeight = 1024;
+    }
+    
+    image.resize(targetWidth, targetHeight);
+    const resizedImageBytes = await image.encode(1); // PNG format
+    const base64Image = encodeBase64(resizedImageBytes);
 
-    // Build FormData
+    // Determine strength from user selection
+    const strengthMap = {
+      'subtle': 0.50,      // More change than before (was 0.45)
+      'balanced': 0.65,    // More change than before (was 0.60)
+      'dramatic': 0.80     // More change than before (was 0.75)
+    };
+    const strength = strengthMap[designChoices.transformationStrength] || 0.65;
+    
+    // Stability API uses image_strength (inverse of denoising strength)
+    // Lower image_strength = MORE changes
+    const imageStrength = 1 - strength;
+    console.log(`Transformation strength: ${strength} → image_strength: ${imageStrength}`);
+
+    // Build FormData for Stability AI
     const formData = new FormData();
     
-    // Convert base64 back to blob for FormData
+    // Convert base64 to blob
     const binaryString = atob(base64Image);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -203,169 +93,224 @@ Deno.serve(async (req) => {
     
     formData.append('init_image', imageBlob, 'venue.png');
     formData.append('init_image_mode', 'IMAGE_STRENGTH');
-    formData.append('image_strength', (1 - strength).toString());
+    formData.append('image_strength', imageStrength.toString());
     formData.append('text_prompts[0][text]', prompt);
     formData.append('text_prompts[0][weight]', '1');
-    formData.append('text_prompts[1][text]', 'blurry, distorted, low quality, cartoon, anime, illustration, painting, drawing, people, guests');
+    
+    // Negative prompt - things to avoid
+    const negativePrompt = buildNegativePrompt();
+    formData.append('text_prompts[1][text]', negativePrompt);
     formData.append('text_prompts[1][weight]', '-1');
-    formData.append('cfg_scale', '7');
+    
+    formData.append('cfg_scale', '8');  // Slightly higher for better prompt adherence
     formData.append('samples', '1');
-    formData.append('steps', '30');
+    formData.append('steps', '35');     // More steps for better quality
 
-    let stabilityResponse;
-    try {
-      stabilityResponse = await fetch(
-        'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${STABILITY_API_KEY}`,
-            'Accept': 'application/json'
-          },
-          body: formData
-        }
-      );
-    } catch (stabilityFetchError) {
-      console.log('ERROR: Stability API fetch failed:', stabilityFetchError.message);
-      return Response.json({ success: false, error: `Stability API connection failed: ${stabilityFetchError.message}` }, { status: 500 });
-    }
-
-    console.log('  - Stability API status:', stabilityResponse.status);
-    console.log('  - Stability API time:', Date.now() - stabilityStartTime, 'ms');
+    // Call Stability AI
+    console.log('Calling Stability AI...');
+    const stabilityResponse = await fetch(
+      'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${STABILITY_API_KEY}`,
+          'Accept': 'application/json'
+        },
+        body: formData
+      }
+    );
 
     if (!stabilityResponse.ok) {
-      let errorText;
-      try {
-        errorText = await stabilityResponse.text();
-      } catch {
-        errorText = 'Could not read error response';
-      }
-      console.log('ERROR: Stability API error:', errorText);
-      return Response.json({ 
-        success: false, 
-        error: `Stability AI error: ${stabilityResponse.status}`,
-        details: errorText
-      }, { status: 500 });
+      const errorText = await stabilityResponse.text();
+      console.error('Stability API error:', stabilityResponse.status, errorText);
+      throw new Error(`Stability API error: ${stabilityResponse.status} - ${errorText}`);
     }
 
-    // Step 10: Parse response
-    console.log('Step 10: Parsing Stability AI response...');
-    let stabilityData;
-    try {
-      stabilityData = await stabilityResponse.json();
-    } catch (parseError) {
-      console.log('ERROR: Failed to parse Stability response:', parseError.message);
-      return Response.json({ success: false, error: 'Failed to parse AI response' }, { status: 500 });
+    const stabilityResult = await stabilityResponse.json();
+    
+    if (!stabilityResult.artifacts || stabilityResult.artifacts.length === 0) {
+      throw new Error('No image generated');
     }
 
-    if (!stabilityData.artifacts || stabilityData.artifacts.length === 0) {
-      console.log('ERROR: No artifacts in response');
-      console.log('  - Response keys:', Object.keys(stabilityData));
-      return Response.json({ success: false, error: 'No image generated' }, { status: 500 });
-    }
-
-    const generatedBase64 = stabilityData.artifacts[0].base64;
-    console.log('Step 10 PASSED: Got generated image, base64 length:', generatedBase64.length);
-
-    // Success!
+    const generatedBase64 = stabilityResult.artifacts[0].base64;
     const totalTime = Date.now() - startTime;
-    console.log('=== generateVenueVisualization SUCCESS ===');
-    console.log('Total time:', totalTime, 'ms');
+    console.log(`=== SUCCESS in ${totalTime}ms ===`);
 
     return Response.json({
       success: true,
-      image: `data:image/png;base64,${generatedBase64}`,
-      prompt: prompt,
-      processingTime: totalTime
+      image: `data:image/png;base64,${generatedBase64}`
     });
 
   } catch (error) {
-    console.log('=== UNEXPECTED ERROR ===');
-    console.log('Error:', error.message);
-    console.log('Stack:', error.stack);
+    console.error('generateVenueVisualization error:', error);
     return Response.json({ 
       success: false, 
-      error: error.message,
-      stack: error.stack
+      error: error.message 
     }, { status: 500 });
   }
 });
 
-function buildTransformationPrompt(photoDescription, transformationHints, designChoices) {
-  const { style, colorPalette, florals, lighting } = designChoices;
+// ============================================
+// SPATIALLY-ANCHORED PROMPT BUILDER
+// ============================================
 
-  // Style descriptions - matching new STYLES constant IDs
-  const styleDescriptions = {
-    'romantic': 'romantic elegant wedding decor, soft flowing fabrics, classic romance, dreamy atmosphere',
-    'rustic': 'rustic wedding decor, natural wood elements, greenery, warmth',
-    'modern': 'modern minimalist wedding decor, clean lines, geometric shapes',
-    'bohemian': 'bohemian wedding decor, free-spirited, eclectic, organic textures',
-    'garden': 'garden party wedding decor, lush florals, outdoor elegance',
-    'glamorous': 'glamorous luxury wedding decor, opulent, dramatic, bold statement pieces',
-    'vintage': 'vintage wedding decor, antique charm, nostalgic beauty',
-    'coastal': 'coastal wedding decor, beach-inspired, airy, relaxed atmosphere'
+function buildSpatiallyAnchoredPrompt(photoDescription, transformationHints, designChoices) {
+  const { style, colorPalette, florals, lighting, tableSettings } = designChoices;
+
+  // Default photo description if not provided
+  const sceneDescription = photoDescription || 
+    'outdoor wedding ceremony venue with chairs arranged in rows and a natural focal point';
+  
+  // Default transformation hints if not provided  
+  const editableAreas = transformationHints ||
+    'ceremony area, aisle, altar/arch area, chair decorations';
+
+  // ============================================
+  // STYLE DEFINITIONS - Full décor packages
+  // ============================================
+  const STYLE_PACKAGES = {
+    romantic: {
+      arch: 'romantic draped fabric wedding arch with flowing sheer curtains and cascading florals',
+      aisle: 'rose petals scattered along the aisle with small floral arrangements on alternating chairs',
+      altar: 'elegant floral focal point with soft draping fabric',
+      vibe: 'dreamy, soft, romantic, ethereal'
+    },
+    rustic: {
+      arch: 'wooden wedding arch made of natural branches, decorated with greenery garlands and wildflowers',
+      aisle: 'burlap aisle runner with mason jar floral arrangements on shepherd hooks',
+      altar: 'rustic wooden altar with climbing vines and natural elements',
+      vibe: 'natural, earthy, warm, organic'
+    },
+    modern: {
+      arch: 'sleek geometric metal wedding arch with minimalist floral accents, clean lines',
+      aisle: 'simple modern aisle markers with single stem arrangements in clear glass',
+      altar: 'modern sculptural altar piece with architectural flowers',
+      vibe: 'clean, sophisticated, minimal, contemporary'
+    },
+    bohemian: {
+      arch: 'macramé wedding arch backdrop with pampas grass, dried flowers and feathers',
+      aisle: 'eclectic mix of vintage rugs as aisle runner, mismatched floral arrangements',
+      altar: 'layered textiles and bohemian elements with dried botanicals',
+      vibe: 'free-spirited, eclectic, artistic, whimsical'
+    },
+    garden: {
+      arch: 'lush floral garden arch overflowing with roses, hydrangeas and trailing greenery',
+      aisle: 'garden-style ground arrangements with abundant fresh flowers lining both sides',
+      altar: 'romantic garden focal point bursting with fresh blooms',
+      vibe: 'lush, abundant, fresh, botanical'
+    },
+    glamorous: {
+      arch: 'dramatic tall wedding arch with cascading white orchids and crystal accents',
+      aisle: 'mirrored aisle with tall floral arrangements on crystal pedestals',
+      altar: 'opulent floral installation with dramatic height and luxury blooms',
+      vibe: 'luxurious, dramatic, elegant, showstopping'
+    },
+    vintage: {
+      arch: 'antique-style wedding arch with vintage lace, old garden roses and trailing ivy',
+      aisle: 'vintage lanterns and antique urns with classic floral arrangements',
+      altar: 'romantic vintage focal point with heirloom-style blooms',
+      vibe: 'nostalgic, romantic, timeless, classic'
+    },
+    coastal: {
+      arch: 'driftwood wedding arch with flowing white fabric and tropical greenery',
+      aisle: 'seashells and beach grass accents with white tropical flowers',
+      altar: 'coastal-inspired focal point with natural beach elements',
+      vibe: 'breezy, relaxed, natural, oceanside'
+    }
   };
 
-  // Color palette descriptions - matching new COLOR_PALETTES constant IDs
-  const colorDescriptions = {
-    'blush_gold': 'blush pink and gold color scheme, white accents, romantic warm tones',
-    'sage_cream': 'sage green and cream colors, ivory accents, natural earth tones',
-    'dusty_blue': 'dusty blue and silver color palette, elegant cool tones',
-    'burgundy_navy': 'burgundy and navy color scheme, rich jewel tones, gold accents',
-    'terracotta': 'terracotta and rust colors, burnt orange, warm earth tones',
-    'lavender': 'lavender and soft purple tones, romantic purple hues',
-    'classic_white': 'classic white and green, timeless elegance, ivory and forest green',
-    'sunset': 'coral and peach colors, warm pink tones, golden yellow accents'
+  // ============================================
+  // COLOR PALETTE DEFINITIONS
+  // ============================================
+  const COLOR_DEFINITIONS = {
+    blush_gold: 'soft blush pink, champagne gold, ivory white, warm rose tones',
+    sage_cream: 'sage green, soft cream, natural ivory, muted green tones',
+    dusty_blue: 'dusty blue, silver gray, crisp white, soft blue-gray tones',
+    burgundy_navy: 'deep burgundy, navy blue, gold accents, rich jewel tones',
+    terracotta: 'terracotta orange, rust brown, warm desert tones, earthy colors',
+    lavender: 'soft lavender, purple, dusty mauve, romantic purple tones',
+    classic_white: 'pure white, fresh green, ivory, classic white and green palette',
+    sunset: 'coral orange, soft pink, golden yellow, warm sunset colors'
   };
 
-  // Floral descriptions - matching new FLORALS constant IDs
-  const floralDescriptions = {
-    'lush_garden': 'lush overflowing garden roses, peonies, ranunculus, abundant blooms',
-    'wildflower_meadow': 'wildflower arrangements, natural loose florals, meadow flowers',
-    'minimal_modern': 'minimal modern florals, single stem arrangements, architectural',
-    'dried_preserved': 'dried flowers, pampas grass, preserved arrangements, earth tones',
-    'greenery': 'lush greenery garlands, eucalyptus, ferns, foliage-focused',
-    'classic': 'classic roses, hydrangeas, elegant traditional arrangements'
+  // ============================================
+  // FLORAL STYLE DEFINITIONS
+  // ============================================
+  const FLORAL_DEFINITIONS = {
+    lush_garden: 'abundant overflowing garden roses, peonies, ranunculus, full romantic blooms',
+    wildflower: 'natural wildflower meadow mix, loose unstructured arrangements, whimsical blooms',
+    minimal_modern: 'architectural single stem flowers, calla lilies, orchids, sculptural arrangements',
+    dried_preserved: 'dried flowers, pampas grass, preserved botanicals, earth-tone dried arrangements',
+    greenery_focused: 'lush eucalyptus, ferns, olive branches, foliage-heavy with minimal flowers',
+    classic_elegant: 'classic roses, hydrangeas, traditional elegant arrangements'
   };
 
-  // Lighting descriptions - matching new LIGHTING constant IDs
-  const lightingDescriptions = {
-    'string_lights': 'romantic string lights, fairy lights, twinkling overhead, bistro lighting',
-    'candles': 'candlelit ambiance, pillar candles, votives, warm flickering candlelight',
-    'chandeliers': 'crystal chandeliers, elegant dramatic lighting fixtures, glamorous sparkle',
-    'lanterns': 'lanterns, moroccan-style lighting, bohemian atmospheric glow',
-    'natural': 'natural daylight, golden hour sunlight, sun-drenched atmosphere',
-    'mixed': 'mixed romantic lighting, candles and string lights, layered warm glow'
+  // ============================================
+  // LIGHTING DEFINITIONS
+  // ============================================
+  const LIGHTING_DEFINITIONS = {
+    string_lights: 'romantic twinkling string lights overhead, fairy light canopy, warm bistro lighting',
+    candles: 'warm candlelit ambiance, pillar candles on stands, flickering romantic candlelight',
+    chandeliers: 'crystal chandelier hanging overhead, elegant glamorous lighting fixture',
+    lanterns: 'decorative lanterns along aisle, hanging moroccan-style lanterns',
+    natural: 'beautiful natural daylight, golden hour sunlight filtering through',
+    mixed: 'romantic combination of candles and string lights, layered warm lighting'
   };
 
-  // Build the prompt
-  let promptParts = [
-    'professional wedding photography',
-    'high quality realistic photo',
-    photoDescription || 'beautiful wedding venue space'
-  ];
+  // Get the selected package
+  const stylePackage = STYLE_PACKAGES[style] || STYLE_PACKAGES.romantic;
+  const colors = COLOR_DEFINITIONS[colorPalette] || COLOR_DEFINITIONS.classic_white;
+  const floralStyle = FLORAL_DEFINITIONS[florals] || FLORAL_DEFINITIONS.classic_elegant;
+  const lightingStyle = LIGHTING_DEFINITIONS[lighting] || LIGHTING_DEFINITIONS.natural;
 
-  if (style && styleDescriptions[style]) {
-    promptParts.push(styleDescriptions[style]);
-  }
+  // ============================================
+  // BUILD THE STRUCTURED PROMPT
+  // ============================================
+  
+  const prompt = `EDIT THIS WEDDING VENUE PHOTO. Keep the exact same environment, background, trees, sky, water, and camera perspective unchanged.
 
-  if (colorPalette && colorDescriptions[colorPalette]) {
-    promptParts.push(colorDescriptions[colorPalette]);
-  }
+SCENE: ${sceneDescription}
 
-  if (florals && floralDescriptions[florals]) {
-    promptParts.push(floralDescriptions[florals]);
-  }
+ADD THESE WEDDING DECORATIONS (must be clearly visible):
 
-  if (lighting && lightingDescriptions[lighting]) {
-    promptParts.push(lightingDescriptions[lighting]);
-  }
+1. CEREMONY ARCH/BACKDROP: ${stylePackage.arch}
+   Place at the natural focal point (end of aisle, in front of tree or scenic backdrop).
 
-  if (transformationHints) {
-    promptParts.push(transformationHints);
-  }
+2. AISLE DECORATIONS: ${stylePackage.aisle}
+   Add along both sides of the center aisle between the chair rows.
 
-  promptParts.push('wedding decor, celebration setup, detailed, photorealistic, 8K quality');
+3. ALTAR/FOCAL AREA: ${stylePackage.altar}
+   Cluster decorations around the ceremony focal point.
 
-  return promptParts.join(', ');
+DESIGN SPECIFICATIONS:
+- Color palette: ${colors}
+- Floral style: ${floralStyle}
+- Lighting: ${lightingStyle}
+- Overall vibe: ${stylePackage.vibe}
+
+CRITICAL CONSTRAINTS - DO NOT MODIFY:
+- Keep all existing chairs exactly as they are (same position, color, style, count)
+- Keep the exact tree shape, trunk, branches, and canopy
+- Keep the sky, clouds, and horizon unchanged
+- Keep any water, lake, or background scenery identical
+- Keep the grass and ground surface unchanged except for aisle decorations
+- Maintain the exact camera angle and perspective
+
+OUTPUT: Photorealistic professional wedding photography, natural lighting, realistic shadows, magazine quality. No people, no text, no watermarks.`;
+
+  return prompt;
+}
+
+// ============================================
+// NEGATIVE PROMPT
+// ============================================
+
+function buildNegativePrompt() {
+  return `blurry, distorted, low quality, cartoon, anime, illustration, painting, drawing, 
+sketch, unrealistic, artificial, fake looking, oversaturated, 
+people, guests, bride, groom, wedding party, crowd,
+text, watermark, logo, signature, frame, border,
+different chairs, moved chairs, removed chairs, extra chairs,
+different tree shape, modified tree, different sky, different background,
+indoor, different venue, different location`;
 }
