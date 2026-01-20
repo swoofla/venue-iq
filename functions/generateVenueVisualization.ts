@@ -173,14 +173,9 @@ Deno.serve(async (req) => {
     console.log('Step 9: Calling Stability AI...');
     const stabilityStartTime = Date.now();
     
-    // Determine strength based on user selection
-    const strengthMap = {
-      'subtle': 0.45,
-      'balanced': 0.60,
-      'dramatic': 0.75
-    };
-    const strength = strengthMap[designChoices.transformationStrength] || 0.60;
-    console.log('  - Transformation strength:', strength);
+    // Transformation strength is fixed to 'balanced' (0.60) as per new UI design
+    const strength = 0.60;
+    console.log('  - Transformation strength (fixed):', strength);
 
     // Build FormData
     const formData = new FormData();
@@ -198,7 +193,7 @@ Deno.serve(async (req) => {
     formData.append('image_strength', (1 - strength).toString());
     formData.append('text_prompts[0][text]', prompt);
     formData.append('text_prompts[0][weight]', '1');
-    formData.append('text_prompts[1][text]', 'blurry, distorted, low quality, cartoon, anime, illustration, painting, drawing');
+    formData.append('text_prompts[1][text]', 'blurry, distorted, low quality, cartoon, anime, illustration, painting, drawing, people, guests');
     formData.append('text_prompts[1][weight]', '-1');
     formData.append('cfg_scale', '7');
     formData.append('samples', '1');
@@ -284,53 +279,57 @@ Deno.serve(async (req) => {
 });
 
 function buildTransformationPrompt(photoDescription, transformationHints, designChoices) {
-  const { style, colorPalette, florals, lighting, tableSettings } = designChoices;
+  const { style, colorPalette, florals, lighting } = designChoices;
 
-  // Style descriptions
+  // Style descriptions - matching new STYLES constant IDs
   const styleDescriptions = {
-    'romantic': 'romantic, soft, dreamy, elegant atmosphere with flowing fabrics and gentle curves',
-    'modern': 'modern, minimalist, clean lines, contemporary design with sleek furnishings',
-    'rustic': 'rustic, natural, organic, barn-style with wooden elements and natural textures',
-    'classic': 'classic, timeless, traditional elegance with refined details',
-    'bohemian': 'bohemian, free-spirited, eclectic mix of patterns, textures, and global influences',
-    'glamorous': 'glamorous, luxurious, opulent with crystal, gold accents, and rich fabrics'
+    'romantic': 'romantic elegant wedding decor, soft flowing fabrics, classic romance, dreamy atmosphere',
+    'rustic': 'rustic wedding decor, natural wood elements, greenery, warmth',
+    'modern': 'modern minimalist wedding decor, clean lines, geometric shapes',
+    'bohemian': 'bohemian wedding decor, free-spirited, eclectic, organic textures',
+    'garden': 'garden party wedding decor, lush florals, outdoor elegance',
+    'glamorous': 'glamorous luxury wedding decor, opulent, dramatic, bold statement pieces',
+    'vintage': 'vintage wedding decor, antique charm, nostalgic beauty',
+    'coastal': 'coastal wedding decor, beach-inspired, airy, relaxed atmosphere'
   };
 
-  // Color palette descriptions
+  // Color palette descriptions - matching new COLOR_PALETTES constant IDs
   const colorDescriptions = {
-    'blush-gold': 'blush pink and gold color scheme, soft rose tones with warm metallic accents',
-    'sage-white': 'sage green and white color scheme, natural greens with crisp white',
-    'navy-burgundy': 'navy blue and burgundy color scheme, deep rich jewel tones',
-    'terracotta': 'terracotta and earth tones, warm burnt orange with natural browns',
+    'blush_gold': 'blush pink and gold color scheme, white accents, romantic warm tones',
+    'sage_cream': 'sage green and cream colors, ivory accents, natural earth tones',
+    'dusty_blue': 'dusty blue and silver color palette, elegant cool tones',
+    'burgundy_navy': 'burgundy and navy color scheme, rich jewel tones, gold accents',
+    'terracotta': 'terracotta and rust colors, burnt orange, warm earth tones',
     'lavender': 'lavender and soft purple tones, romantic purple hues',
-    'classic-white': 'all white and ivory color scheme, pure and elegant'
+    'classic_white': 'classic white and green, timeless elegance, ivory and forest green',
+    'sunset': 'coral and peach colors, warm pink tones, golden yellow accents'
   };
 
-  // Floral descriptions
+  // Floral descriptions - matching new FLORALS constant IDs
   const floralDescriptions = {
-    'lush-garden': 'lush overflowing garden-style floral arrangements with abundant greenery',
-    'minimal': 'minimal, carefully curated floral accents with simple elegant stems',
-    'wildflower': 'wildflower meadow style, natural and organic loose arrangements',
-    'tropical': 'tropical exotic flowers, bold colors and dramatic leaves',
-    'classic-roses': 'classic rose arrangements, timeless and romantic',
-    'dried-flowers': 'dried flower arrangements with pampas grass and preserved botanicals'
+    'lush_garden': 'lush overflowing garden roses, peonies, ranunculus, abundant blooms',
+    'wildflower_meadow': 'wildflower arrangements, natural loose florals, meadow flowers',
+    'minimal_modern': 'minimal modern florals, single stem arrangements, architectural',
+    'dried_preserved': 'dried flowers, pampas grass, preserved arrangements, earth tones',
+    'greenery': 'lush greenery garlands, eucalyptus, ferns, foliage-focused',
+    'classic': 'classic roses, hydrangeas, elegant traditional arrangements'
   };
 
-  // Lighting descriptions
+  // Lighting descriptions - matching new LIGHTING constant IDs
   const lightingDescriptions = {
-    'warm-ambient': 'warm ambient lighting with soft glowing candles and string lights',
-    'bright-airy': 'bright and airy natural light flooding the space',
-    'dramatic': 'dramatic lighting with spotlights and shadows creating depth',
-    'fairy-lights': 'magical fairy lights and twinkling string lights everywhere',
-    'candlelit': 'romantic candlelit atmosphere with flickering warm light',
-    'golden-hour': 'golden hour sunset lighting with warm orange and pink hues'
+    'string_lights': 'romantic string lights, fairy lights, twinkling overhead, bistro lighting',
+    'candles': 'candlelit ambiance, pillar candles, votives, warm flickering candlelight',
+    'chandeliers': 'crystal chandeliers, elegant dramatic lighting fixtures, glamorous sparkle',
+    'lanterns': 'lanterns, moroccan-style lighting, bohemian atmospheric glow',
+    'natural': 'natural daylight, golden hour sunlight, sun-drenched atmosphere',
+    'mixed': 'mixed romantic lighting, candles and string lights, layered warm glow'
   };
 
   // Build the prompt
   let promptParts = [
     'professional wedding photography',
     'high quality realistic photo',
-    photoDescription || 'beautiful wedding venue'
+    photoDescription || 'beautiful wedding venue space'
   ];
 
   if (style && styleDescriptions[style]) {
@@ -349,15 +348,11 @@ function buildTransformationPrompt(photoDescription, transformationHints, design
     promptParts.push(lightingDescriptions[lighting]);
   }
 
-  if (tableSettings) {
-    promptParts.push(`${tableSettings} table settings and place settings`);
-  }
-
   if (transformationHints) {
     promptParts.push(transformationHints);
   }
 
-  promptParts.push('wedding decor, celebration setup, detailed, photorealistic');
+  promptParts.push('wedding decor, celebration setup, detailed, photorealistic, 8K quality');
 
   return promptParts.join(', ');
 }
