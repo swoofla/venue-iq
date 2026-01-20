@@ -13,6 +13,7 @@ import TranscriptUpload from '../components/admin/TranscriptUpload';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
 import FirstLookSettings from '../components/admin/FirstLookSettings';
 import VenueSelector from '../components/admin/VenueSelector';
+import FeaturedPhotosManager from '../components/admin/FeaturedPhotosManager';
 
 export default function VenueSettings() {
   const [user, setUser] = useState(null);
@@ -142,6 +143,10 @@ export default function VenueSettings() {
                <Package className="w-4 h-4 mr-2" />
                Packages
              </TabsTrigger>
+             <TabsTrigger value="featured-photos">
+               <ImageIcon className="w-4 h-4 mr-2" />
+               Welcome Carousel
+             </TabsTrigger>
              <TabsTrigger value="first-look">
                <Play className="w-4 h-4 mr-2" />
                First Look
@@ -166,6 +171,10 @@ export default function VenueSettings() {
 
           <TabsContent value="packages" className="mt-6">
              <PackagesManager packages={packages} venueId={venueId} />
+           </TabsContent>
+
+           <TabsContent value="featured-photos" className="mt-6">
+             <FeaturedPhotosManager venueId={venueId} />
            </TabsContent>
 
            <TabsContent value="first-look" className="mt-6">
