@@ -140,56 +140,64 @@ async function generateWithStability(baseImageUrl, prompt, designChoices) {
     throw new Error('STABILITY_API_KEY not configured. Add it to your Base44 Secrets.');
   }
 
-  console.log('Fetching image from:', baseImageUrl);
+  console.log('[VenueVisualizer] Starting generation with URL:', baseImageUrl);
 
-  // Fetch base image
-  const imageResponse = await fetch(baseImageUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+  try {
+    // Fetch base image
+    console.log('[VenueVisualizer] Fetching base image...');
+    const imageResponse = await fetch(baseImageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      console.error('[VenueVisualizer] Failed to fetch image. Status:', imageResponse.status, 'Error:', errorText);
+      throw new Error(`Failed to fetch base image: ${imageResponse.status}`);
     }
-  });
-  
-  if (!imageResponse.ok) {
-    const errorText = await imageResponse.text();
-    console.error('Failed to fetch image:', imageResponse.status, errorText);
-    throw new Error(`Failed to fetch base image: ${imageResponse.status}`);
-  }
-  
-  const imageBuffer = await imageResponse.arrayBuffer();
-  console.log(`Image fetched: ${imageBuffer.byteLength} bytes`);
+    
+    console.log('[VenueVisualizer] Image fetch successful. Content-Type:', imageResponse.headers.get('content-type'));
+    
+    const imageBuffer = await imageResponse.arrayBuffer();
+    console.log(`[VenueVisualizer] Image buffer size: ${imageBuffer.byteLength} bytes`);
 
-  // Decode image using imagescript (pure JS - works in Deno)
-  const image = await Image.decode(new Uint8Array(imageBuffer));
-  const originalWidth = image.width;
-  const originalHeight = image.height;
-  
-  console.log(`Original dimensions: ${originalWidth}x${originalHeight}`);
-  
-  // Find best matching SDXL dimension
-  const targetDim = findBestDimension(originalWidth, originalHeight);
-  console.log(`Resizing to SDXL dimension: ${targetDim.width}x${targetDim.height}`);
-  
-  // Resize image using cover fit (resize + crop to fill)
-  // First, calculate scale to cover the target dimensions
-  const scaleX = targetDim.width / originalWidth;
-  const scaleY = targetDim.height / originalHeight;
-  const scale = Math.max(scaleX, scaleY);
-  
-  const scaledWidth = Math.round(originalWidth * scale);
-  const scaledHeight = Math.round(originalHeight * scale);
-  
-  // Resize to scaled dimensions
-  image.resize(scaledWidth, scaledHeight);
-  
-  // Crop to exact target dimensions (center crop)
-  const cropX = Math.round((scaledWidth - targetDim.width) / 2);
-  const cropY = Math.round((scaledHeight - targetDim.height) / 2);
-  image.crop(cropX, cropY, targetDim.width, targetDim.height);
-  
-  // Encode as PNG (imagescript outputs PNG)
-  const resizedBuffer = await image.encode();
-  
-  console.log(`Resized image: ${resizedBuffer.length} bytes`);
+    // Decode image using imagescript (pure JS - works in Deno)
+    console.log('[VenueVisualizer] Decoding image...');
+    const image = await Image.decode(new Uint8Array(imageBuffer));
+    const originalWidth = image.width;
+    const originalHeight = image.height;
+    
+    console.log(`[VenueVisualizer] Original dimensions: ${originalWidth}x${originalHeight}`);
+    
+    // Find best matching SDXL dimension
+    const targetDim = findBestDimension(originalWidth, originalHeight);
+    console.log(`[VenueVisualizer] Target SDXL dimension: ${targetDim.width}x${targetDim.height}`);
+    
+    // Resize image using cover fit (resize + crop to fill)
+    const scaleX = targetDim.width / originalWidth;
+    const scaleY = targetDim.height / originalHeight;
+    const scale = Math.max(scaleX, scaleY);
+    
+    const scaledWidth = Math.round(originalWidth * scale);
+    const scaledHeight = Math.round(originalHeight * scale);
+    
+    console.log('[VenueVisualizer] Resizing to:', scaledWidth, 'x', scaledHeight);
+    image.resize(scaledWidth, scaledHeight);
+    
+    const cropX = Math.round((scaledWidth - targetDim.width) / 2);
+    const cropY = Math.round((scaledHeight - targetDim.height) / 2);
+    console.log('[VenueVisualizer] Cropping at:', cropX, cropY);
+    image.crop(cropX, cropY, targetDim.width, targetDim.height);
+    
+    console.log('[VenueVisualizer] Encoding resized image...');
+    const resizedBuffer = await image.encode();
+    
+    console.log(`[VenueVisualizer] Resized image encoded: ${resizedBuffer.length} bytes`);
+  } catch (imageError) {
+    console.error('[VenueVisualizer] Image processing error:', imageError.message, imageError.stack);
+    throw new Error(`Image processing failed: ${imageError.message}`);
+  }
 
   const strength = designChoices.transformationStrength || 0.60;
   const imageStrength = 1 - strength;
