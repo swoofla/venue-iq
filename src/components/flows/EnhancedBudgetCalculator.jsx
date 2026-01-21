@@ -521,18 +521,26 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           .slice(0, 3)
       });
 
-      // Sync to HighLevel
+      // Send budget quote via email or SMS through HighLevel
       try {
-        await base44.functions.invoke('createHighLevelContact', {
+        await base44.functions.invoke('sendBudgetQuote', {
           name: contactInfo.name,
           email: contactInfo.email,
           phone: contactInfo.phone,
-          guest_count: selections.guestCount,
-          budget: totalBudget,
-          source: 'budget_calculator'
+          budgetData: {
+            guestTier: selections.guestTier,
+            guestCount: selections.guestCount,
+            dayOfWeek: selections.dayOfWeek,
+            season: selections.season,
+            ...selections
+          },
+          totalBudget: totalBudget,
+          deliveryPreference: contactInfo.deliveryPreference,
+          venueName: 'Sugar Lake Weddings'
         });
-      } catch (hlError) {
-        console.error('HighLevel sync error:', hlError);
+      } catch (error) {
+        console.error('Failed to send budget quote:', error);
+        // Don't fail the flow, just log the error
       }
 
       // Complete the flow

@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         .slice(0, 3)
     });
 
-    // 4. Send delivery message (email or SMS)
+    // 4. Send email to bride if selected (SMS will be sent after HighLevel contact creation)
     const plannersEmail = Deno.env.get('SUGAR_LAKE_PLANNERS_EMAIL') || 'info@sugarlakeweddings.com';
     const budgetBreakdownText = formatBudgetBreakdown(budgetData, totalBudget);
     
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       from_name: venueName || 'Sugar Lake Weddings'
     });
 
-    // 6. Sync to HighLevel
+    // 6. Sync to HighLevel (do this BEFORE sending SMS so we have the contactId)
     const highlevelApiKey = Deno.env.get('HIGHLEVEL_API_KEY');
     const locationId = Deno.env.get('HIGHLEVEL_LOCATION_ID');
 
@@ -121,6 +121,34 @@ Deno.serve(async (req) => {
           const contactData = await contactResponse.json();
           highlevelContactId = contactData.contact?.id;
           syncStatus = 'synced';
+          
+          // Send SMS if needed (now that we have the contact ID)
+          if (deliveryPreference === 'text' && phone && highlevelContactId) {
+            try {
+              const smsMessage = `Hi ${name.split(' ')[0]}! Your wedding budget estimate for Sugar Lake Weddings is $${totalBudget.toLocaleString()}. Our team will reach out within 24 hours to discuss your vision. Reply STOP to opt out.`;
+              
+              const smsResponse = await fetch('https://rest.gohighlevel.com/v1/conversations/messages', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${highlevelApiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  type: 'SMS',
+                  contactId: highlevelContactId,
+                  message: smsMessage
+                })
+              });
+              
+              if (!smsResponse.ok) {
+                console.error('Failed to send SMS:', await smsResponse.text());
+              } else {
+                console.log('SMS sent successfully to', phone);
+              }
+            } catch (smsError) {
+              console.error('SMS send error:', smsError.message);
+            }
+          }
         } else {
           console.error('Failed to create HighLevel contact:', await contactResponse.text());
           syncStatus = 'failed';
