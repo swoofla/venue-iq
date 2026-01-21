@@ -149,6 +149,7 @@ export default function QuoteSummary() {
 
   const venueName = venue?.name || 'Sugar Lake Weddings';
   const venuePhone = venue?.phone || '(216) 616-1598';
+  const venueDomain = venue?.domain || 'sugarlakeweddings.com';
   const selections = estimate.budget_selections || {};
   const totalBudget = estimate.total_budget || 0;
   const firstName = estimate.name?.split(' ')[0] || 'there';
@@ -286,7 +287,7 @@ export default function QuoteSummary() {
           <p className="text-stone-600 text-sm text-center mb-6">
             Schedule a tour and let's bring your vision to life.
           </p>
-          <a href="https://sugarlakeweddings.com/tour" className="block">
+          <a href={`https://${venueDomain}/tour`} className="block">
             <Button className="w-full h-12 rounded-full bg-black hover:bg-stone-800 text-base">
               <MapPin className="w-4 h-4 mr-2" />
               Schedule a Tour

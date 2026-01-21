@@ -117,23 +117,36 @@ export default function VenueSettings() {
         {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
 
         {venue && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-3">Venue Timezone</h3>
-            <select
-              value={venue.timezone || 'America/New_York'}
-              onChange={(e) => updateVenueMutation.mutate({ timezone: e.target.value })}
-              className="w-full px-4 py-3 bg-white border-2 border-stone-200 rounded-xl focus:border-black focus:outline-none"
-            >
-              <option value="America/New_York">Eastern Time (ET)</option>
-              <option value="America/Chicago">Central Time (CT)</option>
-              <option value="America/Denver">Mountain Time (MT)</option>
-              <option value="America/Phoenix">Arizona (no DST)</option>
-              <option value="America/Los_Angeles">Pacific Time (PT)</option>
-              <option value="America/Anchorage">Alaska Time (AKT)</option>
-              <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
-              <option value="America/Puerto_Rico">Atlantic Time (AT)</option>
-            </select>
-            <p className="text-sm text-blue-800 mt-2">All tour availability and times will display in this timezone</p>
+          <div className="space-y-4 mb-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 className="font-semibold text-blue-900 mb-3">Custom Domain</h3>
+              <Input
+                placeholder="e.g., sugarlakeweddings.com"
+                value={venue.domain || ''}
+                onChange={(e) => updateVenueMutation.mutate({ domain: e.target.value })}
+                className="bg-white"
+              />
+              <p className="text-sm text-blue-800 mt-2">This domain will be used for quote links and tour pages. Contact support to connect your domain.</p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 className="font-semibold text-blue-900 mb-3">Venue Timezone</h3>
+              <select
+                value={venue.timezone || 'America/New_York'}
+                onChange={(e) => updateVenueMutation.mutate({ timezone: e.target.value })}
+                className="w-full px-4 py-3 bg-white border-2 border-stone-200 rounded-xl focus:border-black focus:outline-none"
+              >
+                <option value="America/New_York">Eastern Time (ET)</option>
+                <option value="America/Chicago">Central Time (CT)</option>
+                <option value="America/Denver">Mountain Time (MT)</option>
+                <option value="America/Phoenix">Arizona (no DST)</option>
+                <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                <option value="America/Anchorage">Alaska Time (AKT)</option>
+                <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                <option value="America/Puerto_Rico">Atlantic Time (AT)</option>
+              </select>
+              <p className="text-sm text-blue-800 mt-2">All tour availability and times will display in this timezone</p>
+            </div>
           </div>
         )}
         

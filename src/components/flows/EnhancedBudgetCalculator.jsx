@@ -124,10 +124,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   });
   const [saving, setSaving] = useState(false);
   const [showAllSelections, setShowAllSelections] = useState(false);
+  const [venue, setVenue] = useState(null);
 
   useEffect(() => {
     async function fetchPricing() {
       try {
+        // Fetch venue info for domain
+        const venueData = await base44.entities.Venue.get(venueId);
+        setVenue(venueData);
+
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
 
         console.log('=== PRICING CONFIG DEBUG ===');
@@ -650,7 +655,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           },
           totalBudget: totalBudget,
           deliveryPreference: contactInfo.deliveryPreference,
-          venueName: 'Sugar Lake Weddings',
+          venueName: venue?.name || 'Sugar Lake Weddings',
+          venueDomain: venue?.domain || 'sugarlakeweddings.com',
           estimateId: estimateId
         });
       } catch (error) {

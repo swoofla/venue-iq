@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, phone, budgetData, venueName, totalBudget, deliveryPreference, estimateId } = await req.json();
+    const { name, email, phone, budgetData, venueName, venueDomain, totalBudget, deliveryPreference, estimateId } = await req.json();
 
     console.log('=== sendBudgetQuote START ===');
     console.log('Delivery preference:', deliveryPreference);
@@ -145,12 +145,13 @@ Deno.serve(async (req) => {
       // Send SMS via HighLevel with link to quote summary
       console.log('Sending SMS to contact:', highlevelContactId);
 
-      // Build the quote link using the passed estimate ID
+      // Build the quote link using the passed estimate ID and domain
+      const domain = venueDomain || 'sugarlakeweddings.com';
       const quoteLink = estimateId 
-        ? `\n\nView your full breakdown:\nhttps://sugarlakeweddings.com/quote/${estimateId}`
+        ? `\n\nView your full breakdown:\nhttps://${domain}/quote/${estimateId}`
         : '';
 
-      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your Sugar Lake wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
+      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your ${venueName} wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
 
       try {
         const smsResponse = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
@@ -189,8 +190,9 @@ Deno.serve(async (req) => {
     if (highlevelContactId) {
       console.log('Adding internal note for planners...');
       try {
+        const domain = venueDomain || 'sugarlakeweddings.com';
         const quoteLink = estimateId 
-          ? `\n\n📄 View Full Quote:\nhttps://sugarlakeweddings.com/quote/${estimateId}` 
+          ? `\n\n📄 View Full Quote:\nhttps://${domain}/quote/${estimateId}` 
           : '';
         
         await fetch('https://services.leadconnectorhq.com/contacts/' + highlevelContactId + '/notes', {
