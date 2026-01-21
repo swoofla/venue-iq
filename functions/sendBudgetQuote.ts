@@ -227,7 +227,6 @@ function formatBudgetBreakdown(budgetData, totalBudget) {
   const lines = [];
 
   const labels = {
-    guestTier: 'Package',
     guestCount: 'Guest Count',
     dayOfWeek: 'Day of Week',
     season: 'Season',
@@ -245,8 +244,11 @@ function formatBudgetBreakdown(budgetData, totalBudget) {
     extras: 'Extras Budget'
   };
 
+  // Skip guestTier (redundant with guestCount) and totalBudget
+  const skipKeys = ['guestTier', 'totalBudget'];
+
   Object.entries(budgetData).forEach(([key, value]) => {
-    if (value && key !== 'totalBudget') {
+    if (value && !skipKeys.includes(key)) {
       const label = labels[key] || key;
       lines.push(`${label}: ${value}`);
     }
@@ -257,7 +259,6 @@ function formatBudgetBreakdown(budgetData, totalBudget) {
 
 function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName) {
   const labels = {
-    guestTier: 'Package',
     guestCount: 'Guest Count',
     dayOfWeek: 'Day of Week',
     season: 'Season',
@@ -275,9 +276,12 @@ function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName) {
     extras: 'Extras Budget'
   };
 
+  // Skip guestTier (redundant with guestCount) and totalBudget
+  const skipKeys = ['guestTier', 'totalBudget'];
+
   let breakdownRows = '';
   Object.entries(budgetData).forEach(([key, value]) => {
-    if (value && key !== 'totalBudget') {
+    if (value && !skipKeys.includes(key)) {
       const label = labels[key] || key;
       breakdownRows += `
         <tr>
