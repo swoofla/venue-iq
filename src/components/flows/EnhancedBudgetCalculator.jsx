@@ -654,11 +654,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         // Don't fail the flow, just log the error
       }
 
-      // Complete the flow
+      // Complete the flow - include deliveryPreference for proper success message
       onComplete({
         name: contactInfo.name,
         email: contactInfo.email,
         phone: contactInfo.phone,
+        deliveryPreference: contactInfo.deliveryPreference, // Added!
         guestTier: selections.guestTier,
         guestCount: selections.guestCount,
         dayOfWeek: selections.dayOfWeek,
