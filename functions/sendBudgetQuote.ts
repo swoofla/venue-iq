@@ -142,10 +142,15 @@ Deno.serve(async (req) => {
       }
 
     } else if (deliveryPreference === 'text' && phone && highlevelContactId) {
-      // Send SMS via HighLevel
+      // Send SMS via HighLevel with link to quote summary
       console.log('Sending SMS to contact:', highlevelContactId);
 
-      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your Sugar Lake wedding budget estimate is $${totalBudget.toLocaleString()}. Our planning team will reach out within 24 hours to discuss your vision. Questions? Call us at (216) 616-1598`;
+      // Build the quote link using the passed estimate ID
+      const quoteLink = estimateId 
+        ? `\n\nView your full breakdown:\nhttps://sugarlakeweddings.com/quote/${estimateId}`
+        : '';
+
+      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your Sugar Lake wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
 
       try {
         const smsResponse = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
