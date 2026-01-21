@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -69,7 +68,6 @@ const formatSeason = (season) => {
 };
 
 export default function QuoteSummary() {
-  const { quoteId } = useParams();
   const [estimate, setEstimate] = useState(null);
   const [venue, setVenue] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +77,16 @@ export default function QuoteSummary() {
   useEffect(() => {
     async function fetchQuote() {
       try {
+        // Get quoteId from URL query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const quoteId = urlParams.get('id');
+        
+        if (!quoteId) {
+          setError('Quote ID missing');
+          setLoading(false);
+          return;
+        }
+
         // Fetch the saved budget estimate
         const estimates = await base44.entities.SavedBudgetEstimate.filter({ id: quoteId });
         
@@ -109,10 +117,8 @@ export default function QuoteSummary() {
       }
     }
 
-    if (quoteId) {
-      fetchQuote();
-    }
-  }, [quoteId]);
+    fetchQuote();
+  }, []);
 
   if (loading) {
     return (
