@@ -183,7 +183,7 @@ export default function Home() {
           });
           addBotMessage("Your information has been sent! A planner will be in touch shortly.");
         } catch (error) {
-          console.error("Failed to send lead to HighLevel:", error);
+          console.error("Failed to send lead to HighLevel:", error?.message || error);
           addBotMessage("I had trouble sending your information. Please try again or contact us directly at (216) 616-1598.");
         }
 
@@ -254,6 +254,7 @@ export default function Home() {
             setMessages(prev => [...prev, { id: Date.now(), text: response, isBot: true }]);
           }
         } catch (error) {
+          console.error('AI response error:', error?.message || error);
           setMessages(prev => [...prev, { id: Date.now(), text: "Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?", isBot: true }]);
         }
         setIsTyping(false);
@@ -369,7 +370,7 @@ export default function Home() {
       });
       console.log('Appointment created:', appointmentRes.data);
     } catch (error) {
-      console.error('HighLevel sync error:', error.response?.data || error.message);
+      console.error('HighLevel sync error:', error?.response?.data || error?.message || error);
     }
   };
 
