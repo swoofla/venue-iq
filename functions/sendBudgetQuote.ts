@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
       // Build the quote link using the passed estimate ID and domain
       const domain = venueDomain || 'sugarlakeweddings.com';
       const quoteLink = estimateId 
-        ? `\n\nView your full breakdown:\nhttps://planner.${domain}/QuoteSummary?id=${estimateId}`
+        ? `\n\nView your full breakdown:\nhttps://${domain}/QuoteSummary?id=${estimateId}`
         : '';
 
       const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your ${venueName} wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
       try {
         const domain = venueDomain || 'sugarlakeweddings.com';
         const quoteLink = estimateId 
-          ? `\n\n📄 View Full Quote:\nhttps://planner.${domain}/QuoteSummary?id=${estimateId}` 
+          ? `\n\n📄 View Full Quote:\nhttps://${domain}/QuoteSummary?id=${estimateId}` 
           : '';
         
         await fetch('https://services.leadconnectorhq.com/contacts/' + highlevelContactId + '/notes', {
