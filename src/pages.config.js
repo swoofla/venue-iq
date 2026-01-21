@@ -5,9 +5,9 @@ import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import MaskGenerator from './pages/MaskGenerator';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
-import MaskGenerator from './pages/MaskGenerator';
 
 
 export const PAGES = {
@@ -18,9 +18,9 @@ export const PAGES = {
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
     "Home": Home,
+    "MaskGenerator": MaskGenerator,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
-    "MaskGenerator": MaskGenerator,
 }
 
 export const pagesConfig = {

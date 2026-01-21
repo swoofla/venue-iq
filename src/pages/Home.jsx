@@ -308,10 +308,15 @@ export default function Home() {
     setLeadEmail(data.email);
     setLeadPhone(data.phone);
     
+    // Determine delivery message
+    const deliveryMessage = data.deliveryPreference === 'text' 
+      ? `sent to your phone` 
+      : `sent to your email`;
+    
     // Add a brief delay, then chatbot asks about tour
     setTimeout(() => {
       addBotMessage(
-        `Thanks ${data.name}! Your budget estimate of $${data.totalBudget.toLocaleString()} has been sent to your email. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
+        `Thanks ${data.name}! Your budget estimate of $${data.totalBudget.toLocaleString()} has been ${deliveryMessage}. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
       );
       setShowTourPrompt(true);
     }, 1000);
