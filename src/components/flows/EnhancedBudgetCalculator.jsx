@@ -34,23 +34,23 @@ const TIER_RANGES = {
 };
 
 const GUEST_TIERS = [
-{ id: 'up_to_2', label: 'Couple Elopement', sublabel: 'Just The Two of Us (2)' },
-{ id: '2_to_20', label: 'Up to 20', sublabel: 'The Inner Circle (2-20)' },
-{ id: '20_to_50', label: '50 and Under', sublabel: 'Micro Wedding (21-50)' },
-{ id: '51_to_120', label: 'Up to 120', sublabel: 'Classic Wedding (51-120)' }];
-
+  { id: 'up_to_2', label: 'Couple Elopement', sublabel: 'Just The Two of Us (2)' },
+  { id: '2_to_20', label: 'Up to 20', sublabel: 'The Inner Circle (2-20)' },
+  { id: '20_to_50', label: '50 and Under', sublabel: 'Micro Wedding (21-50)' },
+  { id: '51_to_120', label: 'Up to 120', sublabel: 'Classic Wedding (51-120)' }
+];
 
 const ALL_DAYS = [
-{ id: 'saturday', label: 'Saturday' },
-{ id: 'friday', label: 'Friday' },
-{ id: 'sunday', label: 'Sunday' },
-{ id: 'weekday', label: 'Weekday (Mon-Thu)' }];
-
+  { id: 'saturday', label: 'Saturday' },
+  { id: 'friday', label: 'Friday' },
+  { id: 'sunday', label: 'Sunday' },
+  { id: 'weekday', label: 'Weekday (Mon-Thu)' }
+];
 
 const ALL_SEASONS = [
-{ id: 'peak', label: 'Peak Season (May - October)' },
-{ id: 'nonpeak', label: 'Non-Peak Season (November - April)' }];
-
+  { id: 'peak', label: 'Peak Season (May - October)' },
+  { id: 'nonpeak', label: 'Non-Peak Season (November - April)' }
+];
 
 // Helper function to safely parse JSON if it's a string
 const safeJsonParse = (data) => {
@@ -130,7 +130,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       try {
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
 
-        // DIAGNOSTIC: Log the raw response to see exact structure
         console.log('=== PRICING CONFIG DEBUG ===');
         console.log('Raw configs array:', configs);
 
@@ -139,17 +138,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           console.log('Raw config object:', rawConfig);
           console.log('Config keys:', Object.keys(rawConfig));
 
-          // Log each key and its type/value
           Object.keys(rawConfig).forEach((key) => {
             const value = rawConfig[key];
             console.log(`  ${key}: [${typeof value}]`,
-            typeof value === 'string' && value.length > 100 ?
-            value.substring(0, 100) + '...' :
-            value
+              typeof value === 'string' && value.length > 100 ?
+                value.substring(0, 100) + '...' :
+                value
             );
           });
 
-          // Check for venue_base in different locations
           console.log('Looking for venue_base...');
           console.log('  Direct (rawConfig.venue_base):', rawConfig.venue_base);
           console.log('  In pricing_data:', rawConfig.pricing_data?.venue_base);
@@ -180,7 +177,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     return ALL_SEASONS;
   };
 
-  // Get category options based on tier - UPDATED to use helper function
+  // Get category options based on tier
   const getOptionsForCategory = (category) => {
     if (!pricingConfig || !selections.guestTier) return [];
 
@@ -209,13 +206,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     return [];
   };
 
-  // Calculate running total - UPDATED to use helper function
+  // Calculate running total
   const calculateTotal = () => {
     if (!pricingConfig || !selections.guestTier) return 0;
     let total = 0;
     const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
 
-    // Base venue price - use helper function
     const venueBase = getConfigField(pricingConfig, 'venue_base');
 
     console.log('=== CALCULATE TOTAL DEBUG ===');
@@ -240,16 +236,14 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           total += priceEntry.price;
           console.log('Added base price:', priceEntry.price);
         } else if (typeof priceEntry === 'number') {
-          // Handle case where price is stored directly as number
           total += priceEntry;
           console.log('Added base price (direct number):', priceEntry);
         }
       }
     }
 
-    // Calculate each category
     const categories = ['spirits', 'planning', 'catering', 'photography', 'florals',
-    'decor', 'entertainment', 'videography', 'desserts', 'linens', 'tableware'];
+      'decor', 'entertainment', 'videography', 'desserts', 'linens', 'tableware'];
 
     categories.forEach((category) => {
       const options = getOptionsForCategory(category);
@@ -273,46 +267,46 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   // Step definitions
   const getSteps = () => {
     const steps = [
-    {
-      title: 'Guest Count',
-      question: 'How many guests do you plan to have at your event?',
-      key: 'guestTier',
-      type: 'guest_tier'
-    },
-    {
-      title: 'Season',
-      question: 'What time of year are you considering?',
-      key: 'season',
-      type: 'season',
-      restriction: selections.guestTier && ['up_to_2', '2_to_20'].includes(selections.guestTier) ?
-      '⚠️ Note: Peak season (May-Oct) is only available on weekdays for this package.' :
-      selections.guestTier === '20_to_50' ?
-      '⚠️ Note: Peak season (May-Oct) is only available Sunday or weekdays for this package.' :
-      null
-    },
-    {
-      title: 'Day of Week',
-      question: 'What day of the week do you plan to get married on?',
-      key: 'dayOfWeek',
-      type: 'day_of_week'
-    }];
-
+      {
+        title: 'Guest Count',
+        question: 'How many guests do you plan to have at your event?',
+        key: 'guestTier',
+        type: 'guest_tier'
+      },
+      {
+        title: 'Season',
+        question: 'What time of year are you considering?',
+        key: 'season',
+        type: 'season',
+        restriction: selections.guestTier && ['up_to_2', '2_to_20'].includes(selections.guestTier) ?
+          '⚠️ Note: Peak season (May-Oct) is only available on weekdays for this package.' :
+          selections.guestTier === '20_to_50' ?
+            '⚠️ Note: Peak season (May-Oct) is only available Sunday or weekdays for this package.' :
+            null
+      },
+      {
+        title: 'Day of Week',
+        question: 'What day of the week do you plan to get married on?',
+        key: 'dayOfWeek',
+        type: 'day_of_week'
+      }
+    ];
 
     if (selections.guestTier) {
       const categorySteps = [
-      { title: 'Spirits & Beverages', question: 'What kind of spirits do you plan to have?', key: 'spirits', type: 'category' },
-      { title: 'Planning Services', question: 'Do you want planning and coordination services?', key: 'planning', type: 'category' },
-      { title: 'Catering', question: 'What kind of catering do you plan to have?', key: 'catering', type: 'category' },
-      { title: 'Photography', question: 'What are you looking for in a photographer?', key: 'photography', type: 'category' },
-      { title: 'Florals', question: 'What is your floral vision?', key: 'florals', type: 'category' },
-      { title: 'Decorations', question: 'What are your plans for decorations and signage?', key: 'decor', type: 'category' },
-      { title: 'Entertainment', question: 'What kind of entertainment are you looking for?', key: 'entertainment', type: 'category' },
-      { title: 'Videography', question: 'Do you want a videographer?', key: 'videography', type: 'category' },
-      { title: 'Desserts', question: 'What kind of desserts are you wanting?', key: 'desserts', type: 'category' },
-      { title: 'Table Linens', question: 'Do you want table linens?', key: 'linens', type: 'category' },
-      { title: 'Tableware', question: 'What kind of tableware do you want?', key: 'tableware', type: 'category' },
-      { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras' }];
-
+        { title: 'Spirits & Beverages', question: 'What kind of spirits do you plan to have?', key: 'spirits', type: 'category' },
+        { title: 'Planning Services', question: 'Do you want planning and coordination services?', key: 'planning', type: 'category' },
+        { title: 'Catering', question: 'What kind of catering do you plan to have?', key: 'catering', type: 'category' },
+        { title: 'Photography', question: 'What are you looking for in a photographer?', key: 'photography', type: 'category' },
+        { title: 'Florals', question: 'What is your floral vision?', key: 'florals', type: 'category' },
+        { title: 'Decorations', question: 'What are your plans for decorations and signage?', key: 'decor', type: 'category' },
+        { title: 'Entertainment', question: 'What kind of entertainment are you looking for?', key: 'entertainment', type: 'category' },
+        { title: 'Videography', question: 'Do you want a videographer?', key: 'videography', type: 'category' },
+        { title: 'Desserts', question: 'What kind of desserts are you wanting?', key: 'desserts', type: 'category' },
+        { title: 'Table Linens', question: 'Do you want table linens?', key: 'linens', type: 'category' },
+        { title: 'Tableware', question: 'What kind of tableware do you want?', key: 'tableware', type: 'category' },
+        { title: 'Extras Budget', question: "How much do you want to allow for 'extras'?", key: 'extras', type: 'extras' }
+      ];
       return [...steps, ...categorySteps];
     }
     return steps;
@@ -334,26 +328,26 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         return getOptionsForCategory(currentStep.key);
       case 'extras':
         return [
-        { id: 0, label: '$0' },
-        { id: 500, label: '$500' },
-        { id: 1000, label: '$1,000' },
-        { id: 1500, label: '$1,500' },
-        { id: 2000, label: '$2,000' },
-        { id: 3000, label: '$3,000' },
-        { id: 5000, label: '$5,000' },
-        { id: 10000, label: '$10,000' }];
-
+          { id: 0, label: '$0' },
+          { id: 500, label: '$500' },
+          { id: 1000, label: '$1,000' },
+          { id: 1500, label: '$1,500' },
+          { id: 2000, label: '$2,000' },
+          { id: 3000, label: '$3,000' },
+          { id: 5000, label: '$5,000' },
+          { id: 10000, label: '$10,000' }
+        ];
       default:
         return [];
     }
   };
 
   const currentOptions = getCurrentOptions();
-  const canContinue = currentStep?.type === 'guest_tier' 
+  const canContinue = currentStep?.type === 'guest_tier'
     ? selections.guestTier !== null && (selections.guestTier === 'up_to_2' || selections.guestCount !== null)
     : currentStep?.type === 'extras'
-    ? true // Extras always has a default value of 0
-    : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
+      ? true
+      : selections[currentStep?.key] !== null && selections[currentStep?.key] !== undefined;
   const totalBudget = calculateTotal();
 
   const handleGuestCountChange = (newCount) => {
@@ -418,7 +412,6 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
-      // Only show summary screen - onComplete is called from handleSaveAndSend
       setSubmitted(true);
     }
   };
@@ -443,6 +436,121 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     return '';
   };
 
+  // Returns array format for UI display
+  const getItemizedBreakdownArray = () => {
+    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
+    const venueBase = getConfigField(pricingConfig, 'venue_base');
+    const items = [];
+
+    // Base venue price
+    if (venueBase && selections.guestTier && selections.dayOfWeek && selections.season) {
+      const tierPricing = venueBase[selections.guestTier];
+      if (tierPricing) {
+        const seasonKey = selections.season === 'peak' ? 'peak' : 'non_peak';
+        const key = `${selections.dayOfWeek}_${seasonKey}`;
+        const priceEntry = tierPricing[key];
+        const basePrice = priceEntry?.price || (typeof priceEntry === 'number' ? priceEntry : 0);
+        if (basePrice > 0) {
+          items.push({ label: 'Venue Base', price: basePrice });
+        }
+      }
+    }
+
+    // Category items
+    const categoryLabels = {
+      catering: 'Catering',
+      spirits: 'Bar & Spirits',
+      photography: 'Photography',
+      planning: 'Planning & Coordination',
+      florals: 'Florals',
+      decor: 'Decorations',
+      entertainment: 'Entertainment',
+      videography: 'Videography',
+      desserts: 'Desserts',
+      linens: 'Table Linens',
+      tableware: 'Tableware'
+    };
+
+    Object.entries(categoryLabels).forEach(([key, label]) => {
+      if (selections[key]) {
+        const options = getOptionsForCategory(key);
+        const selected = options.find(o => o.label === selections[key]);
+        if (selected) {
+          let price = 0;
+          if (selected.price_type === 'per_person') {
+            price = selected.price * guestCount;
+          } else if (selected.price_type === 'flat_plus_per_person') {
+            price = selected.price + (selected.extra_pp || 0) * guestCount;
+          } else {
+            price = selected.price || 0;
+          }
+          if (price > 0) {
+            items.push({ label, price });
+          }
+        }
+      }
+    });
+
+    // Extras
+    if (selections.extras > 0) {
+      items.push({ label: 'Extras Budget', price: selections.extras });
+    }
+
+    return items;
+  };
+
+  // Returns dictionary format for database storage
+  const getItemizedBreakdownDict = () => {
+    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
+    const venueBase = getConfigField(pricingConfig, 'venue_base');
+    const breakdown = {};
+
+    // Base venue price
+    if (venueBase && selections.guestTier && selections.dayOfWeek && selections.season) {
+      const tierPricing = venueBase[selections.guestTier];
+      if (tierPricing) {
+        const seasonKey = selections.season === 'peak' ? 'peak' : 'non_peak';
+        const key = `${selections.dayOfWeek}_${seasonKey}`;
+        const priceEntry = tierPricing[key];
+        const basePrice = priceEntry?.price || (typeof priceEntry === 'number' ? priceEntry : 0);
+        if (basePrice > 0) {
+          breakdown['venue_base'] = basePrice;
+        }
+      }
+    }
+
+    // Category items - store as key: price
+    const categories = ['catering', 'spirits', 'photography', 'planning', 'florals',
+      'decor', 'entertainment', 'videography', 'desserts', 'linens', 'tableware'];
+
+    categories.forEach((key) => {
+      if (selections[key]) {
+        const options = getOptionsForCategory(key);
+        const selected = options.find(o => o.label === selections[key]);
+        if (selected) {
+          let price = 0;
+          if (selected.price_type === 'per_person') {
+            price = selected.price * guestCount;
+          } else if (selected.price_type === 'flat_plus_per_person') {
+            price = selected.price + (selected.extra_pp || 0) * guestCount;
+          } else {
+            price = selected.price || 0;
+          }
+          if (price > 0) {
+            breakdown[key] = price;
+          }
+        }
+      }
+    });
+
+    // Extras
+    if (selections.extras > 0) {
+      breakdown['extras'] = selections.extras;
+    }
+
+    return breakdown;
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
@@ -450,8 +558,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
           <span className="ml-3 text-stone-600">Loading budget calculator...</span>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   if (!pricingConfig) {
@@ -465,8 +573,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
             Back to Chat
           </Button>
         </div>
-      </div>);
-
+      </div>
+    );
   }
 
   const handleSaveAndSend = async () => {
@@ -475,12 +583,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       alert('Please enter your name');
       return;
     }
-    
+
     if (contactInfo.deliveryPreference === 'email' && !contactInfo.email) {
       alert('Please enter your email address');
       return;
     }
-    
+
     if (contactInfo.deliveryPreference === 'text' && !contactInfo.phone) {
       alert('Please enter your phone number');
       return;
@@ -488,6 +596,9 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
 
     setSaving(true);
     try {
+      // Use dictionary format for database storage
+      const budgetBreakdownDict = getItemizedBreakdownDict();
+      
       // Save to SavedBudgetEstimate
       await base44.entities.SavedBudgetEstimate.create({
         venue_id: venueId,
@@ -501,7 +612,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         day_of_week: selections.dayOfWeek,
         season: selections.season,
         budget_selections: selections,
-        budget_breakdown: getItemizedBreakdown(),
+        budget_breakdown: budgetBreakdownDict, // Now a dictionary!
         highlevel_sync_status: 'pending'
       });
 
@@ -568,76 +679,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     setStep(0);
   };
 
-  const getItemizedBreakdown = () => {
-    const guestCount = selections.guestCount || TIER_RANGES[selections.guestTier]?.default || 2;
-    const venueBase = getConfigField(pricingConfig, 'venue_base');
-    const items = [];
-
-    // Base venue price
-    if (venueBase && selections.guestTier && selections.dayOfWeek && selections.season) {
-      const tierPricing = venueBase[selections.guestTier];
-      if (tierPricing) {
-        const seasonKey = selections.season === 'peak' ? 'peak' : 'non_peak';
-        const key = `${selections.dayOfWeek}_${seasonKey}`;
-        const priceEntry = tierPricing[key];
-        const basePrice = priceEntry?.price || (typeof priceEntry === 'number' ? priceEntry : 0);
-        if (basePrice > 0) {
-          items.push({ label: 'Venue Base', price: basePrice });
-        }
-      }
-    }
-
-    // Category items
-    const categoryLabels = {
-      catering: 'Catering',
-      spirits: 'Bar & Spirits',
-      photography: 'Photography',
-      planning: 'Planning & Coordination',
-      florals: 'Florals',
-      decor: 'Decorations',
-      entertainment: 'Entertainment',
-      videography: 'Videography',
-      desserts: 'Desserts',
-      linens: 'Table Linens',
-      tableware: 'Tableware'
-    };
-
-    Object.entries(categoryLabels).forEach(([key, label]) => {
-      if (selections[key]) {
-        const options = getOptionsForCategory(key);
-        const selected = options.find(o => o.label === selections[key]);
-        if (selected) {
-          let price = 0;
-          if (selected.price_type === 'per_person') {
-            price = selected.price * guestCount;
-          } else if (selected.price_type === 'flat_plus_per_person') {
-            price = selected.price + (selected.extra_pp || 0) * guestCount;
-          } else {
-            price = selected.price || 0;
-          }
-          if (price > 0) {
-            items.push({ label, price });
-          }
-        }
-      }
-    });
-
-    // Extras
-    if (selections.extras > 0) {
-      items.push({ label: 'Extras Budget', price: selections.extras });
-    }
-
-    return items;
-  };
-
   if (submitted) {
-    const itemizedBreakdown = getItemizedBreakdown();
+    // Use array format for UI display
+    const itemizedBreakdown = getItemizedBreakdownArray();
     const visibleItems = showAllSelections ? itemizedBreakdown : itemizedBreakdown.slice(0, 4);
     const hiddenCount = itemizedBreakdown.length - 4;
-    
-    const canSave = contactInfo.name && 
+
+    const canSave = contactInfo.name &&
       ((contactInfo.deliveryPreference === 'email' && contactInfo.email) ||
-       (contactInfo.deliveryPreference === 'text' && contactInfo.phone));
+        (contactInfo.deliveryPreference === 'text' && contactInfo.phone));
 
     return (
       <motion.div
@@ -649,7 +699,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         <h3 className="text-xl font-semibold text-stone-900 mb-1 text-center">
           Your Wedding Budget Estimate
         </h3>
-        
+
         {/* Total */}
         <div className="text-4xl font-bold text-stone-900 text-center my-4">
           ${totalBudget.toLocaleString()}
@@ -713,7 +763,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           <p className="text-sm font-medium text-stone-900 mb-4">
             To receive your personalized estimate:
           </p>
-          
+
           <div className="space-y-4">
             <Input
               placeholder="First Name *"
@@ -721,7 +771,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
               onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
               className="h-12 rounded-xl bg-white"
             />
-            
+
             <div className="space-y-2">
               <p className="text-sm text-stone-600">How would you like to receive it?</p>
               <div className="flex gap-6">
@@ -797,8 +847,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4">
-
+      className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4"
+    >
       <ProgressDots current={step} total={steps.length} />
 
       <AnimatePresence mode="wait">
@@ -807,15 +857,15 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="mt-4">
-
+          className="mt-4"
+        >
           <div className="mb-2">
             <h3 className="text-lg font-semibold text-stone-900">{currentStep.title}</h3>
           </div>
           <p className="text-stone-600 mb-4">{currentStep.question}</p>
 
           {currentStep.restriction &&
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
               {currentStep.restriction}
             </div>
           }
@@ -876,20 +926,19 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
                   <button
                     key={optionKey}
                     onClick={() => handleSelect(optionKey)}
-                    className={`w-full p-4 rounded-xl text-left transition-all ${
-                    isSelected ?
-                    'bg-black text-white' :
-                    'bg-stone-50 hover:bg-stone-100 text-stone-700'}`
-                    }>
-
+                    className={`w-full p-4 rounded-xl text-left transition-all ${isSelected ?
+                      'bg-black text-white' :
+                      'bg-stone-50 hover:bg-stone-100 text-stone-700'}`
+                    }
+                  >
                     <p className="font-medium">{displayLabel}{priceDisplay}</p>
                     {sublabel &&
-                    <p className={`text-sm mt-1 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
+                      <p className={`text-sm mt-1 ${isSelected ? 'text-stone-300' : 'text-stone-500'}`}>
                         {sublabel}
                       </p>
                     }
-                  </button>);
-
+                  </button>
+                );
               })}
             </div>
           )}
@@ -942,19 +991,19 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           )}
 
           {currentOptions.length === 0 && currentStep.type === 'day_of_week' &&
-          <div className="bg-stone-100 rounded-xl p-4 text-center">
+            <div className="bg-stone-100 rounded-xl p-4 text-center">
               <p className="text-stone-600">Please select a season first to see available days.</p>
             </div>
           }
 
           {currentOptions.length === 0 && currentStep.type === 'category' &&
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
               <p className="text-amber-800">⚠️ Options not found for {currentStep.title}. Check console for debug info.</p>
             </div>
           }
 
           {selections.guestTier && selections.dayOfWeek && selections.season &&
-          <div className="mt-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
+            <div className="mt-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
               <p className="text-sm text-stone-600">Running total:</p>
               <p className="text-2xl font-bold text-stone-900">
                 {totalBudget > 0 ? `$${totalBudget.toLocaleString()}` : 'Calculating...'}
@@ -968,18 +1017,18 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         <Button
           onClick={handleBack}
           variant="outline"
-          className="flex-1 rounded-full">
-
+          className="flex-1 rounded-full"
+        >
           {step === 0 ? 'Cancel' : 'Back'}
         </Button>
         <Button
           onClick={handleNext}
           disabled={!canContinue}
-          className="flex-1 rounded-full bg-black hover:bg-stone-800 disabled:bg-stone-300">
-
+          className="flex-1 rounded-full bg-black hover:bg-stone-800 disabled:bg-stone-300"
+        >
           {step === steps.length - 1 ? 'See Total' : 'Continue'}
         </Button>
       </div>
-    </motion.div>);
-
+    </motion.div>
+  );
 }
