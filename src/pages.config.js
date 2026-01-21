@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import MaskGenerator from './pages/MaskGenerator';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
+import QuoteSummary from './pages/QuoteSummary';
 
 
 export const PAGES = {
@@ -21,6 +22,7 @@ export const PAGES = {
     "MaskGenerator": MaskGenerator,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
+    "QuoteSummary": QuoteSummary,
 }
 
 export const pagesConfig = {

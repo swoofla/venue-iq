@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, phone, budgetData, venueName, totalBudget, deliveryPreference } = await req.json();
+    const { name, email, phone, budgetData, venueName, totalBudget, deliveryPreference, estimateId } = await req.json();
 
     console.log('=== sendBudgetQuote START ===');
     console.log('Delivery preference:', deliveryPreference);

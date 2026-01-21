@@ -599,8 +599,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
       // Use dictionary format for database storage
       const budgetBreakdownDict = getItemizedBreakdownDict();
       
-      // Save to SavedBudgetEstimate
-      await base44.entities.SavedBudgetEstimate.create({
+      // Save to SavedBudgetEstimate and capture the ID
+      const savedEstimate = await base44.entities.SavedBudgetEstimate.create({
         venue_id: venueId,
         name: contactInfo.name,
         email: contactInfo.deliveryPreference === 'email' ? contactInfo.email : '',
@@ -612,9 +612,12 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
         day_of_week: selections.dayOfWeek,
         season: selections.season,
         budget_selections: selections,
-        budget_breakdown: budgetBreakdownDict, // Now a dictionary!
+        budget_breakdown: budgetBreakdownDict,
         highlevel_sync_status: 'pending'
       });
+
+      const estimateId = savedEstimate?.id;
+      console.log('Saved estimate ID:', estimateId);
 
       // Save to ContactSubmission
       await base44.entities.ContactSubmission.create({
@@ -647,7 +650,8 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           },
           totalBudget: totalBudget,
           deliveryPreference: contactInfo.deliveryPreference,
-          venueName: 'Sugar Lake Weddings'
+          venueName: 'Sugar Lake Weddings',
+          estimateId: estimateId
         });
       } catch (error) {
         console.error('Failed to send budget quote:', error);
