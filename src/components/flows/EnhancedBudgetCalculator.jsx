@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import ProgressDots from '../chat/ProgressDots';
 import { DollarSign, CheckCircle, AlertCircle, Mail } from 'lucide-react';
 
@@ -124,15 +125,16 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
   });
   const [saving, setSaving] = useState(false);
   const [showAllSelections, setShowAllSelections] = useState(false);
-  const [venue, setVenue] = useState(null);
+
+  const { data: venue } = useQuery({
+    queryKey: ['venue', venueId],
+    queryFn: () => venueId ? base44.entities.Venue.get(venueId) : null,
+    enabled: !!venueId
+  });
 
   useEffect(() => {
     async function fetchPricing() {
       try {
-        // Fetch venue info for domain
-        const venueData = await base44.entities.Venue.get(venueId);
-        setVenue(venueData);
-
         const configs = await base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId });
 
         console.log('=== PRICING CONFIG DEBUG ===');
