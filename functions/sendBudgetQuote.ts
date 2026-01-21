@@ -189,6 +189,10 @@ Deno.serve(async (req) => {
     if (highlevelContactId) {
       console.log('Adding internal note for planners...');
       try {
+        const quoteLink = estimateId 
+          ? `\n\n📄 View Full Quote:\nhttps://sugarlakeweddings.com/quote/${estimateId}` 
+          : '';
+        
         await fetch('https://services.leadconnectorhq.com/contacts/' + highlevelContactId + '/notes', {
           method: 'POST',
           headers: {
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
             body: `📊 BUDGET CALCULATOR SUBMISSION\n\n` +
                   `Estimated Budget: $${totalBudget.toLocaleString()}\n` +
                   `Delivery Method: ${deliveryPreference === 'text' ? 'SMS' : 'Email'}\n\n` +
-                  `SELECTIONS:\n${budgetBreakdownText}\n\n` +
+                  `SELECTIONS:\n${budgetBreakdownText}${quoteLink}\n\n` +
                   `⏰ Please follow up within 24 hours!`
           })
         });
