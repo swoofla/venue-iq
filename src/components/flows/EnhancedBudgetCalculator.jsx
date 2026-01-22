@@ -659,7 +659,7 @@ export default function EnhancedBudgetCalculator({ venueId, onComplete, onCancel
           deliveryPreference: contactInfo.deliveryPreference,
           venueName: venue?.name || 'Sugar Lake Weddings',
           venueDomain: venue?.domain || 'sugarlakeweddings.com',
-          estimateId: savedEstimate?.id
+          estimateId: estimateId
         });
       } catch (error) {
         console.error('Failed to send budget quote:', error);

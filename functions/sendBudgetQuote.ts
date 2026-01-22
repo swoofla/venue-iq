@@ -1,89 +1,105 @@
-// sendBudgetQuote.js - UPDATED VERSION
-// Now includes quote summary link in BOTH SMS and Email
-// Deploy to: functions/sendBudgetQuote.js in Base44
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
-    const { 
-      name, 
-      email, 
-      phone, 
-      budgetData, 
-      venueName, 
-      totalBudget, 
-      deliveryPreference,
-      estimateId  // The saved estimate ID for the quote link
-    } = await req.json();
+    const base44 = createClientFromRequest(req);
+    const { name, email, phone, budgetData, venueName, venueDomain, totalBudget, deliveryPreference, estimateId } = await req.json();
 
     console.log('=== sendBudgetQuote START ===');
     console.log('Delivery preference:', deliveryPreference);
     console.log('Email:', email);
     console.log('Phone:', phone);
-    console.log('Estimate ID:', estimateId);
 
+    if (!name || !deliveryPreference || !budgetData || !totalBudget) {
+      return Response.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Validate delivery preference
+    if (!['text', 'email'].includes(deliveryPreference)) {
+      return Response.json({ error: 'Invalid delivery preference' }, { status: 400 });
+    }
+
+    // Get HighLevel credentials
     const highlevelApiKey = Deno.env.get('HIGHLEVEL_API_KEY');
-    const highlevelLocationId = Deno.env.get('HIGHLEVEL_LOCATION_ID');
+    const locationId = Deno.env.get('HIGHLEVEL_LOCATION_ID');
 
-    if (!highlevelApiKey || !highlevelLocationId) {
-      throw new Error('HighLevel configuration missing');
+    if (!highlevelApiKey || !locationId) {
+      console.error('HighLevel credentials not configured');
+      return Response.json({ error: 'Email/SMS service not configured' }, { status: 500 });
     }
 
-    // Build the quote link (same for both SMS and email)
-    const quoteUrl = estimateId 
-      ? `https://sugarlakeweddings.com/quote/${estimateId}`
-      : null;
-
-    // Format budget breakdown for plain text
+    // Format budget breakdown for messages
     const budgetBreakdownText = formatBudgetBreakdown(budgetData, totalBudget);
+    const budgetBreakdownHtml = formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName || 'Sugar Lake Weddings');
 
-    // 1. Create/upsert contact in HighLevel
-    console.log('Creating HighLevel contact...');
-    const contactPayload = {
-      locationId: highlevelLocationId,
-      email: email || undefined,
-      phone: phone || undefined,
-      name: name,
-      source: 'Budget Calculator',
-      tags: ['Budget Calculator Lead', 'VenueIQ Lead'],
-      customFields: [
-        { key: 'budget_estimate', value: totalBudget.toString() },
-        { key: 'budget_breakdown', value: budgetBreakdownText },
-        { key: 'delivery_preference', value: deliveryPreference }
-      ]
-    };
-
-    // Remove undefined fields
-    Object.keys(contactPayload).forEach(key => 
-      contactPayload[key] === undefined && delete contactPayload[key]
-    );
-
-    const contactResponse = await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${highlevelApiKey}`,
-        'Version': '2021-07-28',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(contactPayload)
-    });
-
-    const contactResult = await contactResponse.json();
-    const highlevelContactId = contactResult.contact?.id;
-    console.log('HighLevel contact ID:', highlevelContactId);
-
-    if (!highlevelContactId) {
-      throw new Error('Failed to create HighLevel contact');
-    }
-
+    let highlevelContactId = null;
     let deliveryStatus = 'pending';
 
-    // 2. Send notification based on preference
-    if (deliveryPreference === 'email' && email && highlevelContactId) {
-      // Send Email via HighLevel with quote link
-      console.log('Sending email to contact:', highlevelContactId);
+    // 1. Create/upsert contact in HighLevel first (needed for both email and SMS)
+    try {
+      console.log('Creating HighLevel contact...');
 
-      const emailHtml = formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName, quoteUrl);
+      const contactPayload = {
+        locationId,
+        firstName: name.split(' ')[0],
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        tags: ['Budget Calculator Lead'],
+        source: 'Budget Calculator',
+        customFields: [
+          { key: 'budget_estimate', field_value: totalBudget.toString() },
+          { key: 'budget_delivery_preference', field_value: deliveryPreference },
+          { key: 'budget_package', field_value: budgetData.guestTier || '' }
+        ]
+      };
+
+      // Add email if provided
+      if (email) {
+        contactPayload.email = email;
+      }
+      
+      // Add phone if provided (format for HighLevel)
+      if (phone) {
+        const cleanPhone = phone.replace(/\D/g, '');
+        contactPayload.phone = cleanPhone.startsWith('1') ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      }
+
+      console.log('Contact payload:', JSON.stringify(contactPayload));
+
+      const contactResponse = await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${highlevelApiKey}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(contactPayload)
+      });
+
+      const contactResponseText = await contactResponse.text();
+      console.log('HighLevel contact response status:', contactResponse.status);
+      console.log('HighLevel contact response:', contactResponseText);
+
+      if (contactResponse.ok) {
+        const contactData = JSON.parse(contactResponseText);
+        highlevelContactId = contactData.contact?.id;
+        console.log('HighLevel contact ID:', highlevelContactId);
+      } else {
+        console.error('Failed to create HighLevel contact:', contactResponseText);
+        return Response.json({ 
+          error: 'Failed to create contact', 
+          details: contactResponseText 
+        }, { status: 500 });
+      }
+    } catch (hlError) {
+      console.error('HighLevel contact creation error:', hlError.message);
+      return Response.json({ error: 'Contact creation failed: ' + hlError.message }, { status: 500 });
+    }
+
+    // 2. Send message based on delivery preference
+    if (deliveryPreference === 'email' && email && highlevelContactId) {
+      // Send email via HighLevel
+      console.log('Sending email via HighLevel to:', email);
 
       try {
         const emailResponse = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
@@ -97,8 +113,9 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             type: 'Email',
             contactId: highlevelContactId,
-            subject: `Your ${venueName} Wedding Budget Estimate 💒`,
-            html: emailHtml
+            subject: `Your Sugar Lake Wedding Budget Estimate - $${totalBudget.toLocaleString()}`,
+            html: budgetBreakdownHtml,
+            emailFrom: venueName || 'Sugar Lake Weddings'
           })
         });
 
@@ -108,7 +125,7 @@ Deno.serve(async (req) => {
 
         if (emailResponse.ok) {
           deliveryStatus = 'sent_email';
-          console.log('Email sent successfully');
+          console.log('Email sent successfully via HighLevel');
         } else {
           console.error('Email send failed:', emailResponseText);
           deliveryStatus = 'email_failed';
@@ -122,12 +139,13 @@ Deno.serve(async (req) => {
       // Send SMS via HighLevel with link to quote summary
       console.log('Sending SMS to contact:', highlevelContactId);
 
-      // Build the quote link for SMS
-      const quoteLink = quoteUrl 
-        ? `\n\nView your full breakdown:\n${quoteUrl}`
+      // Build the quote link using the passed estimate ID and domain
+      const domain = venueDomain || 'sugarlakeweddings.com';
+      const quoteLink = estimateId 
+        ? `\n\nView your full breakdown:\nhttps://${domain}/QuoteSummary?id=${estimateId}`
         : '';
 
-      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your Sugar Lake wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
+      const smsMessage = `Hi ${name.split(' ')[0]}! 💍 Your ${venueName} wedding budget estimate is $${totalBudget.toLocaleString()}.${quoteLink}\n\nOur team will reach out within 24 hours. Questions? Call (216) 616-1598`;
 
       try {
         const smsResponse = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
@@ -162,9 +180,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Add internal note for planners
+    // 3. Create internal note for planners (shows up in HighLevel contact timeline)
     if (highlevelContactId) {
+      console.log('Adding internal note for planners...');
       try {
+        const domain = venueDomain || 'sugarlakeweddings.com';
+        const quoteLink = estimateId 
+          ? `\n\n📄 View Full Quote:\nhttps://${domain}/QuoteSummary?id=${estimateId}` 
+          : '';
+        
         await fetch('https://services.leadconnectorhq.com/contacts/' + highlevelContactId + '/notes', {
           method: 'POST',
           headers: {
@@ -174,10 +198,10 @@ Deno.serve(async (req) => {
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            body: `💰 NEW BUDGET ESTIMATE: $${totalBudget.toLocaleString()}\n\n` +
-                  `Delivered via: ${deliveryPreference === 'text' ? 'SMS' : 'Email'}\n` +
-                  `Quote Link: ${quoteUrl || 'Not available'}\n\n` +
-                  `SELECTIONS:\n${budgetBreakdownText}\n\n` +
+            body: `📊 BUDGET CALCULATOR SUBMISSION\n\n` +
+                  `Estimated Budget: $${totalBudget.toLocaleString()}\n` +
+                  `Delivery Method: ${deliveryPreference === 'text' ? 'SMS' : 'Email'}\n\n` +
+                  `SELECTIONS:\n${budgetBreakdownText}${quoteLink}\n\n` +
                   `⏰ Please follow up within 24 hours!`
           })
         });
@@ -196,19 +220,13 @@ Deno.serve(async (req) => {
       message: 'Budget estimate processed',
       deliveryStatus: deliveryStatus,
       deliveryPreference: deliveryPreference,
-      highlevelContactId: highlevelContactId,
-      quoteUrl: quoteUrl
+      highlevelContactId: highlevelContactId
     });
-
   } catch (error) {
     console.error('sendBudgetQuote error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
 
 function formatBudgetBreakdown(budgetData, totalBudget) {
   const lines = [];
@@ -231,9 +249,11 @@ function formatBudgetBreakdown(budgetData, totalBudget) {
     extras: 'Extras Budget'
   };
 
-  // Skip guestTier since it's redundant with guestCount
+  // Skip guestTier (redundant with guestCount) and totalBudget
+  const skipKeys = ['guestTier', 'totalBudget'];
+
   Object.entries(budgetData).forEach(([key, value]) => {
-    if (value && key !== 'totalBudget' && key !== 'guestTier') {
+    if (value && !skipKeys.includes(key)) {
       const label = labels[key] || key;
       lines.push(`${label}: ${value}`);
     }
@@ -242,7 +262,7 @@ function formatBudgetBreakdown(budgetData, totalBudget) {
   return lines.join('\n');
 }
 
-function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName, quoteUrl) {
+function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName) {
   const labels = {
     guestCount: 'Guest Count',
     dayOfWeek: 'Day of Week',
@@ -261,10 +281,12 @@ function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName, quo
     extras: 'Extras Budget'
   };
 
+  // Skip guestTier (redundant with guestCount) and totalBudget
+  const skipKeys = ['guestTier', 'totalBudget'];
+
   let breakdownRows = '';
-  // Skip guestTier since it's redundant with guestCount
   Object.entries(budgetData).forEach(([key, value]) => {
-    if (value && key !== 'totalBudget' && key !== 'guestTier') {
+    if (value && !skipKeys.includes(key)) {
       const label = labels[key] || key;
       breakdownRows += `
         <tr>
@@ -274,23 +296,6 @@ function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName, quo
       `;
     }
   });
-
-  // Build the "View Full Breakdown" button HTML if we have a quote URL
-  const viewBreakdownButton = quoteUrl ? `
-    <tr>
-      <td style="padding: 20px 0;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center">
-              <a href="${quoteUrl}" style="display: inline-block; background-color: #333; color: #fff; text-decoration: none; padding: 14px 40px; border-radius: 50px; font-size: 13px; font-weight: 500; letter-spacing: 1px;">
-                VIEW FULL BREAKDOWN
-              </a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  ` : '';
 
   return `
     <!DOCTYPE html>
@@ -334,9 +339,6 @@ function formatBudgetBreakdownHtml(budgetData, totalBudget, name, venueName, quo
                   </div>
                 </td>
               </tr>
-              
-              <!-- View Full Breakdown Button (if quoteUrl exists) -->
-              ${viewBreakdownButton}
               
               <!-- Breakdown -->
               <tr>
