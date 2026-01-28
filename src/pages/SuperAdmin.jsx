@@ -3,13 +3,22 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, Users, Mail } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Building2, Users, Mail, UserPlus, Copy, Check, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function SuperAdmin() {
   const [user, setUser] = useState(null);
   const [showVenueForm, setShowVenueForm] = useState(false);
   const [showUserForm, setShowUserForm] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [selectedVenueForInvite, setSelectedVenueForInvite] = useState(null);
+  const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'venue_owner' });
+  const [generatedInviteUrl, setGeneratedInviteUrl] = useState(null);
+  const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
@@ -26,6 +35,52 @@ export default function SuperAdmin() {
     queryFn: () => base44.entities.User.list(),
     enabled: !!user && user.role === 'admin'
   });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (data) => {
+      const result = await base44.functions.invoke('createUserInvite', data);
+      if (!result.data?.success) {
+        throw new Error(result.data?.error || 'Failed to create invite');
+      }
+      return result.data;
+    },
+    onSuccess: (data) => {
+      setGeneratedInviteUrl(data.invite_url);
+      toast.success('Invitation created successfully!');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    }
+  });
+
+  const handleCreateInvite = () => {
+    if (!inviteForm.email || !selectedVenueForInvite) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    inviteMutation.mutate({
+      email: inviteForm.email,
+      name: inviteForm.name,
+      venue_id: selectedVenueForInvite,
+      role: inviteForm.role,
+      created_by: user?.id
+    });
+  };
+
+  const copyToClipboard = async () => {
+    await navigator.clipboard.writeText(generatedInviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast.success('Link copied to clipboard!');
+  };
+
+  const closeInviteDialog = () => {
+    setInviteDialogOpen(false);
+    setGeneratedInviteUrl(null);
+    setInviteForm({ email: '', name: '', role: 'venue_owner' });
+    setSelectedVenueForInvite(null);
+  };
 
   if (!user) {
     return (
@@ -99,7 +154,13 @@ export default function SuperAdmin() {
 
           {/* Users */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">Users ({users.length})</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Users ({users.length})</h2>
+              <Button onClick={() => setInviteDialogOpen(true)} size="sm">
+                <UserPlus className="w-4 h-4 mr-1" />
+                Invite User
+              </Button>
+            </div>
             <div className="space-y-2">
               {users.map(u => {
                 const userVenue = venues.find(v => v.id === u.venue_id);
@@ -133,6 +194,118 @@ export default function SuperAdmin() {
             }}
           />
         )}
+
+        <Dialog open={inviteDialogOpen} onOpenChange={closeInviteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Invite User</DialogTitle>
+              <DialogDescription>
+                Send an invitation to a venue owner or staff member
+              </DialogDescription>
+            </DialogHeader>
+
+            {!generatedInviteUrl ? (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Email Address *</Label>
+                  <Input
+                    type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="user@example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Name (Optional)</Label>
+                  <Input
+                    type="text"
+                    value={inviteForm.name}
+                    onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Jane Smith"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Venue *</Label>
+                  <Select value={selectedVenueForInvite} onValueChange={setSelectedVenueForInvite}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a venue" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {venues?.map((venue) => (
+                        <SelectItem key={venue.id} value={venue.id}>
+                          {venue.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Role *</Label>
+                  <Select value={inviteForm.role} onValueChange={(v) => setInviteForm(prev => ({ ...prev, role: v }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="venue_owner">Venue Owner</SelectItem>
+                      <SelectItem value="venue_staff">Staff Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  onClick={handleCreateInvite} 
+                  className="w-full rounded-full bg-black hover:bg-stone-800"
+                  disabled={inviteMutation.isPending}
+                >
+                  {inviteMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating Invite...
+                    </>
+                  ) : (
+                    'Create Invitation'
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 py-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <Check className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-green-800 font-medium">Invitation Created!</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Invitation Link</Label>
+                  <div className="flex gap-2">
+                    <Input value={generatedInviteUrl} readOnly className="bg-stone-50 text-sm" />
+                    <Button onClick={copyToClipboard} variant="outline" className="shrink-0">
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-stone-500">
+                    Share this link with {inviteForm.email}. It expires in 7 days.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={closeInviteDialog} variant="outline" className="flex-1 rounded-full">
+                    Done
+                  </Button>
+                  <Button 
+                    onClick={() => window.open(`mailto:${inviteForm.email}?subject=You're invited&body=Click here to accept your invitation: ${encodeURIComponent(generatedInviteUrl)}`)}
+                    className="flex-1 rounded-full bg-black hover:bg-stone-800"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
