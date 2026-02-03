@@ -17,7 +17,7 @@ import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
 import FirstLook from '@/components/FirstLook';
 
-const getWelcomeMessage = (venueName) => `Welcome to ${venueName}, we're glad to have you. How can we help you envision your perfect day here?`;
+const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! 👋\n\nI'm here to help you explore our venue and plan your perfect celebration. What brings you here today?`;
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -38,6 +38,7 @@ export default function Home() {
   const [leadEmail, setLeadEmail] = useState('');
   const [showTourPrompt, setShowTourPrompt] = useState(false);
   const [showFirstLook, setShowFirstLook] = useState(false);
+  const [introResponded, setIntroResponded] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -443,6 +444,18 @@ export default function Home() {
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
+  const handleIntroStart = () => {
+    setIntroResponded(true);
+    setMessages(prev => [...prev, { id: Date.now(), text: "Tell me about your venue", isBot: false }]);
+    addBotMessage("I'd love to! Sugar Lake is a beautiful wedding venue perfect for celebrations of all sizes. We offer stunning indoor and outdoor spaces, flexible packages, and personalized service to make your day unforgettable.\n\nWhat would you like to explore? You can check our packages, calculate your budget, see photos, schedule a tour, or just ask me anything!");
+  };
+
+  const handleIntroSkip = () => {
+    setIntroResponded(true);
+    setMessages(prev => [...prev, { id: Date.now(), text: "I know what I need", isBot: false }]);
+    addBotMessage("Perfect! Use the buttons below or just type what you're looking for. I'm here to help!");
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -481,6 +494,26 @@ export default function Home() {
           ))}
           
           {isTyping && <TypingIndicator />}
+
+          {/* Initial Welcome Options */}
+          {!introResponded && messages.length === 1 && !isTyping && (
+            <div className="flex flex-col gap-2 mb-4">
+              <button
+                onClick={handleIntroStart}
+                className="px-6 py-4 bg-black text-white rounded-2xl hover:bg-stone-800 transition-colors text-left"
+              >
+                <div className="font-medium mb-1">Tell me about your venue</div>
+                <div className="text-sm text-stone-300">Learn about Sugar Lake and what we offer</div>
+              </button>
+              <button
+                onClick={handleIntroSkip}
+                className="px-6 py-4 bg-stone-100 text-stone-700 rounded-2xl hover:bg-stone-200 transition-colors text-left"
+              >
+                <div className="font-medium mb-1">I know what I need</div>
+                <div className="text-sm text-stone-500">Jump straight to booking or exploring</div>
+              </button>
+            </div>
+          )}
 
           {/* Tour Prompt Quick Replies */}
           {showTourPrompt && (
@@ -575,10 +608,12 @@ export default function Home() {
         </div>
 
         {/* Quick Actions */}
-        <QuickActions
-          onAction={handleQuickAction}
-          disabled={isTyping || activeFlow !== null}
-        />
+        {introResponded && (
+          <QuickActions
+            onAction={handleQuickAction}
+            disabled={isTyping || activeFlow !== null}
+          />
+        )}
 
         {/* Chat Input */}
         <ChatInput
