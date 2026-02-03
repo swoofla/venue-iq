@@ -2,8 +2,6 @@ import React from 'react';
 
 const actions = [
   { id: 'budget', label: '💰 Calculate Budget' },
-  { id: 'gallery', label: '📸 Explore' },
-  { id: 'visualizer', label: '✨ Preview' },
   { id: 'packages', label: '📦 View Packages' },
   { id: 'availability', label: '📅 Check Your Date' },
   { id: 'tour', label: '⛪️ Schedule a Tour' },
