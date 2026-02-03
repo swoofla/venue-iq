@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Pause, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
 
 export default function FirstLook({ config }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
-  const [showUnmuteHint, setShowUnmuteHint] = useState(false);
+  const [showUnmuteHint, setShowUnmuteHint] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [welcomeVideoPlaying, setWelcomeVideoPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const welcomePlayerRef = useRef(null);
   const selectedPlayerRef = useRef(null);
@@ -71,7 +70,7 @@ export default function FirstLook({ config }) {
         onReady: (video) => {
           welcomePlayerRef.current = video;
           video.mute();
-          // Don't autoplay - let user click to start
+          video.play();
         }
       });
     };
@@ -149,21 +148,14 @@ export default function FirstLook({ config }) {
   useEffect(() => {
     if (selectedVideo && welcomePlayerRef.current) {
       welcomePlayerRef.current.pause();
-      setWelcomeVideoPlaying(false);
+    } else if (!selectedVideo && welcomePlayerRef.current && isOpen) {
+      welcomePlayerRef.current.play();
     }
   }, [selectedVideo, isOpen]);
 
-  const handleWelcomePlay = () => {
-    if (welcomePlayerRef.current) {
-      welcomePlayerRef.current.unmute();
-      welcomePlayerRef.current.play();
-      setWelcomeVideoPlaying(true);
-      setIsMuted(false);
-    }
-  };
-
   const handleUnmute = () => {
     if (welcomePlayerRef.current) {
+      welcomePlayerRef.current.time(0); // Restart from beginning
       welcomePlayerRef.current.unmute();
       welcomePlayerRef.current.play();
     }
@@ -177,6 +169,14 @@ export default function FirstLook({ config }) {
     }
     setIsMuted(true);
   };
+
+  // Auto-hide unmute hint after 5 seconds
+  useEffect(() => {
+    if (showUnmuteHint && isOpen && !selectedVideo) {
+      const timer = setTimeout(() => setShowUnmuteHint(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showUnmuteHint, isOpen, selectedVideo]);
 
   const togglePlayPause = () => {
     if (!selectedPlayerRef.current) return;
@@ -309,13 +309,18 @@ export default function FirstLook({ config }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full h-full relative"
+            className="w-full h-full relative cursor-pointer"
+            onClick={() => {
+              if (isMuted && settings.welcome_video_id) {
+                handleUnmute();
+              }
+            }}
           >
             {/* Background: Wistia video */}
             <div className="absolute inset-0">
               {settings.welcome_video_id ? (
                 <div
-                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=false endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false muted=true`}
+                  className={`wistia_embed wistia_async_${settings.welcome_video_id} wistiaFitStrategy=cover videoFoam=false autoPlay=true silentAutoPlay=true endVideoBehavior=loop playbar=false controlsVisibleOnLoad=false settingsControl=false fullscreenButton=false playButton=false smallPlayButton=false volumeControl=false muted=true`}
                   style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
                 />
               ) : settings.welcome_video_thumbnail ? (
@@ -341,35 +346,41 @@ export default function FirstLook({ config }) {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Play Button Overlay - shown when not playing */}
-            {!welcomeVideoPlaying && settings.welcome_video_id && (
-              <div className="absolute inset-0 flex items-center justify-start pl-8 z-10">
-                <button
-                  onClick={handleWelcomePlay}
-                  className="flex flex-col items-center gap-3"
-                >
-                  <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-all hover:scale-105 shadow-lg">
-                    <Play className="w-7 h-7 text-black ml-1" />
-                  </div>
-                  <span className="text-white text-sm font-medium bg-black/40 backdrop-blur-sm px-4 py-2 rounded-full">
-                    Meet Your Planner
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* Mute/Unmute Button - only show when video is playing */}
-            {welcomeVideoPlaying && settings.welcome_video_id && (
+            {/* Mute/Unmute Button */}
+            {settings.welcome_video_id && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   isMuted ? handleUnmute() : handleMute();
                 }}
-                className="absolute bottom-24 left-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
+                className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
               >
                 {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </button>
             )}
+
+            {/* Tap to Unmute Hint */}
+            <AnimatePresence>
+              {isMuted && showUnmuteHint && settings.welcome_video_id && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute top-16 left-4 z-10"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnmute();
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium animate-pulse"
+                  >
+                    <VolumeX className="w-4 h-4" />
+                    Tap to unmute
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Content - Bottom section */}
             <div className="absolute inset-0 flex flex-col justify-end p-5">
