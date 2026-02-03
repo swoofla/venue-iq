@@ -219,6 +219,13 @@ export default function Home() {
                lowerText.includes('decorate') || lowerText.includes('style')) {
       addBotMessage("Let me show you what your wedding could look like at our venue! ✨");
       setTimeout(() => setActiveFlow('visualizer'), 1500);
+    } else if (lowerText.includes('talk to') || lowerText.includes('speak to') || 
+               lowerText.includes('real person') || lowerText.includes('human') ||
+               lowerText.includes('call') || lowerText.includes('phone')) {
+      const contactMessage = venue?.phone || venue?.email 
+        ? `I'd be happy to connect you with our team! You can reach us at ${venue.phone ? `${venue.phone}` : ''}${venue.phone && venue.email ? ' or ' : ''}${venue.email ? venue.email : ''}.`
+        : "I'd be happy to connect you with our team! Please use the contact information on our website.";
+      addBotMessage(contactMessage);
     } else {
       // Check knowledge base for relevant answer
       const relevantKnowledge = venueKnowledge.find(k => 
@@ -265,37 +272,44 @@ export default function Home() {
 
   const handleQuickAction = (action) => {
     setShowGreeting(false); // Hide greeting once user interacts
-    
+
     switch (action) {
       case 'budget':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to use the budget calculator", isBot: false }]);
-        addBotMessage("Perfect! Let's find the ideal package for your budget. I'll guide you through a few questions.");
+        addBotMessage("Perfect! Let's find the ideal package for your budget. I'll guide you through a few questions to understand your vision.");
         setTimeout(() => setActiveFlow('budget'), 1500);
         break;
       case 'availability':
         setMessages(prev => [...prev, { id: Date.now(), text: "I want to check date availability", isBot: false }]);
-        addBotMessage("Let's see if your dream date is available! Please select a date below.");
+        addBotMessage("Great choice! Let's see if your dream date is available. Please select a date from the calendar below.");
         setTimeout(() => setActiveFlow('availability'), 1500);
         break;
       case 'tour':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to schedule a tour", isBot: false }]);
-        addBotMessage("We'd love to welcome you to Sugar Lake! Let's find a time that works for you.");
+        addBotMessage("Wonderful! We'd love to welcome you to Sugar Lake and show you around in person. Let's find a time that works best for you.");
         setTimeout(() => setActiveFlow('tour'), 1500);
         break;
       case 'packages':
         setMessages(prev => [...prev, { id: Date.now(), text: "Show me your packages", isBot: false }]);
-        addBotMessage("Here are our three beautiful packages, each designed to create an unforgettable celebration:");
+        addBotMessage("Excellent! Here are our three beautiful packages, each thoughtfully designed to create an unforgettable celebration. Take a look:");
         setTimeout(() => setActiveFlow('packages'), 1500);
         break;
       case 'gallery':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to see photos of the venue", isBot: false }]);
-        addBotMessage("Let me show you around our beautiful venue! ✨");
+        addBotMessage("I'd love to show you around! Here's a tour of our beautiful spaces. ✨");
         setTimeout(() => setActiveFlow('gallery'), 1000);
         break;
       case 'visualizer':
         setMessages(prev => [...prev, { id: Date.now(), text: "I want to visualize my wedding design", isBot: false }]);
-        addBotMessage("Let's create a vision of your dream wedding at our venue! ✨");
+        addBotMessage("How exciting! Let's create a custom vision of what your wedding could look like at our venue. ✨");
         setTimeout(() => setActiveFlow('visualizer'), 1000);
+        break;
+      case 'contact':
+        setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to talk to a real person", isBot: false }]);
+        const contactMessage = venue?.phone || venue?.email 
+          ? `I'd be happy to connect you with our team! You can reach us at ${venue.phone ? `${venue.phone}` : ''}${venue.phone && venue.email ? ' or ' : ''}${venue.email ? venue.email : ''}.`
+          : "I'd be happy to connect you with our team! Please use the contact information on our website.";
+        addBotMessage(contactMessage);
         break;
     }
   };
@@ -303,32 +317,57 @@ export default function Home() {
   const handleBudgetComplete = async (data) => {
     // Calculator already saved the contact, just close and follow up
     setActiveFlow(null);
-    
+
     // Store the lead's info for personalized follow-up
     setLeadName(data.name);
     setLeadEmail(data.email);
     setLeadPhone(data.phone);
-    
+
     // Determine delivery message
     const deliveryMessage = data.deliveryPreference === 'text' 
       ? `sent to your phone` 
       : `sent to your email`;
-    
+
+    // Acknowledge the completion
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      text: `Budget estimate submitted - ${data.guestCount} guests, $${data.totalBudget.toLocaleString()}`, 
+      isBot: false 
+    }]);
+
     // Add a brief delay, then chatbot asks about tour
     setTimeout(() => {
       addBotMessage(
-        `Thanks ${data.name}! Your budget estimate of $${data.totalBudget.toLocaleString()} has been ${deliveryMessage}. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
+        `Perfect! Your personalized budget estimate of $${data.totalBudget.toLocaleString()} has been ${deliveryMessage}. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
       );
       setShowTourPrompt(true);
     }, 1000);
   };
 
   const handleAvailabilityTour = (date) => {
-    setPreSelectedDate(date);
-    setActiveFlow('tour');
+    setActiveFlow(null);
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      text: `${date} is available!`, 
+      isBot: false 
+    }]);
+    addBotMessage(`Great news! ${date} is available. Let's get your tour scheduled so you can see the venue in person.`);
+    setTimeout(() => {
+      setPreSelectedDate(date);
+      setActiveFlow('tour');
+    }, 1500);
   };
 
   const handleTourComplete = async (data) => {
+    setActiveFlow(null);
+
+    // Acknowledge the action
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      text: `Tour scheduled for ${data.tourDate} at ${data.tourTime}`, 
+      isBot: false 
+    }]);
+
     const venues = await base44.entities.Venue.list();
     const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
 
@@ -372,16 +411,26 @@ export default function Home() {
     } catch (error) {
       console.error('HighLevel sync error:', error?.response?.data || error?.message || error);
     }
+
+    // Confirm booking
+    addBotMessage(`Wonderful! Your tour is scheduled for ${data.tourDate} at ${data.tourTime}. We'll send you a confirmation shortly. Looking forward to meeting you! 🎉`);
   };
 
   const handlePackageTour = (packageName) => {
-    setActiveFlow('tour');
+    setActiveFlow(null);
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      text: `Interested in the ${packageName} package`, 
+      isBot: false 
+    }]);
     addBotMessage(`Excellent choice! The ${packageName} package is one of our favorites. Let's schedule a tour so you can see everything in person.`);
+    setTimeout(() => setActiveFlow('tour'), 1500);
   };
 
   const closeFlow = () => {
     setActiveFlow(null);
     setPreSelectedDate('');
+    addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
   if (loading) {

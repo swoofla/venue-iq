@@ -5,6 +5,7 @@ const actions = [
   { id: 'packages', label: '📦 View Packages' },
   { id: 'availability', label: '📅 Check Your Date' },
   { id: 'tour', label: '⛪️ Schedule a Tour' },
+  { id: 'contact', label: '👋 Talk to a Real Person' },
 ];
 
 export default function QuickActions({ onAction, disabled }) {
