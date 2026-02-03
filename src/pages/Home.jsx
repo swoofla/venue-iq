@@ -402,11 +402,6 @@ export default function Home() {
       <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 pb-4">
-          {/* Greeting Carousel */}
-          {showGreeting && greetingPhotos.length > 0 && (
-            <ImageCarouselMessage images={greetingPhotos} />
-          )}
-
           {/* Regular messages (includes welcome) */}
           {messages.map((message) => (
             <ChatMessage
