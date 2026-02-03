@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { MessageCircle } from 'lucide-react';
 
 import { createPageUrl } from '../utils';
 
