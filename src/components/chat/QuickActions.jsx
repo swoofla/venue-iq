@@ -1,6 +1,7 @@
 import React from 'react';
 
 const actions = [
+  { id: 'video', label: '🎥 Watch Video Tour' },
   { id: 'budget', label: '💰 Calculate Budget' },
   { id: 'packages', label: '📦 View Packages' },
   { id: 'availability', label: '📅 Check Your Date' },

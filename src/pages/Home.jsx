@@ -37,6 +37,7 @@ export default function Home() {
   const [leadPhone, setLeadPhone] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
   const [showTourPrompt, setShowTourPrompt] = useState(false);
+  const [showFirstLook, setShowFirstLook] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -219,6 +220,10 @@ export default function Home() {
                lowerText.includes('decorate') || lowerText.includes('style')) {
       addBotMessage("Let me show you what your wedding could look like at our venue! ✨");
       setTimeout(() => setActiveFlow('visualizer'), 1500);
+    } else if (lowerText.includes('video') || lowerText.includes('watch') || 
+               lowerText.includes('first look') || lowerText.includes('virtual tour')) {
+      addBotMessage("I'd love to give you a personal video tour! Opening First Look now... 🎥");
+      setTimeout(() => setShowFirstLook(true), 800);
     } else if (lowerText.includes('talk to') || lowerText.includes('speak to') || 
                lowerText.includes('real person') || lowerText.includes('human') ||
                lowerText.includes('call') || lowerText.includes('phone')) {
@@ -311,8 +316,13 @@ export default function Home() {
           : "I'd be happy to connect you with our team! Please use the contact information on our website.";
         addBotMessage(contactMessage);
         break;
-    }
-  };
+      case 'video':
+        setMessages(prev => [...prev, { id: Date.now(), text: "Show me a video tour", isBot: false }]);
+        addBotMessage("I'd love to give you a personal video tour! Opening First Look now... 🎥");
+        setTimeout(() => setShowFirstLook(true), 800);
+        break;
+      }
+      };
 
   const handleBudgetComplete = async (data) => {
     // Calculator already saved the contact, just close and follow up
@@ -579,7 +589,7 @@ export default function Home() {
       </main>
 
       {/* First Look Panel */}
-      {firstLookConfig && <FirstLook config={firstLookConfig} />}
+      {firstLookConfig && showFirstLook && <FirstLook config={firstLookConfig} initialOpen={true} />}
     </div>
   );
 }

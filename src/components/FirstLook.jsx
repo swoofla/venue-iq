@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Pause, ChevronLeft, Volume2, VolumeX } from 'lucide-react';
 
-export default function FirstLook({ config }) {
-  const [isOpen, setIsOpen] = useState(true);
+export default function FirstLook({ config, initialOpen = false }) {
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
