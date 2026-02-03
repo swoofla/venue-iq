@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Calendar, Home, Settings, BookOpen, Package } from 'lucide-react';
+import { Calendar, Home, Settings, BookOpen, Package, Copy, Check, Mail } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
@@ -11,10 +11,13 @@ import IndustryBenchmarks from '@/components/dashboard/IndustryBenchmarks';
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown';
 import VenueSelector from '@/components/admin/VenueSelector';
 
+const APP_VERSION = '1.2.0';
+
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [searchParams] = useSearchParams();
+  const [copied, setCopied] = useState(false);
 
   React.useEffect(() => {
     base44.auth.me().then(u => {
@@ -101,18 +104,56 @@ export default function Dashboard() {
     return weddingDate >= monthStart && weddingDate <= monthEnd;
   });
 
+  const handleCopyVenueUrl = () => {
+    const venueUrl = window.location.origin;
+    navigator.clipboard.writeText(venueUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-stone-50">
       <div className="border-b border-stone-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold">Dashboard</h1>
-              {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold">Dashboard</h1>
+                {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
+              </div>
+              {venue && (
+                <Button 
+                  onClick={handleCopyVenueUrl} 
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy Venue URL
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-            <Button onClick={() => base44.auth.logout()} variant="outline">
-              Logout
-            </Button>
+            <div className="flex items-center gap-3">
+              <a
+                href="mailto:support@idealbrides.co"
+                className="flex items-center gap-2 text-sm text-stone-600 hover:text-stone-900 transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                Contact Support
+              </a>
+              <Button onClick={() => base44.auth.logout()} variant="outline">
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -203,7 +244,14 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
+        </div>
+
+        {/* Footer */}
+        <footer className="border-t border-stone-200 bg-white mt-12 py-4">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-stone-500">
+          Version {APP_VERSION}
+        </div>
+        </footer>
+        </div>
+        );
+        }
