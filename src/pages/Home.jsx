@@ -17,7 +17,7 @@ import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
 import FirstLook from '@/components/FirstLook';
 
-const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! 👋\n\nI'm here to help you explore our venue and plan your perfect celebration. What brings you here today?`;
+const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! ✨ Want to see how I can help you plan your perfect day here?`;
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -444,16 +444,30 @@ export default function Home() {
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
-  const handleIntroStart = () => {
+  const handleIntroYes = () => {
     setIntroResponded(true);
-    setMessages(prev => [...prev, { id: Date.now(), text: "Tell me about your venue", isBot: false }]);
-    addBotMessage("I'd love to! Sugar Lake is a beautiful wedding venue perfect for celebrations of all sizes. We offer stunning indoor and outdoor spaces, flexible packages, and personalized service to make your day unforgettable.\n\nWhat would you like to explore? You can check our packages, calculate your budget, see photos, schedule a tour, or just ask me anything!");
+    setShowGreeting(false);
+    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, show me!", isBot: false }]);
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      const introText = firstLookConfig?.is_enabled 
+        ? `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWould you like to meet ${firstLookConfig?.host_name || 'our team'} and get a quick look at the venue first?`
+        : `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
+      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true, showMeetPlannerButton: firstLookConfig?.is_enabled }]);
+    }, 1200);
   };
 
   const handleIntroSkip = () => {
     setIntroResponded(true);
+    setShowGreeting(false);
     setMessages(prev => [...prev, { id: Date.now(), text: "I know what I need", isBot: false }]);
-    addBotMessage("Perfect! Use the buttons below or just type what you're looking for. I'm here to help!");
+    addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
+  };
+
+  const handleMeetPlanner = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let me meet the planner!", isBot: false }]);
+    setShowFirstLook(true);
   };
 
   if (loading) {
@@ -469,14 +483,13 @@ export default function Home() {
             <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
             <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
           </div>
-          {venue?.phone && (
-            <a
-              href={`sms:${venue.phone}`}
-              className="px-4 py-2 bg-white text-black rounded-full text-sm font-medium hover:bg-stone-200 transition-colors"
-            >
-              Text Us
-            </a>
-          )}
+          <a
+            href={`sms:${venue?.phone || '+12166161598'}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-medium tracking-wide border border-white/20"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Text Us
+          </a>
         </div>
       </header>
 
@@ -486,31 +499,42 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto p-6 pb-4">
           {/* Regular messages (includes welcome) */}
           {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              message={message.text}
-              isBot={message.isBot}
-            />
+            <React.Fragment key={message.id}>
+              <ChatMessage
+                message={message.text}
+                isBot={message.isBot}
+              />
+              {/* Show "Meet Your Planner" button after the intro explanation message */}
+              {message.showMeetPlannerButton && (
+                <div className="flex justify-start mb-3 ml-10">
+                  <button
+                    onClick={handleMeetPlanner}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    Meet Your Planner
+                  </button>
+                </div>
+              )}
+            </React.Fragment>
           ))}
-          
+
           {isTyping && <TypingIndicator />}
 
-          {/* Initial Welcome Options */}
+          {/* Intro choice buttons - show only on first welcome before user responds */}
           {!introResponded && messages.length === 1 && !isTyping && (
-            <div className="flex flex-col gap-2 mb-4">
+            <div className="flex gap-2 mb-4 ml-10">
               <button
-                onClick={handleIntroStart}
-                className="px-6 py-4 bg-black text-white rounded-2xl hover:bg-stone-800 transition-colors text-left"
+                onClick={handleIntroYes}
+                className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
               >
-                <div className="font-medium mb-1">Tell me about your venue</div>
-                <div className="text-sm text-stone-300">Learn about Sugar Lake and what we offer</div>
+                Yes, show me!
               </button>
               <button
                 onClick={handleIntroSkip}
-                className="px-6 py-4 bg-stone-100 text-stone-700 rounded-2xl hover:bg-stone-200 transition-colors text-left"
+                className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
               >
-                <div className="font-medium mb-1">I know what I need</div>
-                <div className="text-sm text-stone-500">Jump straight to booking or exploring</div>
+                I know what I need
               </button>
             </div>
           )}
@@ -623,8 +647,18 @@ export default function Home() {
         />
       </main>
 
-      {/* First Look Panel */}
-      {firstLookConfig && showFirstLook && <FirstLook config={firstLookConfig} initialOpen={true} />}
+      {/* Chat-triggered First Look */}
+      {showFirstLook && firstLookConfig && (
+        <div className="fixed inset-0 z-50">
+          <FirstLook 
+            config={firstLookConfig} 
+            onClose={() => {
+              setShowFirstLook(false);
+              addBotMessage("Beautiful, right? Now — what would you like to explore first? You can calculate your budget, check date availability, view packages, or schedule a tour!");
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
