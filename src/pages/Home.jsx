@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Phone } from 'lucide-react';
+
 import { createPageUrl } from '../utils';
 
 import ChatMessage from '@/components/chat/ChatMessage';
@@ -526,15 +526,8 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-stone-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex justify-between items-center text-sm text-stone-500">
+        <div className="max-w-4xl mx-auto text-center text-sm text-stone-500">
           <span className="font-light">since 2017</span>
-          <a
-            href="tel:+12166161598"
-            className="flex items-center gap-2 text-stone-700 hover:text-black transition-colors"
-          >
-            <Phone className="w-4 h-4" />
-            (216) 616-1598
-          </a>
         </div>
       </footer>
 

@@ -54,12 +54,12 @@ import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import Invite from './pages/Invite';
 import MaskGenerator from './pages/MaskGenerator';
 import QuoteSummary from './pages/QuoteSummary';
+import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
-import Invite from './pages/Invite';
-import Register from './pages/Register';
 
 
 export const PAGES = {
@@ -70,12 +70,12 @@ export const PAGES = {
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
     "Home": Home,
+    "Invite": Invite,
     "MaskGenerator": MaskGenerator,
     "QuoteSummary": QuoteSummary,
+    "Register": Register,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
-    "Invite": Invite,
-    "Register": Register,
 }
 
 export const pagesConfig = {
