@@ -441,9 +441,19 @@ export default function Home() {
     <div className="min-h-screen bg-stone-50 flex flex-col">
       {/* Header */}
       <header className="bg-black text-white px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
-          <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
+            <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
+          </div>
+          {venue?.phone && (
+            <a
+              href={`sms:${venue.phone}`}
+              className="px-4 py-2 bg-white text-black rounded-full text-sm font-medium hover:bg-stone-200 transition-colors"
+            >
+              Text Us
+            </a>
+          )}
         </div>
       </header>
 
@@ -567,13 +577,6 @@ export default function Home() {
           placeholder="Type your message..."
         />
       </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-stone-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto text-center text-sm text-stone-500">
-          <span className="font-light">since 2017</span>
-        </div>
-      </footer>
 
       {/* First Look Panel */}
       {firstLookConfig && <FirstLook config={firstLookConfig} />}
