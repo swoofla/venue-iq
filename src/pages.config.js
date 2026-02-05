@@ -60,6 +60,7 @@ import QuoteSummary from './pages/QuoteSummary';
 import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
+import FirstLookEmbed from './pages/FirstLookEmbed';
 
 
 export const PAGES = {
@@ -76,6 +77,7 @@ export const PAGES = {
     "Register": Register,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
+    "FirstLookEmbed": FirstLookEmbed,
 }
 
 export const pagesConfig = {
