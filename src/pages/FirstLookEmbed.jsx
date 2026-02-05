@@ -6,23 +6,22 @@ import FirstLookWelcomeScreen from '@/components/firstlook/FirstLookWelcomeScree
 import FirstLookModal from '@/components/firstlook/FirstLookModal';
 
 export default function FirstLookEmbed() {
-  const [venueSlug, setVenueSlug] = useState(null);
+  const [venueId, setVenueId] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const slug = params.get('venue');
-    setVenueSlug(slug);
+    const id = params.get('venue');
+    setVenueId(id);
   }, []);
 
   const { data: venue, isLoading: venueLoading } = useQuery({
-    queryKey: ['venue-by-slug', venueSlug],
+    queryKey: ['venue', venueId],
     queryFn: async () => {
-      if (!venueSlug) return null;
-      const venues = await base44.entities.Venue.filter({ slug: venueSlug });
-      return venues[0] || null;
+      if (!venueId) return null;
+      return await base44.entities.Venue.get(venueId);
     },
-    enabled: !!venueSlug
+    enabled: !!venueId
   });
 
   const { data: firstLookConfig, isLoading: configLoading } = useQuery({
