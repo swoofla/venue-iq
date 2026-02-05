@@ -306,6 +306,46 @@ export default function FirstLookSettings({ venueId }) {
         </>
       )}
 
+      {/* Embed Code Card */}
+      {config.is_enabled && existingConfig?.id && (
+        <Card className="bg-stone-50 border-stone-300">
+          <CardHeader>
+            <CardTitle className="text-base">Embed First Look on Your Website</CardTitle>
+            <CardDescription>
+              Add this code to any page where you want visitors to experience First Look
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="bg-white border border-stone-200 rounded-lg p-4">
+                <pre className="text-xs text-stone-700 overflow-x-auto whitespace-pre-wrap break-words">
+{`<iframe 
+  src="${window.location.origin}/FirstLookEmbed?venue=${venueId}"
+  width="100%" 
+  height="700" 
+  frameborder="0" 
+  allow="autoplay"
+  style="max-width: 400px; border-radius: 16px; overflow: hidden;"
+></iframe>`}
+                </pre>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`<iframe src="${window.location.origin}/FirstLookEmbed?venue=${venueId}" width="100%" height="700" frameborder="0" allow="autoplay" style="max-width: 400px; border-radius: 16px; overflow: hidden;"></iframe>`);
+                }}
+              >
+                Copy Embed Code
+              </Button>
+              <p className="text-xs text-stone-500">
+                💡 Adjust the <code className="bg-stone-200 px-1 rounded">max-width</code> and <code className="bg-stone-200 px-1 rounded">height</code> to fit your site's design
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Save Button */}
       <div className="flex justify-end">
         <Button 
