@@ -41,8 +41,10 @@ export default function Home() {
   const [showTourPrompt, setShowTourPrompt] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
   const [introResponded, setIntroResponded] = useState(false);
-  const [firstLookVideosAdded, setFirstLookVideosAdded] = useState(false);
-  const [userWantsVideos, setUserWantsVideos] = useState(false);
+  const [welcomeVideoAdded, setWelcomeVideoAdded] = useState(false);
+  const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
+  const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
+  const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -123,69 +125,92 @@ export default function Home() {
        enabled: !!venueId
        });
 
-       // Add First Look videos to chat when user requests them
+       // Add welcome video when user requests it
        useEffect(() => {
-         if (firstLookConfig?.is_enabled && !firstLookVideosAdded && userWantsVideos && venueId) {
-           const addVideosSequentially = async () => {
-             setFirstLookVideosAdded(true);
+         if (firstLookConfig?.is_enabled && !welcomeVideoAdded && userWantsWelcomeVideo && venueId) {
+           const addWelcomeVideo = async () => {
+             setWelcomeVideoAdded(true);
 
-        // Wait a bit before starting
-        await new Promise(resolve => setTimeout(resolve, 800));
+             // Wait a bit before starting
+             await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Add intro message
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
-          isBot: true
-        }]);
+             // Add intro message
+             setIsTyping(true);
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             setIsTyping(false);
+             setMessages(prev => [...prev, {
+               id: Date.now(),
+               text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
+               isBot: true
+             }]);
 
-        // Add welcome video if exists
-        if (firstLookConfig.welcome_video_id) {
-          await new Promise(resolve => setTimeout(resolve, 600));
-          setMessages(prev => [...prev, {
-            id: Date.now() + 1,
-            isBot: true,
-            isVideo: true,
-            videoId: firstLookConfig.welcome_video_id,
-            videoLabel: `🎥 Welcome to ${venueName}`
-          }]);
-        }
+             // Add welcome video if exists
+             if (firstLookConfig.welcome_video_id) {
+               await new Promise(resolve => setTimeout(resolve, 600));
+               setMessages(prev => [...prev, {
+                 id: Date.now() + 1,
+                 isBot: true,
+                 isVideo: true,
+                 videoId: firstLookConfig.welcome_video_id,
+                 videoLabel: `🎥 Welcome to ${venueName}`
+               }]);
+             }
 
-        // Add video options
-        if (firstLookConfig.video_options?.length > 0) {
-          for (let i = 0; i < firstLookConfig.video_options.length; i++) {
-            await new Promise(resolve => setTimeout(resolve, 400));
-            const option = firstLookConfig.video_options[i];
-            if (option.video_id) {
-              setMessages(prev => [...prev, {
-                id: Date.now() + i + 2,
-                isBot: true,
-                isVideo: true,
-                videoId: option.video_id,
-                videoLabel: `🎥 ${option.label}`
-              }]);
-            }
-          }
-        }
+             // Ask if they want to see more videos
+             await new Promise(resolve => setTimeout(resolve, 800));
+             setIsTyping(true);
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             setIsTyping(false);
+             setMessages(prev => [...prev, {
+               id: Date.now() + 100,
+               text: "Would you like to see more video tours of our venue?",
+               isBot: true,
+               showMoreVideosButtons: firstLookConfig.video_options?.length > 0
+             }]);
+           };
 
-        // Add follow-up message
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now() + 100,
-          text: "What did you think? Ready to explore more or schedule a tour?",
-          isBot: true
-        }]);
-       };
+           addWelcomeVideo();
+         }
+       }, [firstLookConfig, welcomeVideoAdded, userWantsWelcomeVideo, venueId, venueName]);
 
-       addVideosSequentially();
-       }
-       }, [firstLookConfig, firstLookVideosAdded, userWantsVideos, venueId, venueName]);
+       // Add additional video options when user requests them
+       useEffect(() => {
+         if (firstLookConfig?.is_enabled && !additionalVideosAdded && userWantsAdditionalVideos && venueId) {
+           const addAdditionalVideos = async () => {
+             setAdditionalVideosAdded(true);
+
+             // Add video options
+             if (firstLookConfig.video_options?.length > 0) {
+               for (let i = 0; i < firstLookConfig.video_options.length; i++) {
+                 await new Promise(resolve => setTimeout(resolve, 400));
+                 const option = firstLookConfig.video_options[i];
+                 if (option.video_id) {
+                   setMessages(prev => [...prev, {
+                     id: Date.now() + i,
+                     isBot: true,
+                     isVideo: true,
+                     videoId: option.video_id,
+                     videoLabel: `🎥 ${option.label}`
+                   }]);
+                 }
+               }
+             }
+
+             // Add follow-up message
+             await new Promise(resolve => setTimeout(resolve, 800));
+             setIsTyping(true);
+             await new Promise(resolve => setTimeout(resolve, 1000));
+             setIsTyping(false);
+             setMessages(prev => [...prev, {
+               id: Date.now() + 100,
+               text: "What did you think? Ready to explore more or schedule a tour?",
+               isBot: true
+             }]);
+           };
+
+           addAdditionalVideos();
+         }
+       }, [firstLookConfig, additionalVideosAdded, userWantsAdditionalVideos, venueId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -544,11 +569,21 @@ export default function Home() {
 
   const handleMeetPlanner = () => {
     setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let me meet the planner!", isBot: false }]);
-    setUserWantsVideos(true);
+    setUserWantsWelcomeVideo(true);
   };
 
   const handleSkipVideos = () => {
     setMessages(prev => [...prev, { id: Date.now(), text: "Let me explore the tools first", isBot: false }]);
+    addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
+  };
+
+  const handleWantMoreVideos = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, show me more!", isBot: false }]);
+    setUserWantsAdditionalVideos(true);
+  };
+
+  const handleSkipMoreVideos = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "No thanks, I'm ready to explore", isBot: false }]);
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
@@ -610,6 +645,23 @@ export default function Home() {
                     className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
                   >
                     Let me explore the tools first
+                  </button>
+                </div>
+              )}
+              {/* Show "More Videos" buttons after welcome video */}
+              {message.showMoreVideosButtons && (
+                <div className="flex gap-2 mb-4 ml-10">
+                  <button
+                    onClick={handleWantMoreVideos}
+                    className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
+                  >
+                    Yes, show me more!
+                  </button>
+                  <button
+                    onClick={handleSkipMoreVideos}
+                    className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
+                  >
+                    No thanks, I'm ready to explore
                   </button>
                 </div>
               )}
