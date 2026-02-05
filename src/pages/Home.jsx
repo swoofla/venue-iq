@@ -6,6 +6,7 @@ import { MessageCircle } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 import ChatMessage from '@/components/chat/ChatMessage';
+import ChatVideoMessage from '@/components/chat/ChatVideoMessage';
 import TypingIndicator from '@/components/chat/TypingIndicator';
 import QuickActions from '@/components/chat/QuickActions';
 import ChatInput from '@/components/chat/ChatInput';
@@ -16,7 +17,7 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
-import FirstLook from '@/components/FirstLook';
+import FirstLookModal from '@/components/firstlook/FirstLookModal';
 
 const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! ✨ Want to see how I can help you plan your perfect day here?`;
 
@@ -38,8 +39,9 @@ export default function Home() {
   const [leadPhone, setLeadPhone] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
   const [showTourPrompt, setShowTourPrompt] = useState(false);
-  const [showFirstLook, setShowFirstLook] = useState(false);
+  const [activeVideo, setActiveVideo] = useState(null);
   const [introResponded, setIntroResponded] = useState(false);
+  const [firstLookVideosAdded, setFirstLookVideosAdded] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -116,9 +118,73 @@ export default function Home() {
        if (!venueId) return null;
        const configs = await base44.entities.FirstLookConfiguration.filter({ venue_id: venueId });
        return configs[0] || null;
-     },
-     enabled: !!venueId
-   });
+       },
+       enabled: !!venueId
+       });
+
+       // Add First Look videos to chat on page load
+       useEffect(() => {
+       if (firstLookConfig?.is_enabled && !firstLookVideosAdded && introResponded && venueId) {
+       const addVideosSequentially = async () => {
+        setFirstLookVideosAdded(true);
+
+        // Wait a bit before starting
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Add intro message
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
+          isBot: true
+        }]);
+
+        // Add welcome video if exists
+        if (firstLookConfig.welcome_video_id) {
+          await new Promise(resolve => setTimeout(resolve, 600));
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1,
+            isBot: true,
+            isVideo: true,
+            videoId: firstLookConfig.welcome_video_id,
+            videoLabel: `🎥 Welcome to ${venueName}`
+          }]);
+        }
+
+        // Add video options
+        if (firstLookConfig.video_options?.length > 0) {
+          for (let i = 0; i < firstLookConfig.video_options.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            const option = firstLookConfig.video_options[i];
+            if (option.video_id) {
+              setMessages(prev => [...prev, {
+                id: Date.now() + i + 2,
+                isBot: true,
+                isVideo: true,
+                videoId: option.video_id,
+                videoLabel: `🎥 ${option.label}`
+              }]);
+            }
+          }
+        }
+
+        // Add follow-up message
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 100,
+          text: "What did you think? Ready to explore more or schedule a tour?",
+          isBot: true
+        }]);
+       };
+
+       addVideosSequentially();
+       }
+       }, [firstLookConfig, firstLookVideosAdded, introResponded, venueId, venueName]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -224,8 +290,21 @@ export default function Home() {
       setTimeout(() => setActiveFlow('visualizer'), 1500);
     } else if (lowerText.includes('video') || lowerText.includes('watch') || 
                lowerText.includes('first look') || lowerText.includes('virtual tour')) {
-      addBotMessage("I'd love to give you a personal video tour! Opening First Look now... 🎥");
-      setTimeout(() => setShowFirstLook(true), 800);
+      if (firstLookConfig?.welcome_video_id) {
+        addBotMessage("Here's a quick video tour of our venue! 🎥");
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            isBot: true,
+            isVideo: true,
+            videoId: firstLookConfig.welcome_video_id,
+            videoLabel: `🎥 Welcome to ${venueName}`
+          }]);
+        }, 1000);
+      } else {
+        addBotMessage("Let me show you around with some photos!");
+        setTimeout(() => setActiveFlow('gallery'), 1500);
+      }
     } else if (lowerText.includes('talk to') || lowerText.includes('speak to') || 
                lowerText.includes('real person') || lowerText.includes('human') ||
                lowerText.includes('call') || lowerText.includes('phone')) {
@@ -318,11 +397,7 @@ export default function Home() {
           : "I'd be happy to connect you with our team! Please use the contact information on our website.";
         addBotMessage(contactMessage);
         break;
-      case 'video':
-        setMessages(prev => [...prev, { id: Date.now(), text: "Show me a video tour", isBot: false }]);
-        addBotMessage("I'd love to give you a personal video tour! Opening First Look now... 🎥");
-        setTimeout(() => setShowFirstLook(true), 800);
-        break;
+
       }
       };
 
@@ -452,10 +527,8 @@ export default function Home() {
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      const introText = firstLookConfig?.is_enabled 
-        ? `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWould you like to meet ${firstLookConfig?.host_name || 'our team'} and get a quick look at the venue first?`
-        : `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
-      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true, showMeetPlannerButton: firstLookConfig?.is_enabled }]);
+      const introText = `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
+      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true }]);
     }, 1200);
   };
 
@@ -466,10 +539,7 @@ export default function Home() {
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
-  const handleMeetPlanner = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let me meet the planner!", isBot: false }]);
-    setShowFirstLook(true);
-  };
+
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -501,21 +571,17 @@ export default function Home() {
           {/* Regular messages (includes welcome) */}
           {messages.map((message) => (
             <React.Fragment key={message.id}>
-              <ChatMessage
-                message={message.text}
-                isBot={message.isBot}
-              />
-              {/* Show "Meet Your Planner" button after the intro explanation message */}
-              {message.showMeetPlannerButton && (
-                <div className="flex justify-start mb-3 ml-10">
-                  <button
-                    onClick={handleMeetPlanner}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    Meet Your Planner
-                  </button>
-                </div>
+              {message.isVideo ? (
+                <ChatVideoMessage
+                  videoId={message.videoId}
+                  label={message.videoLabel}
+                  onClick={() => setActiveVideo({ videoId: message.videoId, title: message.videoLabel })}
+                />
+              ) : (
+                <ChatMessage
+                  message={message.text}
+                  isBot={message.isBot}
+                />
               )}
             </React.Fragment>
           ))}
@@ -648,17 +714,13 @@ export default function Home() {
         />
       </main>
 
-      {/* Chat-triggered First Look */}
-      {showFirstLook && firstLookConfig && (
-        <div className="fixed inset-0 z-50">
-          <FirstLook 
-            config={firstLookConfig} 
-            onClose={() => {
-              setShowFirstLook(false);
-              addBotMessage("Beautiful, right? Now — what would you like to explore first? You can calculate your budget, check date availability, view packages, or schedule a tour!");
-            }}
-          />
-        </div>
+      {/* Video Modal */}
+      {activeVideo && (
+        <FirstLookModal
+          videoId={activeVideo.videoId}
+          title={activeVideo.title}
+          onClose={() => setActiveVideo(null)}
+        />
       )}
     </div>
   );
