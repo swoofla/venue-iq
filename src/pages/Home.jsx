@@ -42,6 +42,7 @@ export default function Home() {
   const [activeVideo, setActiveVideo] = useState(null);
   const [introResponded, setIntroResponded] = useState(false);
   const [firstLookVideosAdded, setFirstLookVideosAdded] = useState(false);
+  const [userWantsVideos, setUserWantsVideos] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -122,11 +123,11 @@ export default function Home() {
        enabled: !!venueId
        });
 
-       // Add First Look videos to chat on page load
+       // Add First Look videos to chat when user requests them
        useEffect(() => {
-       if (firstLookConfig?.is_enabled && !firstLookVideosAdded && introResponded && venueId) {
-       const addVideosSequentially = async () => {
-        setFirstLookVideosAdded(true);
+         if (firstLookConfig?.is_enabled && !firstLookVideosAdded && userWantsVideos && venueId) {
+           const addVideosSequentially = async () => {
+             setFirstLookVideosAdded(true);
 
         // Wait a bit before starting
         await new Promise(resolve => setTimeout(resolve, 800));
@@ -184,7 +185,7 @@ export default function Home() {
 
        addVideosSequentially();
        }
-       }, [firstLookConfig, firstLookVideosAdded, introResponded, venueId, venueName]);
+       }, [firstLookConfig, firstLookVideosAdded, userWantsVideos, venueId, venueName]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -527,8 +528,10 @@ export default function Home() {
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      const introText = `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
-      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true }]);
+      const introText = firstLookConfig?.is_enabled
+        ? `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWould you like to meet ${firstLookConfig?.host_name || 'our team'} and get a quick look at the venue first?`
+        : `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
+      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true, showMeetPlannerButtons: firstLookConfig?.is_enabled }]);
     }, 1200);
   };
 
@@ -536,6 +539,16 @@ export default function Home() {
     setIntroResponded(true);
     setShowGreeting(false);
     setMessages(prev => [...prev, { id: Date.now(), text: "I know what I need", isBot: false }]);
+    addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
+  };
+
+  const handleMeetPlanner = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let me meet the planner!", isBot: false }]);
+    setUserWantsVideos(true);
+  };
+
+  const handleSkipVideos = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Let me explore the tools first", isBot: false }]);
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
@@ -582,6 +595,23 @@ export default function Home() {
                   message={message.text}
                   isBot={message.isBot}
                 />
+              )}
+              {/* Show "Meet Your Planner" buttons after the intro explanation message */}
+              {message.showMeetPlannerButtons && (
+                <div className="flex gap-2 mb-4 ml-10">
+                  <button
+                    onClick={handleMeetPlanner}
+                    className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
+                  >
+                    Yes, let me meet the planner!
+                  </button>
+                  <button
+                    onClick={handleSkipVideos}
+                    className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
+                  >
+                    Let me explore the tools first
+                  </button>
+                </div>
               )}
             </React.Fragment>
           ))}
