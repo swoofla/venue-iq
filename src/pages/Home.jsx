@@ -623,7 +623,7 @@ export default function Home() {
                 <ChatVideoMessage
                   videoId={message.videoId}
                   label={message.videoLabel}
-                  onClick={() => setActiveVideo({ videoId: message.videoId, title: message.videoLabel })}
+                  onExpand={setActiveVideo}
                 />
               ) : (
                 <ChatMessage

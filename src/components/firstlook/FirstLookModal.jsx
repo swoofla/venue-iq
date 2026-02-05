@@ -15,18 +15,29 @@ export default function FirstLookModal({ videoId, title, onClose, onBack }) {
         className="fixed inset-0 z-50 bg-black"
       >
         {/* Header with back/close button */}
-        <div className="absolute top-0 left-0 right-0 p-4 flex items-center gap-2 z-10 bg-gradient-to-b from-black/60 to-transparent">
+        <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between gap-2 z-10 bg-gradient-to-b from-black/60 to-transparent">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            {title && (
+              <span className="text-white font-medium text-sm">
+                {title}
+              </span>
+            )}
+          </div>
           <button
-            onClick={onBack || onClose}
+            onClick={onClose}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+            aria-label="Close"
           >
-            {onBack ? <ChevronLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            <X className="w-5 h-5" />
           </button>
-          {title && (
-            <span className="text-white font-medium text-sm">
-              {title}
-            </span>
-          )}
         </div>
 
         {/* Video Player */}

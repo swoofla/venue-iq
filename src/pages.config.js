@@ -53,6 +53,7 @@ import AdminPhotos from './pages/AdminPhotos';
 import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
 import Dashboard from './pages/Dashboard';
+import FirstLookEmbed from './pages/FirstLookEmbed';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
 import MaskGenerator from './pages/MaskGenerator';
@@ -60,7 +61,6 @@ import QuoteSummary from './pages/QuoteSummary';
 import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
-import FirstLookEmbed from './pages/FirstLookEmbed';
 
 
 export const PAGES = {
@@ -70,6 +70,7 @@ export const PAGES = {
     "AdminVisualizerSettings": AdminVisualizerSettings,
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
+    "FirstLookEmbed": FirstLookEmbed,
     "Home": Home,
     "Invite": Invite,
     "MaskGenerator": MaskGenerator,
@@ -77,7 +78,6 @@ export const PAGES = {
     "Register": Register,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
-    "FirstLookEmbed": FirstLookEmbed,
 }
 
 export const pagesConfig = {
