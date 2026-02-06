@@ -90,7 +90,7 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
           style={getAspectStyle()}
         >
           <div
-            className={`wistia_embed wistia_async_${videoId}`}
+            className={`wistia_embed wistia_async_${videoId} playerColor=000000`}
             style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
           />
 
