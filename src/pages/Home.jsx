@@ -180,12 +180,17 @@ export default function Home() {
            const addAdditionalVideos = async () => {
              setAdditionalVideosAdded(true);
 
-             // Add video options
+             // Add video options one at a time with typing indicators
              if (firstLookConfig.video_options?.length > 0) {
                for (let i = 0; i < firstLookConfig.video_options.length; i++) {
-                 await new Promise(resolve => setTimeout(resolve, 400));
                  const option = firstLookConfig.video_options[i];
                  if (option.video_id) {
+                   // Show typing indicator
+                   setIsTyping(true);
+                   await new Promise(resolve => setTimeout(resolve, 800));
+                   setIsTyping(false);
+
+                   // Add video message
                    setMessages(prev => [...prev, {
                      id: Date.now() + i,
                      isBot: true,
@@ -193,6 +198,11 @@ export default function Home() {
                      videoId: option.video_id,
                      videoLabel: `🎥 ${option.label}`
                    }]);
+
+                   // Pause before next video
+                   if (i < firstLookConfig.video_options.length - 1) {
+                     await new Promise(resolve => setTimeout(resolve, 400));
+                   }
                  }
                }
              }
