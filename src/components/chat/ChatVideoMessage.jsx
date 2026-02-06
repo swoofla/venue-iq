@@ -155,6 +155,9 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                if (playerRef.current) {
+                  playerRef.current.pause();
+                }
                 onExpand?.({ videoId, title: label });
               }}
               className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:bg-black/80 transition-colors"

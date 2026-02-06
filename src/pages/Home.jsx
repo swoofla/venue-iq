@@ -45,6 +45,7 @@ export default function Home() {
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
+  const [videoRefreshKey, setVideoRefreshKey] = useState(0);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -634,6 +635,7 @@ export default function Home() {
             <React.Fragment key={message.id}>
               {message.isVideo ? (
                 <ChatVideoMessage
+                  key={`${message.id}-${videoRefreshKey}`}
                   videoId={message.videoId}
                   label={message.videoLabel}
                   aspectRatio={message.aspectRatio}
@@ -815,7 +817,10 @@ export default function Home() {
         <FirstLookModal
           videoId={activeVideo.videoId}
           title={activeVideo.title}
-          onClose={() => setActiveVideo(null)}
+          onClose={() => {
+            setActiveVideo(null);
+            setVideoRefreshKey(prev => prev + 1);
+          }}
         />
       )}
     </div>

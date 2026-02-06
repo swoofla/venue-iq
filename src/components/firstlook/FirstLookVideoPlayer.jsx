@@ -53,7 +53,7 @@ export default function FirstLookVideoPlayer({
 
     return () => {
       if (playerRef.current) {
-        playerRef.current.remove();
+        playerRef.current.pause();
         playerRef.current = null;
       }
     };
