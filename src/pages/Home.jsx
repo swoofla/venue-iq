@@ -145,29 +145,29 @@ export default function Home() {
              }]);
 
              // Add welcome video if exists
-             if (firstLookConfig.welcome_video_id) {
-               await new Promise(resolve => setTimeout(resolve, 600));
-               setMessages(prev => [...prev, {
-                 id: Date.now() + 1,
-                 isBot: true,
-                 isVideo: true,
-                 videoId: firstLookConfig.welcome_video_id,
-                 videoLabel: `🎥 Welcome to ${venueName}`,
-                 aspectRatio: 'portrait'
-               }]);
-             }
+                   if (firstLookConfig.welcome_video_id) {
+                     await new Promise(resolve => setTimeout(resolve, 600));
+                     setMessages(prev => [...prev, {
+                       id: Date.now() + 1,
+                       isBot: true,
+                       isVideo: true,
+                       videoId: firstLookConfig.welcome_video_id,
+                       videoLabel: `🎥 Welcome to ${venueName}`,
+                       aspectRatio: 'portrait'
+                     }]);
+                   }
 
-             // Ask if they want to see more videos
-             await new Promise(resolve => setTimeout(resolve, 800));
-             setIsTyping(true);
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             setIsTyping(false);
-             setMessages(prev => [...prev, {
-               id: Date.now() + 100,
-               text: "Would you like to see more video tours of our venue?",
-               isBot: true,
-               showMoreVideosButtons: firstLookConfig.video_options?.length > 0
-             }]);
+                   // Ask if they want POV mini tour
+                   await new Promise(resolve => setTimeout(resolve, 800));
+                   setIsTyping(true);
+                   await new Promise(resolve => setTimeout(resolve, 1000));
+                   setIsTyping(false);
+                   setMessages(prev => [...prev, {
+                     id: Date.now() + 100,
+                     text: "Would you like to take a quick POV mini tour of the venue?",
+                     isBot: true,
+                     showMoreVideosButtons: firstLookConfig.video_options?.length > 0
+                   }]);
            };
 
            addWelcomeVideo();
