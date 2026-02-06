@@ -24,9 +24,9 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
         id: videoId,
         options: {
           playerColor: '000000',
-          controlsVisibleOnLoad: false,
+          controlsVisibleOnLoad: true,
           playbar: true,
-          smallPlayButton: true,
+          playButton: true,
           settingsControl: false,
           fullscreenButton: false,
           volumeControl: false,
