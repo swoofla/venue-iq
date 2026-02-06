@@ -19,7 +19,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
       document.head.appendChild(script);
     }
 
-    // Add CSS to force-hide Wistia overlays
     const styleId = 'chat-video-wistia-fix';
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
@@ -47,20 +46,18 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
           playbar: true,
           playButton: false,
           bigPlayButton: false,
-          smallPlayButton: false,
           settingsControl: false,
           fullscreenButton: false,
           volumeControl: false,
           fitStrategy: 'contain',
           silentAutoPlay: false,
           videoFoam: false,
+          smallPlayButton: false,
         },
         onReady: (video) => {
           playerRef.current = video;
           setPlayerReady(true);
           video.unmute();
-
-          // Track play/pause state
           video.bind('play', () => setIsPlaying(true));
           video.bind('pause', () => setIsPlaying(false));
           video.bind('end', () => setIsPlaying(false));
@@ -81,7 +78,17 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
     }
   }, [videoId, aspectRatio]);
 
-  const toggleMute = () => {
+  const handlePlayPause = () => {
+    if (!playerRef.current) return;
+    if (playerRef.current.state() === 'playing') {
+      playerRef.current.pause();
+    } else {
+      playerRef.current.play();
+    }
+  };
+
+  const toggleMute = (e) => {
+    e.stopPropagation();
     if (playerRef.current) {
       if (isMuted) {
         playerRef.current.unmute();
@@ -92,22 +99,19 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
     }
   };
 
-  const handlePlayPause = (e) => {
+  const handleExpand = (e) => {
     e.stopPropagation();
-    if (playerRef.current) {
-      if (playerRef.current.state() === 'playing') {
-        playerRef.current.pause();
-      } else {
-        playerRef.current.play();
-      }
-    }
+    if (!playerRef.current) return;
+    const currentTime = playerRef.current.time();
+    const wasMuted = playerRef.current.isMuted();
+    onExpand?.({ videoId, title: label, startTime: currentTime, wasMuted });
   };
 
   const getAspectStyle = () => {
     if (aspectRatio === 'portrait') return { aspectRatio: '9/16' };
     if (aspectRatio === 'square') return { aspectRatio: '1/1' };
     if (aspectRatio === 'landscape') return { aspectRatio: '16/9' };
-    return { aspectRatio: '9/16' }; // default to portrait
+    return { aspectRatio: '9/16' };
   };
 
   return (
@@ -123,45 +127,40 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
       <div className="w-[225px]">
         <div
           ref={containerRef}
-          className="chat-video-wrapper relative rounded-2xl overflow-hidden bg-stone-900 shadow-lg group cursor-pointer"
+          className="chat-video-wrapper relative rounded-2xl overflow-hidden bg-stone-900 shadow-lg"
           style={getAspectStyle()}
-          onClick={handlePlayPause}
         >
           <div
             className={`wistia_embed wistia_async_${videoId} playerColor=000000`}
             style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
           />
 
-          {/* Custom Play Button Overlay */}
+          {/* Transparent tap target for play/pause - covers the whole video */}
+          <div
+            className="absolute inset-0 z-10"
+            onClick={handlePlayPause}
+          />
+
+          {/* Custom play button - only shows when NOT playing */}
           {!isPlaying && playerReady && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
               <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <Play className="w-7 h-7 text-white ml-0.5" />
+                <Play className="w-6 h-6 text-white ml-1" fill="white" />
               </div>
             </div>
           )}
 
-          <div className="absolute top-2 right-2 flex gap-2 z-10">
+          {/* Top controls - above the tap target */}
+          <div className="absolute top-2 right-2 flex gap-2 z-30">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleMute();
-              }}
+              onClick={toggleMute}
               className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:bg-black/80 transition-colors"
-              title={isMuted ? 'Unmute' : 'Mute'}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (playerRef.current) {
-                  playerRef.current.pause();
-                }
-                onExpand?.({ videoId, title: label });
-              }}
+              onClick={handleExpand}
               className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:bg-black/80 transition-colors"
-              title="Fullscreen"
             >
               <Maximize2 className="w-4 h-4" />
             </button>

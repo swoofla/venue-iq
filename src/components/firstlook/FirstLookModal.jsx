@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft } from 'lucide-react';
 import FirstLookVideoPlayer from './FirstLookVideoPlayer';
 
-export default function FirstLookModal({ videoId, title, onClose, onBack }) {
+export default function FirstLookModal({ videoId, title, startTime, wasMuted, onClose, onBack }) {
   if (!videoId) return null;
 
   return (
@@ -44,10 +44,11 @@ export default function FirstLookModal({ videoId, title, onClose, onBack }) {
         <FirstLookVideoPlayer
           videoId={videoId}
           autoPlay={true}
-          muted={false}
+          muted={wasMuted || false}
           loop={false}
           fitStrategy="cover"
           showControls={true}
+          startTime={startTime || 0}
           className="w-full h-full"
         />
       </motion.div>

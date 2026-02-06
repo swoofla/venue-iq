@@ -9,6 +9,7 @@ export default function FirstLookVideoPlayer({
   loop = false,
   fitStrategy = 'cover',
   showControls = false,
+  startTime = 0,
   onReady,
   onEnd,
   onPlay,
@@ -74,6 +75,10 @@ export default function FirstLookVideoPlayer({
             video.mute();
           } else {
             video.unmute();
+          }
+
+          if (startTime > 0) {
+            video.time(startTime);
           }
 
           if (autoPlay) {
