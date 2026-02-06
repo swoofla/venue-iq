@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Maximize2, Volume2, VolumeX } from 'lucide-react';
 
-export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio = 'auto' }) {
+export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio = 'portrait' }) {
   const [isMuted, setIsMuted] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const playerRef = useRef(null);
@@ -38,14 +38,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
           playerRef.current = video;
           setPlayerReady(true);
           video.unmute();
-
-          if (aspectRatio === 'auto' && containerRef.current) {
-            const w = video.videoWidth();
-            const h = video.videoHeight();
-            if (w && h) {
-              containerRef.current.style.aspectRatio = `${w}/${h}`;
-            }
-          }
         }
       });
     };
@@ -78,7 +70,7 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
     if (aspectRatio === 'portrait') return { aspectRatio: '9/16' };
     if (aspectRatio === 'square') return { aspectRatio: '1/1' };
     if (aspectRatio === 'landscape') return { aspectRatio: '16/9' };
-    return { aspectRatio: '9/16' };
+    return { aspectRatio: '9/16' }; // default to portrait
   };
 
   return (
