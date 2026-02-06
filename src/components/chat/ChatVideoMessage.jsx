@@ -94,7 +94,7 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
             style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
           />
 
-          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity z-10">
+          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <button
               onClick={toggleMute}
               className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-colors"
@@ -110,17 +110,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
               <Maximize2 className="w-4 h-4" />
             </button>
           </div>
-
-          <div
-            className="absolute inset-0 z-[5] md:hidden"
-            onClick={(e) => {
-              const overlay = e.currentTarget.previousElementSibling;
-              if (overlay) {
-                overlay.classList.toggle('opacity-0');
-                overlay.classList.toggle('opacity-100');
-              }
-            }}
-          />
         </div>
 
         {label && (
