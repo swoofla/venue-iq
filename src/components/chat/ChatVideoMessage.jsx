@@ -23,7 +23,7 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
       window._wq.push({
         id: videoId,
         options: {
-          playerColor: '292524',
+          playerColor: '000000',
           controlsVisibleOnLoad: false,
           playbar: true,
           smallPlayButton: true,
