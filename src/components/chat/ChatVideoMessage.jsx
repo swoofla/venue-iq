@@ -83,7 +83,7 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
         <div className="h-1.5 w-1.5 rounded-full bg-stone-400" />
       </div>
 
-      <div className="max-w-[260px] md:max-w-[280px]">
+      <div className="w-[150px]">
         <div
           ref={containerRef}
           className="relative rounded-2xl overflow-hidden bg-stone-900 shadow-lg group"
