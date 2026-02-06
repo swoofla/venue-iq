@@ -152,7 +152,7 @@ export default function Home() {
                        isBot: true,
                        isVideo: true,
                        videoId: firstLookConfig.welcome_video_id,
-                       videoLabel: `🎥 Welcome to ${venueName}`,
+                       videoLabel: `Welcome to ${venueName}`,
                        aspectRatio: 'portrait'
                      }]);
                    }
@@ -196,7 +196,7 @@ export default function Home() {
                      isBot: true,
                      isVideo: true,
                      videoId: option.video_id,
-                     videoLabel: `🎥 ${option.label}`,
+                     videoLabel: option.label,
                      aspectRatio: 'portrait'
                    }]);
 
@@ -336,7 +336,7 @@ export default function Home() {
             isBot: true,
             isVideo: true,
             videoId: firstLookConfig.welcome_video_id,
-            videoLabel: `🎥 Welcome to ${venueName}`,
+            videoLabel: `Welcome to ${venueName}`,
             aspectRatio: 'portrait'
           }]);
         }, 1000);
