@@ -196,7 +196,8 @@ export default function Home() {
                      isBot: true,
                      isVideo: true,
                      videoId: option.video_id,
-                     videoLabel: `🎥 ${option.label}`
+                     videoLabel: `🎥 ${option.label}`,
+                     aspectRatio: 'portrait'
                    }]);
 
                    // Pause before next video
