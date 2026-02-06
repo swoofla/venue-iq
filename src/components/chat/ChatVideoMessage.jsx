@@ -88,15 +88,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
           ref={containerRef}
           className="relative rounded-2xl overflow-hidden bg-stone-900 shadow-lg group"
           style={getAspectStyle()}
-          onClick={() => {
-            if (playerRef.current) {
-              if (playerRef.current.state() === 'playing') {
-                playerRef.current.pause();
-              } else {
-                playerRef.current.play();
-              }
-            }
-          }}
         >
           <div
             className={`wistia_embed wistia_async_${videoId} playerColor=000000`}
