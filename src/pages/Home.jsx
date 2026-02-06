@@ -336,7 +336,8 @@ export default function Home() {
             isBot: true,
             isVideo: true,
             videoId: firstLookConfig.welcome_video_id,
-            videoLabel: `🎥 Welcome to ${venueName}`
+            videoLabel: `🎥 Welcome to ${venueName}`,
+            aspectRatio: 'portrait'
           }]);
         }, 1000);
       } else {
