@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Volume2, VolumeX, Play } from 'lucide-react';
+import { Volume2, VolumeX, Play } from 'lucide-react';
 
-export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio = 'portrait' }) {
+export default function ChatVideoMessage({ videoId, label, aspectRatio = 'portrait' }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
@@ -99,14 +99,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
     }
   };
 
-  const handleExpand = (e) => {
-    e.stopPropagation();
-    if (!playerRef.current) return;
-    const currentTime = playerRef.current.time();
-    const wasMuted = playerRef.current.isMuted();
-    onExpand?.({ videoId, title: label, startTime: currentTime, wasMuted });
-  };
-
   const getAspectStyle = () => {
     if (aspectRatio === 'portrait') return { aspectRatio: '9/16' };
     if (aspectRatio === 'square') return { aspectRatio: '1/1' };
@@ -157,12 +149,6 @@ export default function ChatVideoMessage({ videoId, label, onExpand, aspectRatio
               className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:bg-black/80 transition-colors"
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={handleExpand}
-              className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white active:bg-black/80 transition-colors"
-            >
-              <Maximize2 className="w-4 h-4" />
             </button>
           </div>
         </div>

@@ -17,7 +17,6 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
-import FirstLookModal from '@/components/firstlook/FirstLookModal';
 
 const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! ✨ Want to see how I can help you plan your perfect day here?`;
 
@@ -39,7 +38,6 @@ export default function Home() {
   const [leadPhone, setLeadPhone] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
   const [showTourPrompt, setShowTourPrompt] = useState(false);
-  const [activeVideo, setActiveVideo] = useState(null);
   const [introResponded, setIntroResponded] = useState(false);
   const [welcomeVideoAdded, setWelcomeVideoAdded] = useState(false);
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
@@ -637,7 +635,6 @@ export default function Home() {
                   videoId={message.videoId}
                   label={message.videoLabel}
                   aspectRatio={message.aspectRatio}
-                  onExpand={setActiveVideo}
                 />
               ) : (
                 <ChatMessage
@@ -809,17 +806,6 @@ export default function Home() {
           placeholder="Type your message..."
         />
       </main>
-
-      {/* Video Modal */}
-      {activeVideo && (
-        <FirstLookModal
-          videoId={activeVideo.videoId}
-          title={activeVideo.title}
-          startTime={activeVideo.startTime}
-          wasMuted={activeVideo.wasMuted}
-          onClose={() => setActiveVideo(null)}
-        />
-      )}
-    </div>
+      </div>
   );
 }
