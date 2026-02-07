@@ -143,7 +143,7 @@ export default function Home() {
                     onClick={chat.handleSkipVideos}
                     className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
                   >
-                    Explore venue tools
+                    Use planning tools
                   </button>
                 </div>
               )}
