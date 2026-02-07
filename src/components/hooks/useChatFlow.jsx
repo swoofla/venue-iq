@@ -37,7 +37,7 @@ export default function useChatFlow({
     setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
   }, [venueName]);
 
-  // Welcome video flow with 15-second delay
+  // Welcome video flow with smart delay
   useEffect(() => {
     if (firstLookConfig?.is_enabled && !welcomeVideoAdded && userWantsWelcomeVideo && venueId) {
       const addWelcomeVideo = async () => {
@@ -45,17 +45,7 @@ export default function useChatFlow({
 
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
-          isBot: true
-        }]);
-
         if (firstLookConfig.welcome_video_id) {
-          await new Promise(resolve => setTimeout(resolve, 600));
           setMessages(prev => [...prev, {
             id: Date.now() + 1,
             isBot: true,
@@ -66,16 +56,67 @@ export default function useChatFlow({
           }]);
         }
 
-        // Wait 15 seconds before showing follow-up question
-        await new Promise(resolve => setTimeout(resolve, 15000));
+        // Smart delay: 5s default, but if user plays the video, wait for full duration
+        await new Promise(resolve => {
+          let resolved = false;
+          
+          const fallbackTimer = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          }, 5000);
+
+          const listenForPlay = () => {
+            window._wq = window._wq || [];
+            window._wq.push({
+              id: firstLookConfig.welcome_video_id,
+              onReady: (video) => {
+                video.bind('play', () => {
+                  clearTimeout(fallbackTimer);
+                  const remainingMs = Math.ceil((video.duration() - video.time()) * 1000);
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      resolve();
+                    }
+                  }, remainingMs + 2000);
+                });
+
+                if (video.state() === 'playing') {
+                  clearTimeout(fallbackTimer);
+                  const remainingMs = Math.ceil((video.duration() - video.time()) * 1000);
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      resolve();
+                    }
+                  }, remainingMs + 2000);
+                }
+              }
+            });
+          };
+
+          if (window.Wistia) {
+            listenForPlay();
+          } else {
+            const interval = setInterval(() => {
+              if (window.Wistia) {
+                clearInterval(interval);
+                listenForPlay();
+              }
+            }, 200);
+          }
+        });
+
         setIsTyping(true);
         await new Promise(resolve => setTimeout(resolve, 1000));
         setIsTyping(false);
         setMessages(prev => [...prev, {
           id: Date.now() + 100,
-          text: "Would you like to take a quick POV mini tour of the venue?",
+          text: `Select one of the options below or ask me any questions about ${venueName} you have.`,
           isBot: true,
-          showMoreVideosButtons: firstLookConfig.video_options?.length > 0
+          showPostVideoOptions: true
         }]);
       };
 
@@ -93,9 +134,7 @@ export default function useChatFlow({
           for (let i = 0; i < firstLookConfig.video_options.length; i++) {
             const option = firstLookConfig.video_options[i];
             if (option.video_id) {
-              setIsTyping(true);
-              await new Promise(resolve => setTimeout(resolve, 800));
-              setIsTyping(false);
+              await new Promise(resolve => setTimeout(resolve, 400));
 
               setMessages(prev => [...prev, {
                 id: Date.now() + i,
@@ -105,10 +144,6 @@ export default function useChatFlow({
                 videoLabel: option.label,
                 aspectRatio: 'portrait'
               }]);
-
-              if (i < firstLookConfig.video_options.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 400));
-              }
             }
           }
         }
@@ -469,23 +504,25 @@ export default function useChatFlow({
   };
 
   const handleMeetPlanner = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, let me meet the planner!", isBot: false }]);
+    const plannerName = firstLookConfig?.host_name || 'the planner';
+    setMessages(prev => [...prev, { id: Date.now(), text: `Meet ${plannerName}`, isBot: false }]);
     setUserWantsWelcomeVideo(true);
   };
 
   const handleSkipVideos = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "Let me explore the tools first", isBot: false }]);
+    setMessages(prev => [...prev, { id: Date.now(), text: "Explore venue tools", isBot: false }]);
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
-  const handleWantMoreVideos = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, show me more!", isBot: false }]);
+  const handleBudgetFromVideo = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Calculate my budget", isBot: false }]);
+    addBotMessage("Let's build your custom budget estimate!");
+    setTimeout(() => setActiveFlow('budget'), 1500);
+  };
+
+  const handleMiniTourFromVideo = () => {
+    setMessages(prev => [...prev, { id: Date.now(), text: "Watch mini tour", isBot: false }]);
     setUserWantsAdditionalVideos(true);
-  };
-
-  const handleSkipMoreVideos = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "No thanks, I'm ready to explore", isBot: false }]);
-    addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
   return {
@@ -511,8 +548,8 @@ export default function useChatFlow({
     handleIntroSkip,
     handleMeetPlanner,
     handleSkipVideos,
-    handleWantMoreVideos,
-    handleSkipMoreVideos,
+    handleBudgetFromVideo,
+    handleMiniTourFromVideo,
     setShowTourPrompt,
     setActiveFlow,
   };

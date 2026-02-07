@@ -137,30 +137,30 @@ export default function Home() {
                     onClick={chat.handleMeetPlanner}
                     className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
                   >
-                    Yes, let me meet the planner!
+                    Meet {firstLookConfig?.host_name || 'our planner'}
                   </button>
                   <button
                     onClick={chat.handleSkipVideos}
                     className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
                   >
-                    Let me explore the tools first
+                    Explore venue tools
                   </button>
                 </div>
               )}
-              {/* Show "More Videos" buttons */}
-              {message.showMoreVideosButtons && (
+              {/* Show post-video options */}
+              {message.showPostVideoOptions && (
                 <div className="flex gap-2 mb-4 ml-10">
                   <button
-                    onClick={chat.handleWantMoreVideos}
+                    onClick={chat.handleBudgetFromVideo}
                     className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
                   >
-                    Yes, show me more!
+                    💰 Calculate my budget
                   </button>
                   <button
-                    onClick={chat.handleSkipMoreVideos}
+                    onClick={chat.handleMiniTourFromVideo}
                     className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
                   >
-                    No thanks, I'm ready to explore
+                    🎥 Watch mini tour
                   </button>
                 </div>
               )}
@@ -193,20 +193,20 @@ export default function Home() {
               <button
                 onClick={() => {
                   chat.setShowTourPrompt(false);
-                  chat.handleUserMessage("Yes, let's schedule a tour!");
+                  chat.handleUserMessage("Schedule a tour");
                 }}
                 className="flex-1 px-4 py-3 bg-black text-white rounded-full hover:bg-stone-800 transition-colors text-sm font-medium"
               >
-                Yes, let's schedule a tour!
+                Schedule a tour
               </button>
               <button
                 onClick={() => {
                   chat.setShowTourPrompt(false);
-                  chat.handleUserMessage("Not right now");
+                  chat.handleUserMessage("Maybe later");
                 }}
                 className="flex-1 px-4 py-3 bg-stone-100 text-stone-700 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium"
               >
-                Not right now
+                Maybe later
               </button>
             </div>
           )}
