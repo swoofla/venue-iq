@@ -1,7 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const getWelcomeMessage = (venueName) => `Welcome to ${venueName}! ✨ Want to see how I can help you plan your perfect day here?`;
+const getWelcomeMessage = (venueName) => `Welcome! I'm Sugar Lake's virtual planner, here to help you plan your dream wedding here. I can help you:
+
+💰 Build a custom budget estimate
+📦 Explore wedding packages
+📅 Check if your date is available
+🏠 Schedule an in-person tour
+
+Would you like to meet our head planner Saydee and get a quick look at the venue first?`;
 
 export default function useChatFlow({
   venueId,
@@ -13,7 +20,7 @@ export default function useChatFlow({
   firstLookConfig,
 }) {
   const [messages, setMessages] = useState([
-    { id: 1, text: getWelcomeMessage(venueName), isBot: true }
+    { id: 1, text: getWelcomeMessage(venueName), isBot: true, showMeetPlannerButtons: true }
   ]);
   const [showGreeting, setShowGreeting] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
