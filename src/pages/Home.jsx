@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MessageCircle } from 'lucide-react';
 
 import { createPageUrl } from '../utils';
-import useChatFlow from '@/hooks/useChatFlow';
+import useChatFlow from '@/lib/useChatFlow';
 
 import ChatMessage from '@/components/chat/ChatMessage';
 import ChatVideoMessage from '@/components/chat/ChatVideoMessage';
