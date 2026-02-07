@@ -605,7 +605,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-[100dvh] bg-stone-50 flex flex-col">
+    <div className="h-[100dvh] overflow-hidden bg-stone-50 flex flex-col">
       {/* Header */}
       <header className="bg-black text-white px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
