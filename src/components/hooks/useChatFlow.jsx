@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const getWelcomeMessage = (venueName) => `Welcome! I'm Sugar Lake's virtual planner, here to help you plan your dream wedding here. I can help you:
+const getWelcomeMessage = (venueName) => `Welcome! I'm Sugar Lake's virtual planner, here to help you plan your dream wedding here. Together we can:
 
 💰 Build a custom budget estimate
 📦 Explore wedding packages
