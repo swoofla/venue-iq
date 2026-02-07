@@ -286,7 +286,7 @@ export default function Home() {
         <ChatInput
           onSend={chat.handleUserMessage}
           disabled={chat.isTyping || chat.activeFlow !== null}
-          placeholder="Type your message..."
+          placeholder="Ask me your wedding questions.."
         />
       </main>
     </div>
