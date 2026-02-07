@@ -59,13 +59,10 @@ export default function Home() {
       if (isAuth) {
         base44.auth.me().then(u => {
           setUser(u);
-          // Users with venue assignments go to Dashboard
           if (u.venue_id) {
             window.location.href = createPageUrl('Dashboard');
             return;
-          }
-          // Super admins and users without venue can access chatbot
-          else {
+          } else {
             setLoading(false);
           }
         });
@@ -91,136 +88,130 @@ export default function Home() {
     queryFn: () => base44.entities.VenueKnowledge.filter({ is_active: true }),
   });
 
-  // Fetch featured venue photos for greeting carousel
-   const { data: greetingPhotos = [] } = useQuery({
-     queryKey: ['greetingPhotos', venueId],
-     queryFn: async () => {
-       if (!venueId) return [];
-       const photos = await base44.entities.VenuePhoto.filter({ 
-         venue_id: venueId,
-         is_featured: true 
-       });
-       // Sort by sort_order and take top 5
-       return photos
-         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-         .slice(0, 5)
-         .map(p => ({
-           url: p.image_url,
-           caption: p.caption || p.title
-         }));
-     },
-     enabled: !!venueId
-   });
+  const { data: greetingPhotos = [] } = useQuery({
+    queryKey: ['greetingPhotos', venueId],
+    queryFn: async () => {
+      if (!venueId) return [];
+      const photos = await base44.entities.VenuePhoto.filter({ 
+        venue_id: venueId,
+        is_featured: true 
+      });
+      return photos
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        .slice(0, 5)
+        .map(p => ({
+          url: p.image_url,
+          caption: p.caption || p.title
+        }));
+    },
+    enabled: !!venueId
+  });
 
-   // Fetch First Look configuration
-   const { data: firstLookConfig } = useQuery({
-     queryKey: ['firstLookConfig', venueId],
-     queryFn: async () => {
-       if (!venueId) return null;
-       const configs = await base44.entities.FirstLookConfiguration.filter({ venue_id: venueId });
-       return configs[0] || null;
-       },
-       enabled: !!venueId
-       });
+  const { data: firstLookConfig } = useQuery({
+    queryKey: ['firstLookConfig', venueId],
+    queryFn: async () => {
+      if (!venueId) return null;
+      const configs = await base44.entities.FirstLookConfiguration.filter({ venue_id: venueId });
+      return configs[0] || null;
+    },
+    enabled: !!venueId
+  });
 
-       // Add welcome video when user requests it
-       useEffect(() => {
-         if (firstLookConfig?.is_enabled && !welcomeVideoAdded && userWantsWelcomeVideo && venueId) {
-           const addWelcomeVideo = async () => {
-             setWelcomeVideoAdded(true);
+  // ─── FIX #1: Welcome video flow with 15-second delay before follow-up ───
+  useEffect(() => {
+    if (firstLookConfig?.is_enabled && !welcomeVideoAdded && userWantsWelcomeVideo && venueId) {
+      const addWelcomeVideo = async () => {
+        setWelcomeVideoAdded(true);
 
-             // Wait a bit before starting
-             await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 800));
 
-             // Add intro message
-             setIsTyping(true);
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             setIsTyping(false);
-             setMessages(prev => [...prev, {
-               id: Date.now(),
-               text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
-               isBot: true
-             }]);
+        // Add intro message
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          text: `Hi! I'm ${firstLookConfig.host_name}, ${firstLookConfig.host_title}. ${firstLookConfig.welcome_text}`,
+          isBot: true
+        }]);
 
-             // Add welcome video if exists
-                   if (firstLookConfig.welcome_video_id) {
-                     await new Promise(resolve => setTimeout(resolve, 600));
-                     setMessages(prev => [...prev, {
-                       id: Date.now() + 1,
-                       isBot: true,
-                       isVideo: true,
-                       videoId: firstLookConfig.welcome_video_id,
-                       videoLabel: `Welcome to ${venueName}`,
-                       aspectRatio: 'portrait'
-                     }]);
-                   }
+        // Add welcome video if exists
+        if (firstLookConfig.welcome_video_id) {
+          await new Promise(resolve => setTimeout(resolve, 600));
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1,
+            isBot: true,
+            isVideo: true,
+            videoId: firstLookConfig.welcome_video_id,
+            videoLabel: `Welcome to ${venueName}`,
+            aspectRatio: 'portrait'
+          }]);
+        }
 
-                   // Ask if they want POV mini tour
-                   await new Promise(resolve => setTimeout(resolve, 800));
-                   setIsTyping(true);
-                   await new Promise(resolve => setTimeout(resolve, 1000));
-                   setIsTyping(false);
-                   setMessages(prev => [...prev, {
-                     id: Date.now() + 100,
-                     text: "Would you like to take a quick POV mini tour of the venue?",
-                     isBot: true,
-                     showMoreVideosButtons: firstLookConfig.video_options?.length > 0
-                   }]);
-           };
+        // ──────────────────────────────────────────────────────
+        // Wait 15 seconds to give the user time to watch the video
+        // THEN show the follow-up question
+        // ──────────────────────────────────────────────────────
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 100,
+          text: "Would you like to take a quick POV mini tour of the venue?",
+          isBot: true,
+          showMoreVideosButtons: firstLookConfig.video_options?.length > 0
+        }]);
+      };
 
-           addWelcomeVideo();
-         }
-       }, [firstLookConfig, welcomeVideoAdded, userWantsWelcomeVideo, venueId, venueName]);
+      addWelcomeVideo();
+    }
+  }, [firstLookConfig, welcomeVideoAdded, userWantsWelcomeVideo, venueId, venueName]);
 
-       // Add additional video options when user requests them
-       useEffect(() => {
-         if (firstLookConfig?.is_enabled && !additionalVideosAdded && userWantsAdditionalVideos && venueId) {
-           const addAdditionalVideos = async () => {
-             setAdditionalVideosAdded(true);
+  // Add additional video options when user requests them
+  useEffect(() => {
+    if (firstLookConfig?.is_enabled && !additionalVideosAdded && userWantsAdditionalVideos && venueId) {
+      const addAdditionalVideos = async () => {
+        setAdditionalVideosAdded(true);
 
-             // Add video options one at a time with typing indicators
-             if (firstLookConfig.video_options?.length > 0) {
-               for (let i = 0; i < firstLookConfig.video_options.length; i++) {
-                 const option = firstLookConfig.video_options[i];
-                 if (option.video_id) {
-                   // Show typing indicator
-                   setIsTyping(true);
-                   await new Promise(resolve => setTimeout(resolve, 800));
-                   setIsTyping(false);
+        if (firstLookConfig.video_options?.length > 0) {
+          for (let i = 0; i < firstLookConfig.video_options.length; i++) {
+            const option = firstLookConfig.video_options[i];
+            if (option.video_id) {
+              setIsTyping(true);
+              await new Promise(resolve => setTimeout(resolve, 800));
+              setIsTyping(false);
 
-                   // Add video message
-                   setMessages(prev => [...prev, {
-                     id: Date.now() + i,
-                     isBot: true,
-                     isVideo: true,
-                     videoId: option.video_id,
-                     videoLabel: option.label,
-                     aspectRatio: 'portrait'
-                   }]);
+              setMessages(prev => [...prev, {
+                id: Date.now() + i,
+                isBot: true,
+                isVideo: true,
+                videoId: option.video_id,
+                videoLabel: option.label,
+                aspectRatio: 'portrait'
+              }]);
 
-                   // Pause before next video
-                   if (i < firstLookConfig.video_options.length - 1) {
-                     await new Promise(resolve => setTimeout(resolve, 400));
-                   }
-                 }
-               }
-             }
+              if (i < firstLookConfig.video_options.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 400));
+              }
+            }
+          }
+        }
 
-             // Add follow-up message
-             await new Promise(resolve => setTimeout(resolve, 800));
-             setIsTyping(true);
-             await new Promise(resolve => setTimeout(resolve, 1000));
-             setIsTyping(false);
-             setMessages(prev => [...prev, {
-               id: Date.now() + 100,
-               text: "What did you think? Ready to explore more or schedule a tour?",
-               isBot: true
-             }]);
-           };
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 100,
+          text: "What did you think? Ready to explore more or schedule a tour?",
+          isBot: true
+        }]);
+      };
 
-           addAdditionalVideos();
-         }
-       }, [firstLookConfig, additionalVideosAdded, userWantsAdditionalVideos, venueId]);
+      addAdditionalVideos();
+    }
+  }, [firstLookConfig, additionalVideosAdded, userWantsAdditionalVideos, venueId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -239,7 +230,7 @@ export default function Home() {
   };
 
   const handleUserMessage = async (text) => {
-    setShowGreeting(false); // Hide greeting carousel once user engages
+    setShowGreeting(false);
     setMessages(prev => [...prev, { id: Date.now(), text, isBot: false }]);
     
     const lowerText = text.toLowerCase();
@@ -350,7 +341,6 @@ export default function Home() {
         : "I'd be happy to connect you with our team! Please use the contact information on our website.";
       addBotMessage(contactMessage);
     } else {
-      // Check knowledge base for relevant answer
       const relevantKnowledge = venueKnowledge.find(k => 
         lowerText.includes(k.question.toLowerCase()) || 
         k.question.toLowerCase().includes(lowerText)
@@ -359,7 +349,6 @@ export default function Home() {
       if (relevantKnowledge) {
         addBotMessage(relevantKnowledge.answer);
       } else {
-        // Use AI to provide intelligent response with context
         setIsTyping(true);
         try {
           const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
@@ -394,7 +383,7 @@ export default function Home() {
   };
 
   const handleQuickAction = (action) => {
-    setShowGreeting(false); // Hide greeting once user interacts
+    setShowGreeting(false);
 
     switch (action) {
       case 'budget':
@@ -434,32 +423,25 @@ export default function Home() {
           : "I'd be happy to connect you with our team! Please use the contact information on our website.";
         addBotMessage(contactMessage);
         break;
-
-      }
-      };
+    }
+  };
 
   const handleBudgetComplete = async (data) => {
-    // Calculator already saved the contact, just close and follow up
     setActiveFlow(null);
-
-    // Store the lead's info for personalized follow-up
     setLeadName(data.name);
     setLeadEmail(data.email);
     setLeadPhone(data.phone);
 
-    // Determine delivery message
     const deliveryMessage = data.deliveryPreference === 'text' 
       ? `sent to your phone` 
       : `sent to your email`;
 
-    // Acknowledge the completion
     setMessages(prev => [...prev, { 
       id: Date.now(), 
       text: `Budget estimate submitted - ${data.guestCount} guests, $${data.totalBudget.toLocaleString()}`, 
       isBot: false 
     }]);
 
-    // Add a brief delay, then chatbot asks about tour
     setTimeout(() => {
       addBotMessage(
         `Perfect! Your personalized budget estimate of $${data.totalBudget.toLocaleString()} has been ${deliveryMessage}. 💌\n\nWould you like to schedule a tour to see the venue in person? We'd love to walk you through the spaces and discuss your vision!`
@@ -485,7 +467,6 @@ export default function Home() {
   const handleTourComplete = async (data) => {
     setActiveFlow(null);
 
-    // Acknowledge the action
     setMessages(prev => [...prev, { 
       id: Date.now(), 
       text: `Tour scheduled for ${data.tourDate} at ${data.tourTime}`, 
@@ -507,10 +488,8 @@ export default function Home() {
       venue_id: sugarLakeVenue?.id,
     };
 
-    // Save to Base44 database
     await base44.entities.ContactSubmission.create(submissionData);
 
-    // Sync to HighLevel
     try {
       const contactRes = await base44.functions.invoke('createHighLevelContact', {
         email: data.email,
@@ -536,7 +515,6 @@ export default function Home() {
       console.error('HighLevel sync error:', error?.response?.data || error?.message || error);
     }
 
-    // Confirm booking
     addBotMessage(`Wonderful! Your tour is scheduled for ${data.tourDate} at ${data.tourTime}. We'll send you a confirmation shortly. Looking forward to meeting you! 🎉`);
   };
 
@@ -598,8 +576,6 @@ export default function Home() {
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
-
-
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -607,7 +583,7 @@ export default function Home() {
   return (
     <div className="h-[100dvh] bg-stone-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-black text-white px-6 py-4">
+      <header className="bg-black text-white px-6 py-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
@@ -623,11 +599,13 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 pb-4">
-          {/* Regular messages (includes welcome) */}
+      {/* ─── FIX #2: Added min-h-0 to main + messages div, and WebkitOverflowScrolling ─── */}
+      <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm min-h-0">
+        {/* Messages - scrollable area */}
+        <div 
+          className="flex-1 overflow-y-auto p-6 pb-4 min-h-0"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {messages.map((message) => (
             <React.Fragment key={message.id}>
               {message.isVideo ? (
@@ -642,7 +620,7 @@ export default function Home() {
                   isBot={message.isBot}
                 />
               )}
-              {/* Show "Meet Your Planner" buttons after the intro explanation message */}
+              {/* Show "Meet Your Planner" buttons */}
               {message.showMeetPlannerButtons && (
                 <div className="flex gap-2 mb-4 ml-10">
                   <button
@@ -659,7 +637,7 @@ export default function Home() {
                   </button>
                 </div>
               )}
-              {/* Show "More Videos" buttons after welcome video */}
+              {/* Show "More Videos" buttons */}
               {message.showMoreVideosButtons && (
                 <div className="flex gap-2 mb-4 ml-10">
                   <button
@@ -681,7 +659,7 @@ export default function Home() {
 
           {isTyping && <TypingIndicator />}
 
-          {/* Intro choice buttons - show only on first welcome before user responds */}
+          {/* Intro choice buttons */}
           {!introResponded && messages.length === 1 && !isTyping && (
             <div className="flex gap-2 mb-4 ml-10">
               <button
@@ -806,6 +784,6 @@ export default function Home() {
           placeholder="Type your message..."
         />
       </main>
-      </div>
+    </div>
   );
 }
