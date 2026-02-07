@@ -6,9 +6,7 @@ const getWelcomeMessage = (venueName) => `Welcome! I'm Sugar Lake's virtual plan
 💰 Build a custom budget estimate
 📦 Explore wedding packages
 📅 Check if your date is available
-🏠 Schedule an in-person tour
-
-Would you like to meet our head planner Saydee and get a quick look at the venue first?`;
+🏠 Schedule an in-person tour`;
 
 export default function useChatFlow({
   venueId,
@@ -20,7 +18,7 @@ export default function useChatFlow({
   firstLookConfig,
 }) {
   const [messages, setMessages] = useState([
-    { id: 1, text: getWelcomeMessage(venueName), isBot: true, showMeetPlannerButtons: true }
+    { id: 1, text: getWelcomeMessage(venueName), isBot: true }
   ]);
   const [showGreeting, setShowGreeting] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
@@ -489,18 +487,21 @@ export default function useChatFlow({
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
-  const handleIntroYes = () => {
+  const handleIntroYes = async () => {
     setIntroResponded(true);
     setShowGreeting(false);
     setMessages(prev => [...prev, { id: Date.now(), text: "Yes, show me!", isBot: false }]);
+    
     setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const introText = firstLookConfig?.is_enabled
-        ? `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWould you like to meet ${firstLookConfig?.host_name || 'our team'} and get a quick look at the venue first?`
-        : `I'm your virtual planner here at ${venueName}! I can help you:\n\n💰 Build a custom budget estimate\n📦 Explore wedding packages\n📅 Check if your date is available\n🏠 Schedule an in-person tour\n\nWhat would you like to start with?`;
-      setMessages(prev => [...prev, { id: Date.now(), text: introText, isBot: true, showMeetPlannerButtons: firstLookConfig?.is_enabled }]);
-    }, 1200);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsTyping(false);
+    
+    setMessages(prev => [...prev, { 
+      id: Date.now(), 
+      text: `Would you like to meet our head planner Saydee and get a quick look at the venue first?`,
+      isBot: true,
+      showMeetPlannerButtons: firstLookConfig?.is_enabled
+    }]);
   };
 
   const handleIntroSkip = () => {
