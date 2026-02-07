@@ -35,12 +35,34 @@ export default function useChatFlow({
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
+  const [initialPromptShown, setInitialPromptShown] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Update welcome message when venue name changes
   useEffect(() => {
     setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
+    setInitialPromptShown(false);
   }, [venueName]);
+
+  // Show initial prompt after 1.5s delay
+  useEffect(() => {
+    if (!initialPromptShown && messages.length === 1) {
+      const showPrompt = async () => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsTyping(true);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          text: "Would you like to meet our head planner Saydee and get a quick look at the venue first?",
+          isBot: true,
+          showMeetPlannerButtons: firstLookConfig?.is_enabled
+        }]);
+        setInitialPromptShown(true);
+      };
+      showPrompt();
+    }
+  }, [messages.length, initialPromptShown, firstLookConfig]);
 
   // Welcome video flow with smart delay
   useEffect(() => {
@@ -487,21 +509,9 @@ export default function useChatFlow({
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
-  const handleIntroYes = async () => {
+  const handleIntroYes = () => {
     setIntroResponded(true);
     setShowGreeting(false);
-    setMessages(prev => [...prev, { id: Date.now(), text: "Yes, show me!", isBot: false }]);
-    
-    setIsTyping(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsTyping(false);
-    
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      text: `Would you like to meet our head planner Saydee and get a quick look at the venue first?`,
-      isBot: true,
-      showMeetPlannerButtons: firstLookConfig?.is_enabled
-    }]);
   };
 
   const handleIntroSkip = () => {
