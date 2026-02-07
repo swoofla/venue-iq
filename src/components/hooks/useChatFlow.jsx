@@ -47,10 +47,16 @@ export default function useChatFlow({
   // Show initial prompt after 1.5s delay
   useEffect(() => {
     if (!initialPromptShown && messages.length === 1) {
+      let cancelled = false;
+      
       const showPrompt = async () => {
         await new Promise(resolve => setTimeout(resolve, 1500));
+        if (cancelled) return;
+        
         setIsTyping(true);
         await new Promise(resolve => setTimeout(resolve, 1500));
+        if (cancelled) return;
+        
         setIsTyping(false);
         setMessages(prev => [...prev, {
           id: Date.now(),
@@ -60,7 +66,12 @@ export default function useChatFlow({
         }]);
         setInitialPromptShown(true);
       };
+      
       showPrompt();
+      
+      return () => {
+        cancelled = true;
+      };
     }
   }, [messages.length, initialPromptShown, firstLookConfig]);
 
