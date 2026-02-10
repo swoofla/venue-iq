@@ -10,6 +10,14 @@ const PASS_PROMPTS = {
 - Set priority 9-10 for core packages, 7-8 for common add-ons, 5-6 for edge cases
 - Write the "answer" as a warm chatbot response to a bride asking about this
 
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
+
 Transcript:
 `,
 
@@ -22,6 +30,14 @@ Transcript:
 - Set category to "capacity" for limit facts, "objection_handling" for response strategies
 - Priority 10 for hard limits, 8-9 for workarounds, 7 for other objections
 - Write answers that acknowledge concerns warmly then give facts and workarounds
+
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
 
 Transcript:
 `,
@@ -37,6 +53,14 @@ Transcript:
 - Venue access timeline (hours of access, event window, setup/teardown)
 - Set category to "policy" for rules, "sales_workflow" for process/cadence
 - Priority 10 for mandatory requirements, 8 for booking process, 6 for nice-to-know
+
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
 
 Transcript:
 `,
@@ -54,6 +78,14 @@ Transcript:
 - Priority 8 for ceremony spaces, 6-7 for others
 - Write answers that paint a visual picture for brides
 
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
+
 Transcript:
 `,
 
@@ -67,6 +99,14 @@ Transcript:
 - Hospitality rituals (offering drinks at tours, etc.)
 - Format each entry as: question = "Brand Voice: [aspect]", answer = a RULE the chatbot should follow
 - All entries category "brand_voice", priority 9 for core elements, 7 for secondary
+
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
 
 Transcript:
 `,
@@ -82,6 +122,14 @@ Transcript:
 - Budget concerns (needs human sales skill)
 - For each: question = the situation type, answer = what the bot should say BEFORE handing off
 - All entries category "human_handoff", priority 10
+
+CRITICAL RULES:
+- ONLY extract information that is EXPLICITLY stated or directly implied in the transcript text above.
+- If a specific detail (address, price, capacity number, cabin count, vendor name, etc.) is NOT mentioned in the transcript, DO NOT invent it. Leave it out entirely.
+- Never fabricate addresses, phone numbers, URLs, prices, guest capacities, room counts, or any specific numbers.
+- Set confidence to 0.3 or lower for anything you had to infer rather than read directly from the transcript.
+- If the transcript doesn't contain enough relevant information for this analysis pass, return FEWER entries. An empty entries array is perfectly acceptable and preferred over invented information.
+- When writing chatbot answers, only include facts that appear in the transcript. Use phrases like "I'd recommend checking with our team for the latest details on that!" for anything you're unsure about rather than guessing.
 
 Transcript:
 `
@@ -174,8 +222,6 @@ Deno.serve(async (req) => {
       }
 
       if (!isDuplicate) {
-        const needsReview = (entry.confidence !== undefined && entry.confidence < 0.8);
-        
         await base44.asServiceRole.entities.VenueKnowledge.create({
           venue_id,
           question: entry.question,
@@ -185,8 +231,8 @@ Deno.serve(async (req) => {
           tags: entry.tags || [],
           source: 'transcript',
           confidence: entry.confidence || null,
-          needs_review: needsReview,
-          is_active: !needsReview
+          needs_review: true,
+          is_active: false
         });
 
         saved++;
