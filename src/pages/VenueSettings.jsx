@@ -409,12 +409,39 @@ function PackageForm({ venueId, package: pkg, onClose }) {
 function ChatbotTraining({ knowledge, venueId }) {
   const [showForm, setShowForm] = useState(false);
   const [editingKnowledge, setEditingKnowledge] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.VenueKnowledge.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
   });
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => base44.entities.VenueKnowledge.update(id, { needs_review: false, is_active: true }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
+  });
+
+  const approveAllMutation = useMutation({
+    mutationFn: async (items) => {
+      for (const item of items) {
+        await base44.entities.VenueKnowledge.update(item.id, { needs_review: false, is_active: true });
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
+  });
+
+  const needsReviewCount = knowledge.filter(k => k.needs_review).length;
+  const filteredKnowledge = categoryFilter === 'all' 
+    ? knowledge 
+    : knowledge.filter(k => k.category === categoryFilter);
+  const filteredNeedsReview = filteredKnowledge.filter(k => k.needs_review);
+
+  const handleApproveAll = () => {
+    if (confirm(`Approve ${filteredNeedsReview.length} entries? They will become active in your chatbot.`)) {
+      approveAllMutation.mutate(filteredNeedsReview);
+    }
+  };
 
   return (
     <div>
@@ -424,12 +451,63 @@ function ChatbotTraining({ knowledge, venueId }) {
         </p>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
+      {needsReviewCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-amber-900 font-medium">
+              ⚠️ You have {needsReviewCount} AI-extracted {needsReviewCount === 1 ? 'entry' : 'entries'} awaiting review.
+            </p>
+            <p className="text-xs text-amber-800 mt-1">
+              These won't appear in your chatbot until approved.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
         <h2 className="text-xl font-semibold">Training Data</h2>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Q&A
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          {filteredNeedsReview.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={handleApproveAll}
+              className="text-green-600 border-green-600 hover:bg-green-50"
+            >
+              Approve All Visible ({filteredNeedsReview.length})
+            </Button>
+          )}
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Q&A
+          </Button>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="faq">FAQ</SelectItem>
+            <SelectItem value="pricing">Pricing</SelectItem>
+            <SelectItem value="pricing_nuance">Pricing Nuance</SelectItem>
+            <SelectItem value="capacity">Capacity</SelectItem>
+            <SelectItem value="policy">Policy</SelectItem>
+            <SelectItem value="amenities">Amenities</SelectItem>
+            <SelectItem value="ceremony_spaces">Ceremony Spaces</SelectItem>
+            <SelectItem value="lodging">Lodging</SelectItem>
+            <SelectItem value="sales_workflow">Sales Workflow</SelectItem>
+            <SelectItem value="objection_handling">Objection Handling</SelectItem>
+            <SelectItem value="brand_voice">Brand Voice</SelectItem>
+            <SelectItem value="vendor_info">Vendor Info</SelectItem>
+            <SelectItem value="seasonal">Seasonal</SelectItem>
+            <SelectItem value="location_directions">Location Directions</SelectItem>
+            <SelectItem value="human_handoff">Human Handoff</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {showForm && (
@@ -444,38 +522,87 @@ function ChatbotTraining({ knowledge, venueId }) {
       )}
 
       <div className="space-y-3">
-        {knowledge.map(item => (
-          <div key={item.id} className="border border-stone-200 rounded-xl p-4">
+        {filteredKnowledge.map(item => (
+          <div 
+            key={item.id} 
+            className={`border border-stone-200 rounded-xl p-4 ${
+              item.needs_review ? 'bg-amber-50/50 opacity-90' : ''
+            }`}
+          >
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700 rounded">{item.category}</span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700 rounded">
+                    {item.category}
+                  </span>
+                  {item.needs_review && (
+                    <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded font-medium">
+                      Awaiting Review
+                    </span>
+                  )}
+                  {item.source === 'transcript' && (
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                      AI-Extracted
+                    </span>
+                  )}
+                  {item.confidence !== null && item.confidence !== undefined && (
+                    <span className="text-xs px-2 py-1 bg-stone-50 text-stone-600 rounded">
+                      {Math.round(item.confidence * 100)}% confidence
+                    </span>
+                  )}
                 </div>
                 <p className="font-medium mb-2">{item.question}</p>
                 <p className="text-sm text-stone-600">{item.answer}</p>
               </div>
-              <div className="flex gap-2 ml-4">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingKnowledge(item);
-                    setShowForm(true);
-                  }}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (confirm('Delete this Q&A?')) {
-                      deleteMutation.mutate(item.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+              <div className="flex flex-col sm:flex-row gap-2 ml-4">
+                {item.needs_review && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => approveMutation.mutate(item.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Approve & Activate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (confirm('Reject and delete this entry?')) {
+                          deleteMutation.mutate(item.id);
+                        }
+                      }}
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+                {!item.needs_review && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingKnowledge(item);
+                        setShowForm(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (confirm('Delete this Q&A?')) {
+                          deleteMutation.mutate(item.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
