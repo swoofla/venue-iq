@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play, AlertCircle } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
