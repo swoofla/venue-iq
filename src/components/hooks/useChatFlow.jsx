@@ -539,6 +539,7 @@ export default function useChatFlow({
   };
 
   const handleSkipVideos = () => {
+    setIntroResponded(true);
     setMessages(prev => [...prev, { id: Date.now(), text: "Explore venue tools", isBot: false }]);
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
