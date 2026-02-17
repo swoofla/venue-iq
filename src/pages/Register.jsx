@@ -29,14 +29,22 @@ export default function RegisterPage() {
   useEffect(() => {
     async function loadInvite() {
       if (!token) {
-        base44.auth.redirectToLogin();
+        setError('No invitation token provided');
+        setLoading(false);
         return;
       }
 
       try {
         const invites = await base44.entities.UserInvite.filter({ token });
-        if (invites.length === 0 || invites[0].status !== 'pending') {
-          base44.auth.redirectToLogin();
+        if (invites.length === 0) {
+          setError('This invitation link is invalid');
+          setLoading(false);
+          return;
+        }
+        
+        if (invites[0].status !== 'pending') {
+          setError('This invitation has already been used or has expired');
+          setLoading(false);
           return;
         }
 
@@ -49,14 +57,14 @@ export default function RegisterPage() {
         }));
       } catch (err) {
         console.error('Load invite error:', err);
-        base44.auth.redirectToLogin();
+        setError('Failed to load invitation details');
       } finally {
         setLoading(false);
       }
     }
 
     loadInvite();
-  }, [token, navigate]);
+  }, [token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -107,6 +115,22 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-stone-400" />
+      </div>
+    );
+  }
+
+  if (error && !invite) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <CardTitle>Invalid Invitation</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
