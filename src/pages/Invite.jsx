@@ -67,7 +67,7 @@ export default function InvitePage() {
   };
 
   const handleLogin = () => {
-    navigate(createPageUrl('Login') + `?token=${token}`);
+    base44.auth.redirectToLogin(window.location.href);
   };
 
   if (loading) {
@@ -94,7 +94,7 @@ export default function InvitePage() {
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={() => navigate(createPageUrl('Login'))} 
+              onClick={() => base44.auth.redirectToLogin()} 
               className="w-full rounded-full"
               variant="outline"
             >
