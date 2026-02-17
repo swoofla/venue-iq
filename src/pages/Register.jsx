@@ -29,14 +29,14 @@ export default function RegisterPage() {
   useEffect(() => {
     async function loadInvite() {
       if (!token) {
-        navigate(createPageUrl('Login'));
+        base44.auth.redirectToLogin();
         return;
       }
 
       try {
         const invites = await base44.entities.UserInvite.filter({ token });
         if (invites.length === 0 || invites[0].status !== 'pending') {
-          navigate(createPageUrl('Login'));
+          base44.auth.redirectToLogin();
           return;
         }
 
@@ -49,7 +49,7 @@ export default function RegisterPage() {
         }));
       } catch (err) {
         console.error('Load invite error:', err);
-        navigate(createPageUrl('Login'));
+        base44.auth.redirectToLogin();
       } finally {
         setLoading(false);
       }
@@ -209,7 +209,7 @@ export default function RegisterPage() {
             <p className="text-sm text-stone-600">
               Already have an account?{' '}
               <button
-                onClick={() => navigate(createPageUrl('Login') + (token ? `?token=${token}` : ''))}
+                onClick={() => base44.auth.redirectToLogin(window.location.href)}
                 className="text-black font-medium hover:underline"
               >
                 Log in
