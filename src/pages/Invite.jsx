@@ -92,15 +92,6 @@ export default function InvitePage() {
             <CardTitle>Invalid Invitation</CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={() => base44.auth.redirectToLogin()} 
-              className="w-full rounded-full"
-              variant="outline"
-            >
-              Go to Login
-            </Button>
-          </CardContent>
         </Card>
       </div>
     );
