@@ -169,24 +169,6 @@ export default function Home() {
 
           {chat.isTyping && <TypingIndicator />}
 
-          {/* Intro choice buttons */}
-          {!chat.introResponded && chat.messages.length === 1 && !chat.isTyping && (
-            <div className="flex gap-2 mb-4 ml-10">
-              <button
-                onClick={chat.handleIntroYes}
-                className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
-              >
-                Yes, show me!
-              </button>
-              <button
-                onClick={chat.handleIntroSkip}
-                className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
-              >
-                I know what I need
-              </button>
-            </div>
-          )}
-
           {/* Tour Prompt Quick Replies */}
           {chat.showTourPrompt && (
             <div className="flex gap-2 mb-4">
