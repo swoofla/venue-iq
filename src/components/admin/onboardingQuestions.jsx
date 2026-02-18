@@ -141,7 +141,7 @@ const ONBOARDING_SECTIONS = [
   },
   {
     id: 'faq',
-    title: 'Common Questions',
+    title: 'FAQs',
     description: 'Brides ask these all the time. Your answers here save you hours of emails.',
     icon: 'HelpCircle',
     category: 'faq',
