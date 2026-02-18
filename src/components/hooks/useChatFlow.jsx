@@ -30,18 +30,50 @@ export default function useChatFlow({
   const [leadPhone, setLeadPhone] = useState('');
   const [leadEmail, setLeadEmail] = useState('');
   const [showTourPrompt, setShowTourPrompt] = useState(false);
-  const [introResponded, setIntroResponded] = useState(false);
+  const [introResponded, setIntroResponded] = useState(true);
   const [welcomeVideoAdded, setWelcomeVideoAdded] = useState(false);
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
+  const initialPromptShownRef = useRef(false);
+  const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
+
+  // Keep firstLookConfig ref updated
+  useEffect(() => {
+    firstLookConfigRef.current = firstLookConfig;
+  }, [firstLookConfig]);
 
   // Update welcome message when venue name changes
   useEffect(() => {
     if (!venueName) return; // Don't reset on empty
     setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
+    initialPromptShownRef.current = false;
   }, [venueName]);
+
+  // Show initial prompt after venue is ready
+  useEffect(() => {
+    if (!venueId || initialPromptShownRef.current) return;
+    initialPromptShownRef.current = true;
+
+    let cancelled = false;
+    const showPrompt = async () => {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (cancelled) return;
+      setIsTyping(true);
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      if (cancelled) return;
+      setIsTyping(false);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        text: `Would you like to meet our head planner ${firstLookConfigRef.current?.host_name || 'Saydee'} and get a quick look at the venue first?`,
+        isBot: true,
+        showMeetPlannerButtons: true
+      }]);
+    };
+    showPrompt();
+    return () => { cancelled = true; };
+  }, [venueId]);
 
   // Welcome video flow with smart delay
   useEffect(() => {
@@ -488,34 +520,7 @@ export default function useChatFlow({
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
 
-  const handleIntroYes = () => {
-    setIntroResponded(true);
-    setShowGreeting(false);
-    
-    // If firstLook is configured, ask about meeting the planner
-    if (firstLookConfig?.is_enabled && firstLookConfig?.welcome_video_id) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: `Would you like to meet our head planner ${firstLookConfig.host_name || 'Saydee'} and get a quick look at the venue first?`,
-          isBot: true,
-          showMeetPlannerButtons: true
-        }]);
-      }, 1000);
-    } else {
-      // No video config — go straight to tools
-      addBotMessage("Perfect! Use the buttons below or type what you're looking for. I'm here to help you plan your dream wedding! 💍");
-    }
-  };
 
-  const handleIntroSkip = () => {
-    setIntroResponded(true);
-    setShowGreeting(false);
-    setMessages(prev => [...prev, { id: Date.now(), text: "I know what I need", isBot: false }]);
-    addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
-  };
 
   const handleMeetPlanner = () => {
     const plannerName = firstLookConfig?.host_name || 'the planner';
@@ -559,8 +564,6 @@ export default function useChatFlow({
     handleTourComplete,
     handlePackageTour,
     closeFlow,
-    handleIntroYes,
-    handleIntroSkip,
     handleMeetPlanner,
     handleSkipVideos,
     handleBudgetFromVideo,
