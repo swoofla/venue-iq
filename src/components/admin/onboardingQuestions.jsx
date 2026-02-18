@@ -274,5 +274,5 @@ export function calculateReadinessScore(onboardingProgress, hasPackages, hasPric
   return Math.min(score, 100);
 }
 
-export { ONBOARDING_SECTIONS, calculateReadinessScore };
+export { ONBOARDING_SECTIONS };
 export default ONBOARDING_SECTIONS;
