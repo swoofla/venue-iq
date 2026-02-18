@@ -35,45 +35,52 @@ export default function useChatFlow({
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
-  const [initialPromptShown, setInitialPromptShown] = useState(false);
+  const initialPromptShownRef = useRef(false);
+  const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
+
+  // Keep firstLookConfig ref updated
+  useEffect(() => {
+    firstLookConfigRef.current = firstLookConfig;
+  }, [firstLookConfig]);
 
   // Update welcome message when venue name changes
   useEffect(() => {
     setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
-    setInitialPromptShown(false);
+    initialPromptShownRef.current = false;
   }, [venueName]);
 
   // Show initial prompt after 1.5s delay
   useEffect(() => {
-    if (!initialPromptShown && messages.length === 1) {
-      let cancelled = false;
+    if (initialPromptShownRef.current || messages.length !== 1) return;
+    
+    let cancelled = false;
+    initialPromptShownRef.current = true;
+    
+    const showPrompt = async () => {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (cancelled) return;
       
-      const showPrompt = async () => {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        if (cancelled) return;
-        
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        if (cancelled) return;
-        
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: "Would you like to meet our head planner Saydee and get a quick look at the venue first?",
-          isBot: true,
-          showMeetPlannerButtons: firstLookConfig?.is_enabled
-        }]);
-        setInitialPromptShown(true);
-      };
+      setIsTyping(true);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (cancelled) return;
       
-      showPrompt();
-      
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [messages.length, initialPromptShown, firstLookConfig]);
+      setIsTyping(false);
+      const config = firstLookConfigRef.current;
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        text: "Would you like to meet our head planner Saydee and get a quick look at the venue first?",
+        isBot: true,
+        showMeetPlannerButtons: config?.is_enabled
+      }]);
+    };
+    
+    showPrompt();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [messages.length]);
 
   // Welcome video flow with smart delay
   useEffect(() => {
