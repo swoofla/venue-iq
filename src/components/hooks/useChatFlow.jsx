@@ -46,13 +46,15 @@ export default function useChatFlow({
 
   // Update welcome message when venue name changes
   useEffect(() => {
+    if (!venueName) return; // Don't reset on empty
     setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
     initialPromptShownRef.current = false;
   }, [venueName]);
 
   // Show initial prompt after 1.5s delay
   useEffect(() => {
-    if (initialPromptShownRef.current || messages.length !== 1) return;
+    // Don't start until venue is loaded AND we have exactly 1 message AND haven't shown yet
+    if (!venueId || initialPromptShownRef.current || messages.length !== 1) return;
     
     let cancelled = false;
     initialPromptShownRef.current = true;
@@ -80,7 +82,7 @@ export default function useChatFlow({
     return () => {
       cancelled = true;
     };
-  }, [messages.length]);
+  }, [venueId, messages.length]);
 
   // Welcome video flow with smart delay
   useEffect(() => {
