@@ -18,7 +18,7 @@ import {
   CircleDot,
   Circle
 } from 'lucide-react';
-import { ONBOARDING_SECTIONS } from '@/utils/onboardingQuestions';
+import { ONBOARDING_SECTIONS } from './onboardingQuestions';
 
 const iconMap = {
   Building2,
