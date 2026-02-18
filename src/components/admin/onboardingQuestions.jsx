@@ -1,7 +1,7 @@
 const ONBOARDING_SECTIONS = [
   {
     id: 'spaces',
-    title: 'Your Spaces & Amenities',
+    title: 'Amenities & Spaces',
     description: 'Help brides picture your venue by describing your spaces.',
     icon: 'Building2',
     category: 'amenities',
@@ -199,7 +199,7 @@ const ONBOARDING_SECTIONS = [
   },
   {
     id: 'personality',
-    title: "Your Venue's Personality",
+    title: "Personality & Voice",
     description: "This helps your chatbot speak authentically about your venue — not generic fluff.",
     icon: 'Sparkles',
     category: 'other',
