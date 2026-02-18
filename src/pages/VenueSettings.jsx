@@ -42,7 +42,19 @@ export default function VenueSettings() {
 
   const updateVenueMutation = useMutation({
     mutationFn: (data) => base44.entities.Venue.update(venueId, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['venue', venueId] })
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['venue', venueId] });
+      // Auto-generate knowledge from structured data
+      try {
+        await base44.functions.invoke('generateAutoKnowledge', {
+          venue_id: venueId,
+          source: 'venue_basics'
+        });
+      } catch (err) {
+        console.error('Auto-knowledge generation failed:', err);
+        // Don't fail the save — this is a background enhancement
+      }
+    }
   });
 
   const { data: packages = [] } = useQuery({
@@ -316,8 +328,17 @@ function PackageForm({ venueId, package: pkg, onClose }) {
       }
       return base44.entities.VenuePackage.create(dataWithVenue);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['packages', venueId] });
+      // Auto-generate knowledge from packages
+      try {
+        await base44.functions.invoke('generateAutoKnowledge', {
+          venue_id: venueId,
+          source: 'packages'
+        });
+      } catch (err) {
+        console.error('Auto-knowledge generation failed:', err);
+      }
       onClose();
     }
   });

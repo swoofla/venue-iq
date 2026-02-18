@@ -10,6 +10,8 @@ import VenueAnalytics from '@/components/dashboard/VenueAnalytics';
 import IndustryBenchmarks from '@/components/dashboard/IndustryBenchmarks';
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown';
 import VenueSelector from '@/components/admin/VenueSelector';
+import OnboardingReadiness from '@/components/dashboard/OnboardingReadiness';
+import VenueOnboardingWizard from '@/components/admin/VenueOnboardingWizard';
 
 const APP_VERSION = '1.2.0';
 
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [searchParams] = useSearchParams();
   const [copied, setCopied] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   React.useEffect(() => {
     base44.auth.me().then(u => {
@@ -160,6 +163,29 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
+        
+        {/* Onboarding Readiness */}
+        {!showOnboarding && (
+          <OnboardingReadiness
+            venueId={venueId}
+            onStartOnboarding={(sectionId) => setShowOnboarding(true)}
+          />
+        )}
+
+        {showOnboarding && (
+          <div className="bg-white border border-stone-200 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Train Your AI Concierge</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowOnboarding(false)}>
+                ← Back to Dashboard
+              </Button>
+            </div>
+            <VenueOnboardingWizard
+              venueId={venueId}
+              onComplete={() => setShowOnboarding(false)}
+            />
+          </div>
+        )}
         
         {/* Quick Stats */}
         <div className="grid md:grid-cols-3 gap-6">
