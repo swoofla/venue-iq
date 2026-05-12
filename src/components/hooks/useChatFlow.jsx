@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 
 export default function useChatFlow({
@@ -15,7 +15,6 @@ export default function useChatFlow({
   const [isTyping, setIsTyping] = useState(false);
   const [activeFlow, setActiveFlow] = useState(null);
   const [preSelectedDate, setPreSelectedDate] = useState('');
-  const [awaitingPlannerContact, setAwaitingPlannerContact] = useState(false);
   const [originalQuestion, setOriginalQuestion] = useState('');
   const [leadName, setLeadName] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
@@ -26,144 +25,95 @@ export default function useChatFlow({
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
+
+  // Handoff state machine: idle | offered | awaiting_name | awaiting_phone | sending | completed
+  const [handoffStage, setHandoffStage] = useState('idle');
+  const [handoffTopic, setHandoffTopic] = useState('');
+  const [handoffOriginalQuestion, setHandoffOriginalQuestion] = useState('');
+  const [handoffTriggered, setHandoffTriggered] = useState(false);
+
+  // ChatSession tracking
+  const [chatSessionId, setChatSessionId] = useState(null);
+  const chatSessionIdRef = useRef(null);
+  const messagesRef = useRef([]);
+  const flowsCompletedRef = useRef([]);
+  const flowResultsRef = useRef({});
+  const leadWeddingDateRef = useRef(null);
+  const leadGuestCountRef = useRef(null);
+  const leadBudgetRangeRef = useRef(null);
+  const debounceTimerRef = useRef(null);
+
   const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
 
-  // Keep firstLookConfig ref updated
   useEffect(() => {
     firstLookConfigRef.current = firstLookConfig;
   }, [firstLookConfig]);
 
-  // Welcome video flow with smart delay
-  useEffect(() => {
-    if (firstLookConfig?.is_enabled && !welcomeVideoAdded && userWantsWelcomeVideo && venueId) {
-      const addWelcomeVideo = async () => {
-        setWelcomeVideoAdded(true);
-
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        if (firstLookConfig.welcome_video_id) {
-          setMessages(prev => [...prev, {
-            id: Date.now() + 1,
-            isBot: true,
-            isVideo: true,
-            videoId: firstLookConfig.welcome_video_id,
-            videoLabel: `Welcome to ${venueName}`,
-            aspectRatio: 'portrait'
-          }]);
-        }
-
-        // Smart delay: 5s default, but if user plays the video, wait for full duration
-        await new Promise(resolve => {
-          let resolved = false;
-          
-          const fallbackTimer = setTimeout(() => {
-            if (!resolved) {
-              resolved = true;
-              resolve();
-            }
-          }, 5000);
-
-          const listenForPlay = () => {
-            window._wq = window._wq || [];
-            window._wq.push({
-              id: firstLookConfig.welcome_video_id,
-              onReady: (video) => {
-                video.bind('play', () => {
-                  clearTimeout(fallbackTimer);
-                  const remainingMs = Math.ceil((video.duration() - video.time()) * 1000);
-                  setTimeout(() => {
-                    if (!resolved) {
-                      resolved = true;
-                      resolve();
-                    }
-                  }, remainingMs + 2000);
-                });
-
-                if (video.state() === 'playing') {
-                  clearTimeout(fallbackTimer);
-                  const remainingMs = Math.ceil((video.duration() - video.time()) * 1000);
-                  setTimeout(() => {
-                    if (!resolved) {
-                      resolved = true;
-                      resolve();
-                    }
-                  }, remainingMs + 2000);
-                }
-              }
-            });
-          };
-
-          if (window.Wistia) {
-            listenForPlay();
-          } else {
-            const interval = setInterval(() => {
-              if (window.Wistia) {
-                clearInterval(interval);
-                listenForPlay();
-              }
-            }, 200);
-          }
-        });
-
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now() + 100,
-          text: `Select one of the options below or ask me any questions about ${venueName} you have.`,
-          isBot: true,
-          showPostVideoOptions: true
-        }]);
-      };
-
-      addWelcomeVideo();
-    }
-  }, [firstLookConfig, welcomeVideoAdded, userWantsWelcomeVideo, venueId, venueName]);
-
-  // Additional videos flow
-  useEffect(() => {
-    if (firstLookConfig?.is_enabled && !additionalVideosAdded && userWantsAdditionalVideos && venueId) {
-      const addAdditionalVideos = async () => {
-        setAdditionalVideosAdded(true);
-
-        if (firstLookConfig.video_options?.length > 0) {
-          for (let i = 0; i < firstLookConfig.video_options.length; i++) {
-            const option = firstLookConfig.video_options[i];
-            if (option.video_id) {
-              await new Promise(resolve => setTimeout(resolve, 400));
-
-              setMessages(prev => [...prev, {
-                id: Date.now() + i,
-                isBot: true,
-                isVideo: true,
-                videoId: option.video_id,
-                videoLabel: option.label,
-                aspectRatio: 'portrait'
-              }]);
-            }
-          }
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setIsTyping(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now() + 100,
-          text: "What did you think? Ready to explore more or schedule a tour?",
-          isBot: true
-        }]);
-      };
-
-      addAdditionalVideos();
-    }
-  }, [firstLookConfig, additionalVideosAdded, userWantsAdditionalVideos, venueId]);
-
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeFlow]);
+
+  // Mirror messages into a ref so the debounce callback always has latest
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Ensure ChatSession exists — called lazily on first interaction
+  const ensureChatSession = useCallback(async () => {
+    if (chatSessionIdRef.current || !venueId) return chatSessionIdRef.current;
+    try {
+      const session = await base44.entities.ChatSession.create({
+        venue_id: venueId,
+        status: 'active',
+        messages: [],
+      });
+      chatSessionIdRef.current = session.id;
+      setChatSessionId(session.id);
+      return session.id;
+    } catch (err) {
+      console.error('Failed to create ChatSession:', err?.message || err);
+      return null;
+    }
+  }, [venueId]);
+
+  // Debounced sync of messages to the ChatSession
+  const scheduleSessionSync = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(async () => {
+      const sid = chatSessionIdRef.current;
+      if (!sid) return;
+      const serialized = messagesRef.current
+        .filter(m => !m.isVideo && typeof m.text === 'string')
+        .map(m => ({
+          role: m.isBot ? 'bot' : 'user',
+          content: m.text,
+          timestamp: new Date(typeof m.id === 'number' ? m.id : Date.now()).toISOString(),
+        }));
+      try {
+        await base44.entities.ChatSession.update(sid, {
+          messages: serialized,
+          lead_name: leadName || undefined,
+          lead_phone: leadPhone || undefined,
+          lead_email: leadEmail || undefined,
+          lead_wedding_date: leadWeddingDateRef.current || undefined,
+          lead_guest_count: leadGuestCountRef.current || undefined,
+          lead_budget_range: leadBudgetRangeRef.current || undefined,
+          flows_completed: flowsCompletedRef.current,
+          flow_results: flowResultsRef.current,
+        });
+      } catch (err) {
+        console.error('ChatSession sync failed:', err?.message || err);
+      }
+    }, 2000);
+  }, [leadName, leadPhone, leadEmail]);
+
+  // Sync messages whenever they change (after ChatSession exists)
+  useEffect(() => {
+    if (!chatSessionId) return;
+    scheduleSessionSync();
+  }, [messages, chatSessionId, scheduleSessionSync]);
 
   const addBotMessage = (text) => {
     setIsTyping(true);
@@ -173,8 +123,123 @@ export default function useChatFlow({
     }, 1000);
   };
 
+  const addBotMessageImmediate = (text) => {
+    setMessages(prev => [...prev, { id: Date.now() + Math.random(), text, isBot: true }]);
+  };
+
+  // Trigger the handoff offer — used by LLM detection AND by "Talk to a planner" link
+  const offerHandoff = (topicSummary, question) => {
+    if (handoffTriggered) {
+      addBotMessage(`I already passed your info to ${venue?.head_planner_name || 'our head planner'} — she'll text you on that same thread. Anything else I can help with in the meantime?`);
+      return;
+    }
+    setHandoffTopic(topicSummary);
+    setHandoffOriginalQuestion(question);
+    setHandoffStage('offered');
+  };
+
+  // Public helper used by "Talk to a planner" link
+  const requestPlannerHandoff = async () => {
+    await ensureChatSession();
+    if (handoffTriggered) {
+      addBotMessage(`I already passed your info to ${venue?.head_planner_name || 'our head planner'} — she'll text you on that same thread. Anything else I can help with in the meantime?`);
+      return;
+    }
+    // Find most recent user message
+    const lastUserMsg = [...messagesRef.current].reverse().find(m => !m.isBot && typeof m.text === 'string');
+    const question = lastUserMsg?.text || '(she just wanted to talk to a human)';
+    setHandoffTopic('general inquiry');
+    setHandoffOriginalQuestion(question);
+    setHandoffStage('offered');
+    const plannerName = venue?.head_planner_name || 'our head planner';
+    addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
+  };
+
+  const sendHandoffRequest = async (finalName, finalPhone) => {
+    setHandoffStage('sending');
+    const plannerName = venue?.head_planner_name || 'our head planner';
+    addBotMessage(`Got it. Sending you a text now from ${plannerName}'s line — check your messages!`);
+
+    const sid = await ensureChatSession();
+
+    try {
+      const res = await base44.functions.invoke('createHighLevelLeadAndNotify', {
+        venueId,
+        chatSessionId: sid,
+        leadName: finalName,
+        leadPhone: finalPhone,
+        leadEmail: leadEmail || user?.email || undefined,
+        topicSummary: handoffTopic,
+        originalQuestion: handoffOriginalQuestion,
+      });
+
+      if (res?.data?.success) {
+        setHandoffTriggered(true);
+        setHandoffStage('completed');
+        addBotMessage(`All set. Anything else I can help with while you wait for ${plannerName}?`);
+      } else {
+        setHandoffStage('completed');
+        addBotMessage(`I had a little trouble reaching ${plannerName} directly, but I've saved your info — someone will follow up within 24 hours.`);
+      }
+    } catch (err) {
+      console.error('Handoff request failed:', err?.message || err);
+      setHandoffStage('completed');
+      addBotMessage(`I had a little trouble reaching ${plannerName} directly, but I've saved your info — someone will follow up within 24 hours.`);
+    }
+  };
+
+  const handleHandoffUserInput = (text) => {
+    const plannerName = venue?.head_planner_name || 'our head planner';
+
+    if (handoffStage === 'offered') {
+      // Expecting yes/no
+      const lower = text.toLowerCase();
+      const isYes = /\b(yes|yeah|yep|sure|ok|okay|please|y)\b/.test(lower);
+      const isNo = /\b(no|nope|nah|not now|maybe later)\b/.test(lower);
+      if (isYes) {
+        setHandoffStage('awaiting_name');
+        addBotMessage(`Perfect. What's your name?`);
+      } else if (isNo) {
+        setHandoffStage('idle');
+        addBotMessage(`No problem — let me know if there's anything else I can help with.`);
+      } else {
+        addBotMessage(`Just a yes or no — want me to have ${plannerName} text you?`);
+      }
+      return true;
+    }
+
+    if (handoffStage === 'awaiting_name') {
+      const trimmed = text.trim();
+      if (trimmed.length < 2) {
+        addBotMessage(`Could you share your name?`);
+        return true;
+      }
+      setLeadName(trimmed);
+      setHandoffStage('awaiting_phone');
+      addBotMessage(`Nice to meet you, ${trimmed.split(' ')[0]}. Best number to text you at?`);
+      return true;
+    }
+
+    if (handoffStage === 'awaiting_phone') {
+      const isValid = /^[\d\s\-()+]{10,}$/.test(text.trim());
+      if (!isValid) {
+        addBotMessage(`Hmm, that doesn't look right — could you include the area code?`);
+        return true;
+      }
+      const cleaned = text.trim();
+      setLeadPhone(cleaned);
+      sendHandoffRequest(leadName, cleaned);
+      return true;
+    }
+
+    return false;
+  };
+
   const handleUserMessage = async (text) => {
     setShowGreeting(false);
+
+    // Ensure session exists on first message
+    await ensureChatSession();
 
     // If this is the first message, inject the bot's opening question before the user message
     const isFirstMessage = messages.length === 0;
@@ -191,66 +256,14 @@ export default function useChatFlow({
       return next;
     });
 
+    // Active handoff flow handles input first
+    if (handoffStage !== 'idle' && handoffStage !== 'completed') {
+      const handled = handleHandoffUserInput(text);
+      if (handled) return;
+    }
+
     const lowerText = text.toLowerCase();
 
-    if (awaitingPlannerContact) {
-      if (lowerText.includes('yes')) {
-        addBotMessage("Great! What's your full name and phone number so a planner can reach out to you?");
-        setAwaitingPlannerContact('collect_details');
-      } else if (lowerText.includes('no')) {
-        addBotMessage("No problem! Let me know if there's anything else I can help with.");
-        setAwaitingPlannerContact(false);
-        setOriginalQuestion('');
-        setLeadName('');
-        setLeadPhone('');
-      } else {
-        addBotMessage("Please respond with 'yes' or 'no'.");
-      }
-      return;
-    }
-
-    if (awaitingPlannerContact === 'collect_details') {
-      const phoneMatch = lowerText.match(/(\d[\d\s\-]+)/);
-      let currentName = leadName;
-      let currentPhone = leadPhone;
-      let email = user?.email || undefined;
-
-      if (!currentName && text.length > 5 && !phoneMatch) {
-        currentName = text.trim();
-        setLeadName(currentName);
-      }
-
-      if (phoneMatch && phoneMatch[1]) {
-        currentPhone = phoneMatch[1].replace(/\s|-/g, '');
-        setLeadPhone(currentPhone);
-      }
-
-      if (currentName && currentPhone) {
-        addBotMessage("Thank you! I'm sending your request to the Sugar Lake planners now.");
-        
-        try {
-          await base44.functions.invoke('createHighLevelLeadAndNotify', {
-            name: currentName,
-            phone: currentPhone,
-            email: email,
-            question: originalQuestion
-          });
-          addBotMessage("Your information has been sent! A planner will be in touch shortly.");
-        } catch (error) {
-          console.error("Failed to send lead to HighLevel:", error?.message || error);
-          addBotMessage("I had trouble sending your information. Please try again or contact us directly at (216) 616-1598.");
-        }
-
-        setAwaitingPlannerContact(false);
-        setOriginalQuestion('');
-        setLeadName('');
-        setLeadPhone('');
-      } else {
-        addBotMessage("Please tell me your full name and phone number. For example: 'My name is John Doe and my number is 123-456-7890'.");
-      }
-      return;
-    }
-    
     if (lowerText.includes('budget') || lowerText.includes('cost') || lowerText.includes('price')) {
       addBotMessage("Great question! Let me help you figure out the perfect package for your budget. I'll walk you through our budget calculator.");
       setTimeout(() => setActiveFlow('budget'), 1500);
@@ -263,17 +276,17 @@ export default function useChatFlow({
     } else if (lowerText.includes('package') || lowerText.includes('option')) {
       addBotMessage("We have three beautiful packages designed to fit different wedding styles and sizes. Take a look:");
       setTimeout(() => setActiveFlow('packages'), 1500);
-    } else if (lowerText.includes('photo') || lowerText.includes('picture') || 
+    } else if (lowerText.includes('photo') || lowerText.includes('picture') ||
                lowerText.includes('gallery') || lowerText.includes('look like') ||
                lowerText.includes('see the venue') || lowerText.includes('show me')) {
       addBotMessage("Let me show you around! Here are some photos of our beautiful venue.");
       setTimeout(() => setActiveFlow('gallery'), 1500);
-    } else if (lowerText.includes('visualize') || lowerText.includes('design') || 
+    } else if (lowerText.includes('visualize') || lowerText.includes('design') ||
                lowerText.includes('see my wedding') || lowerText.includes('what would it look like') ||
                lowerText.includes('decorate') || lowerText.includes('style')) {
       addBotMessage("Let me show you what your wedding could look like at our venue! ✨");
       setTimeout(() => setActiveFlow('visualizer'), 1500);
-    } else if (lowerText.includes('video') || lowerText.includes('watch') || 
+    } else if (lowerText.includes('video') || lowerText.includes('watch') ||
                lowerText.includes('first look') || lowerText.includes('virtual tour')) {
       if (firstLookConfig?.welcome_video_id) {
         addBotMessage("Here's a quick video tour of our venue! 🎥");
@@ -291,16 +304,10 @@ export default function useChatFlow({
         addBotMessage("Let me show you around with some photos!");
         setTimeout(() => setActiveFlow('gallery'), 1500);
       }
-    } else if (lowerText.includes('talk to') || lowerText.includes('speak to') || 
-               lowerText.includes('real person') || lowerText.includes('human') ||
-               lowerText.includes('call') || lowerText.includes('phone')) {
-      const contactMessage = venue?.phone || venue?.email 
-        ? `I'd be happy to connect you with our team! You can reach us at ${venue.phone ? `${venue.phone}` : ''}${venue.phone && venue.email ? ' or ' : ''}${venue.email ? venue.email : ''}.`
-        : "I'd be happy to connect you with our team! Please use the contact information on our website.";
-      addBotMessage(contactMessage);
     } else {
-      const relevantKnowledge = venueKnowledge.find(k => 
-        lowerText.includes(k.question.toLowerCase()) || 
+      // Try local knowledge match first
+      const relevantKnowledge = venueKnowledge.find(k =>
+        lowerText.includes(k.question.toLowerCase()) ||
         k.question.toLowerCase().includes(lowerText)
       );
 
@@ -310,31 +317,49 @@ export default function useChatFlow({
         setIsTyping(true);
         try {
           const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
-          
-          const response = await base44.integrations.Core.InvokeLLM({
-            prompt: `You are a helpful wedding venue chatbot assistant for Sugar Lake. Answer the user's question ONLY using the provided "Venue Knowledge Base". Do NOT make up answers.
-            If you CANNOT answer the question confidently and completely using ONLY the provided knowledge base, then respond with exactly "OUT_OF_SCOPE".
-            
-            Venue Knowledge Base:
-            ${knowledgeContext}
-            
-            User Question: ${text}
-            
-            Provide a warm, professional response.`,
+
+          const llmResult = await base44.integrations.Core.InvokeLLM({
+            prompt: `You are a warm, helpful wedding venue chatbot assistant for ${venueName}. You have access to a knowledge base of venue-specific Q&A.
+
+If you can confidently answer the question from the venue knowledge base provided, do so warmly and conversationally. If the question requires venue-specific policy not in the knowledge base, OR it touches any of these topics — fireworks, sparklers, pets, religious customs, dietary restrictions, custom vendor policies, ADA accommodations, alcohol or bar policy, noise ordinances, overnight stays, drone use, boat or lake access — OR the bride explicitly asks to talk to a human, respond by setting needsHandoff: true with a 2-6 word topicSummary and a warm one-line acknowledgment that thanks her for the question.
+
+Do NOT guess at venue policy. Better to escalate than to misinform.
+
+Venue Knowledge Base:
+${knowledgeContext}
+
+User Question: ${text}`,
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                needsHandoff: { type: 'boolean' },
+                topicSummary: { type: 'string' },
+                acknowledgment: { type: 'string' },
+                answer: { type: 'string' }
+              },
+              required: ['needsHandoff']
+            }
           });
-          
-          if (response === "OUT_OF_SCOPE") {
-            setOriginalQuestion(text);
-            addBotMessage("This question would be better to ask one of the planners at Sugar Lake, should I put you in touch with one of them now?");
-            setAwaitingPlannerContact(true);
+
+          setIsTyping(false);
+
+          if (llmResult?.needsHandoff) {
+            const topic = llmResult.topicSummary || 'your question';
+            const ack = llmResult.acknowledgment || 'Thanks for asking!';
+            const plannerName = venue?.head_planner_name || 'our head planner';
+            setHandoffTopic(topic);
+            setHandoffOriginalQuestion(text);
+            setHandoffStage('offered');
+            addBotMessageImmediate(`${ack} Want me to have ${plannerName} text you? She usually responds within an hour or two.`);
           } else {
-            setMessages(prev => [...prev, { id: Date.now(), text: response, isBot: true }]);
+            const answer = llmResult?.answer || "Thanks for reaching out! I can help with budget planning, date availability, scheduling a tour, or exploring our packages. What would you like to know more about?";
+            setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
           }
         } catch (error) {
           console.error('AI response error:', error?.message || error);
+          setIsTyping(false);
           setMessages(prev => [...prev, { id: Date.now(), text: "Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?", isBot: true }]);
         }
-        setIsTyping(false);
         return;
       }
     }
@@ -342,6 +367,7 @@ export default function useChatFlow({
 
   const handleQuickAction = (action) => {
     setShowGreeting(false);
+    ensureChatSession();
 
     switch (action) {
       case 'budget':
@@ -376,10 +402,7 @@ export default function useChatFlow({
         break;
       case 'contact':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to talk to a real person", isBot: false }]);
-        const contactMessage = venue?.phone || venue?.email 
-          ? `I'd be happy to connect you with our team! You can reach us at ${venue.phone ? `${venue.phone}` : ''}${venue.phone && venue.email ? ' or ' : ''}${venue.email ? venue.email : ''}.`
-          : "I'd be happy to connect you with our team! Please use the contact information on our website.";
-        addBotMessage(contactMessage);
+        offerHandoff('general inquiry', '(she just wanted to talk to a human)');
         break;
     }
   };
@@ -390,14 +413,27 @@ export default function useChatFlow({
     setLeadEmail(data.email);
     setLeadPhone(data.phone);
 
-    const deliveryMessage = data.deliveryPreference === 'text' 
-      ? `sent to your phone` 
+    if (data.guestCount) {
+      leadGuestCountRef.current = parseInt(data.guestCount) || null;
+    }
+    flowsCompletedRef.current = Array.from(new Set([...(flowsCompletedRef.current || []), 'budget_calculator']));
+    flowResultsRef.current = {
+      ...flowResultsRef.current,
+      budget_calculator: { total: data.totalBudget }
+    };
+    if (data.totalBudget) {
+      const k = Math.round(data.totalBudget / 1000);
+      leadBudgetRangeRef.current = `$${k}k`;
+    }
+
+    const deliveryMessage = data.deliveryPreference === 'text'
+      ? `sent to your phone`
       : `sent to your email`;
 
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      text: `Budget estimate submitted - ${data.guestCount} guests, $${data.totalBudget.toLocaleString()}`, 
-      isBot: false 
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `Budget estimate submitted - ${data.guestCount} guests, $${data.totalBudget.toLocaleString()}`,
+      isBot: false
     }]);
 
     setTimeout(() => {
@@ -410,10 +446,16 @@ export default function useChatFlow({
 
   const handleAvailabilityTour = (date) => {
     setActiveFlow(null);
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      text: `${date} is available!`, 
-      isBot: false 
+    leadWeddingDateRef.current = date;
+    flowsCompletedRef.current = Array.from(new Set([...(flowsCompletedRef.current || []), 'date_check']));
+    flowResultsRef.current = {
+      ...flowResultsRef.current,
+      date_check: { date, available: true }
+    };
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `${date} is available!`,
+      isBot: false
     }]);
     addBotMessage(`Great news! ${date} is available. Let's get your tour scheduled so you can see the venue in person.`);
     setTimeout(() => {
@@ -425,11 +467,19 @@ export default function useChatFlow({
   const handleTourComplete = async (data) => {
     setActiveFlow(null);
 
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      text: `Tour scheduled for ${data.tourDate} at ${data.tourTime}`, 
-      isBot: false 
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `Tour scheduled for ${data.tourDate} at ${data.tourTime}`,
+      isBot: false
     }]);
+
+    if (data.weddingDate) leadWeddingDateRef.current = data.weddingDate;
+    if (data.guestCount) leadGuestCountRef.current = parseInt(data.guestCount) || null;
+    flowsCompletedRef.current = Array.from(new Set([...(flowsCompletedRef.current || []), 'tour_scheduler']));
+    flowResultsRef.current = {
+      ...flowResultsRef.current,
+      tour_scheduler: { tour_date: data.tourDate, tour_time: data.tourTime }
+    };
 
     const venues = await base44.entities.Venue.list();
     const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
@@ -478,10 +528,10 @@ export default function useChatFlow({
 
   const handlePackageTour = (packageName) => {
     setActiveFlow(null);
-    setMessages(prev => [...prev, { 
-      id: Date.now(), 
-      text: `Interested in the ${packageName} package`, 
-      isBot: false 
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      text: `Interested in the ${packageName} package`,
+      isBot: false
     }]);
     addBotMessage(`Excellent choice! The ${packageName} package is one of our favorites. Let's schedule a tour so you can see everything in person.`);
     setTimeout(() => setActiveFlow('tour'), 1500);
@@ -492,8 +542,6 @@ export default function useChatFlow({
     setPreSelectedDate('');
     addBotMessage("No problem! Is there anything else I can help you with?");
   };
-
-
 
   const handleMeetPlanner = () => {
     const plannerName = firstLookConfig?.host_name || 'the planner';
@@ -530,6 +578,7 @@ export default function useChatFlow({
     leadEmail,
     leadPhone,
     messagesEndRef,
+    chatSessionId,
     handleUserMessage,
     handleQuickAction,
     handleBudgetComplete,
@@ -543,5 +592,6 @@ export default function useChatFlow({
     handleMiniTourFromVideo,
     setShowTourPrompt,
     setActiveFlow,
+    requestPlannerHandoff,
   };
 }

@@ -1,0 +1,72 @@
+{
+  "name": "HandoffRequest",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to the Venue"
+    },
+    "chat_session_id": {
+      "type": "string",
+      "description": "Reference to the ChatSession"
+    },
+    "lead_name": {
+      "type": "string",
+      "description": "Lead's full name"
+    },
+    "lead_phone": {
+      "type": "string",
+      "description": "Lead's phone number"
+    },
+    "lead_email": {
+      "type": "string",
+      "description": "Lead's email when captured"
+    },
+    "topic_summary": {
+      "type": "string",
+      "description": "Short topic label like 'fireworks policy'"
+    },
+    "original_question": {
+      "type": "string",
+      "description": "The bride's exact question that triggered the handoff"
+    },
+    "ghl_lead_contact_id": {
+      "type": "string",
+      "description": "HighLevel contact id after upsert"
+    },
+    "ghl_intro_message_id": {
+      "type": "string",
+      "description": "HighLevel intro iMessage id after send"
+    },
+    "ghl_note_id": {
+      "type": "string",
+      "description": "HighLevel note id after attaching"
+    },
+    "transcript_url": {
+      "type": "string",
+      "description": "Public viewer URL for the transcript"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "intro_sent",
+        "intro_failed",
+        "completed"
+      ],
+      "default": "pending"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Captured error if intro failed"
+    }
+  },
+  "required": [
+    "venue_id",
+    "chat_session_id",
+    "lead_name",
+    "lead_phone",
+    "topic_summary",
+    "original_question"
+  ]
+}

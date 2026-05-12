@@ -1,0 +1,92 @@
+{
+  "name": "ChatSession",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to the Venue"
+    },
+    "lead_name": {
+      "type": "string",
+      "description": "Lead's full name when captured"
+    },
+    "lead_phone": {
+      "type": "string",
+      "description": "Lead's phone number when captured"
+    },
+    "lead_email": {
+      "type": "string",
+      "description": "Lead's email when captured"
+    },
+    "lead_wedding_date": {
+      "type": "string",
+      "description": "Wedding date in YYYY-MM-DD format when shared"
+    },
+    "lead_guest_count": {
+      "type": "number",
+      "description": "Guest count when shared"
+    },
+    "lead_budget_range": {
+      "type": "string",
+      "description": "Budget label like '$30-35k'"
+    },
+    "messages": {
+      "type": "array",
+      "default": [],
+      "description": "Conversation transcript",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "bot",
+              "user"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "flows_completed": {
+      "type": "array",
+      "default": [],
+      "description": "Flow names completed in this session",
+      "items": {
+        "type": "string"
+      }
+    },
+    "flow_results": {
+      "type": "object",
+      "default": {},
+      "description": "Structured results from completed flows"
+    },
+    "handoff_triggered": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether a planner handoff has been triggered for this session"
+    },
+    "handoff_topic": {
+      "type": "string",
+      "description": "Short topic label that triggered the handoff"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "handed_off",
+        "abandoned",
+        "completed"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "venue_id"
+  ]
+}

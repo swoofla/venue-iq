@@ -142,6 +142,24 @@ export default function VenueSettings() {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 className="font-semibold text-blue-900 mb-3">Head planner</h3>
+              <Input
+                placeholder="e.g., Saydee"
+                defaultValue={venue.head_planner_name || ''}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v !== (venue.head_planner_name || '')) {
+                    updateVenueMutation.mutate({ head_planner_name: v });
+                  }
+                }}
+                className="bg-white"
+              />
+              <p className="text-sm text-blue-800 mt-2">
+                Head planner name. This is who the virtual planner introduces brides to when they want to talk to a human. The planner receives new conversations in your normal HighLevel inbox — make sure you have new-conversation notifications turned on in GHL.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <h3 className="font-semibold text-blue-900 mb-3">Venue Timezone</h3>
               <select
                 value={venue.timezone || 'America/New_York'}

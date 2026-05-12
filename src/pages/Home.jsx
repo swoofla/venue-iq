@@ -86,7 +86,7 @@ export default function Home() {
   });
 
   const handleTalkToPlanner = () => {
-    console.log('Talk to a planner clicked — handoff flow to be wired in next iteration');
+    chat.requestPlannerHandoff();
   };
 
   if (loading) {

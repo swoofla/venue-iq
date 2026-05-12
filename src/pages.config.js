@@ -49,6 +49,7 @@
  */
 import AdminBudgetEstimates from './pages/AdminBudgetEstimates';
 import AdminCalendar from './pages/AdminCalendar';
+import ChatTranscript from './pages/ChatTranscript';
 import AdminPhotos from './pages/AdminPhotos';
 import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
@@ -67,6 +68,7 @@ export const PAGES = {
     "AdminBudgetEstimates": AdminBudgetEstimates,
     "AdminCalendar": AdminCalendar,
     "AdminPhotos": AdminPhotos,
+    "ChatTranscript": ChatTranscript,
     "AdminVisualizerSettings": AdminVisualizerSettings,
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
