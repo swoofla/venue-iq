@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
 export default function ChatMessage({ message, isBot }) {
   return (
@@ -10,18 +11,26 @@ export default function ChatMessage({ message, isBot }) {
       className={`flex ${isBot ? 'justify-start' : 'justify-end'} mb-4`}
     >
       {isBot && (
-        <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center mr-3 flex-shrink-0">
-          <span className="text-stone-700 font-semibold text-sm">E</span>
+        <div
+          className="rounded-full bg-stone-100 flex items-center justify-center mr-2 flex-shrink-0"
+          style={{ width: '26px', height: '26px' }}
+        >
+          <Sparkles style={{ width: '13px', height: '13px' }} className="text-stone-600" />
         </div>
       )}
       <div
-        className={`max-w-[75%] px-5 py-3 ${
-          isBot
-            ? 'bg-white text-stone-800 shadow-sm border border-stone-100'
-            : 'bg-black text-white'
-        } rounded-2xl`}
+        className={`max-w-[75%] ${
+          isBot ? 'bg-stone-50 text-stone-900 border border-stone-200' : 'bg-black text-white'
+        }`}
+        style={{
+          padding: '9px 13px',
+          fontSize: '13px',
+          lineHeight: 1.45,
+          borderRadius: isBot ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
+          borderWidth: isBot ? '0.5px' : 0,
+        }}
       >
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message}</p>
+        <p className="whitespace-pre-wrap" style={{ margin: 0 }}>{message}</p>
       </div>
     </motion.div>
   );

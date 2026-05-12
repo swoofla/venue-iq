@@ -1,13 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 
-const getWelcomeMessage = (venueName) => `Welcome! I'm Sugar Lake's virtual planner, here to help you plan your dream wedding here. Together we can:
-
-💰 Build a custom budget estimate
-📦 Explore wedding packages
-📅 Check if your date is available
-🏠 Schedule an in-person tour`;
-
 export default function useChatFlow({
   venueId,
   venueName,
@@ -17,9 +10,7 @@ export default function useChatFlow({
   venueKnowledge,
   firstLookConfig,
 }) {
-  const [messages, setMessages] = useState([
-    { id: 1, text: getWelcomeMessage(venueName), isBot: true }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [showGreeting, setShowGreeting] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [activeFlow, setActiveFlow] = useState(null);
@@ -35,7 +26,6 @@ export default function useChatFlow({
   const [additionalVideosAdded, setAdditionalVideosAdded] = useState(false);
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
-  const initialPromptShownRef = useRef(false);
   const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
 
@@ -43,37 +33,6 @@ export default function useChatFlow({
   useEffect(() => {
     firstLookConfigRef.current = firstLookConfig;
   }, [firstLookConfig]);
-
-  // Update welcome message when venue name changes
-  useEffect(() => {
-    if (!venueName) return; // Don't reset on empty
-    setMessages([{ id: 1, text: getWelcomeMessage(venueName), isBot: true }]);
-    initialPromptShownRef.current = false;
-  }, [venueName]);
-
-  // Show initial prompt after venue is ready
-  useEffect(() => {
-    if (!venueId || initialPromptShownRef.current) return;
-    initialPromptShownRef.current = true;
-
-    let cancelled = false;
-    const showPrompt = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      if (cancelled) return;
-      setIsTyping(true);
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      if (cancelled) return;
-      setIsTyping(false);
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        text: `Would you like to meet our head planner ${firstLookConfigRef.current?.host_name || 'Saydee'} and get a quick look at the venue first?`,
-        isBot: true,
-        showMeetPlannerButtons: true
-      }]);
-    };
-    showPrompt();
-    return () => { cancelled = true; };
-  }, [venueId]);
 
   // Welcome video flow with smart delay
   useEffect(() => {
@@ -216,8 +175,22 @@ export default function useChatFlow({
 
   const handleUserMessage = async (text) => {
     setShowGreeting(false);
-    setMessages(prev => [...prev, { id: Date.now(), text, isBot: false }]);
-    
+
+    // If this is the first message, inject the bot's opening question before the user message
+    const isFirstMessage = messages.length === 0;
+    setMessages(prev => {
+      const next = [...prev];
+      if (isFirstMessage) {
+        next.push({
+          id: Date.now() - 1,
+          text: `Hey! I'm ${venueName}'s virtual planner. I'd love to help you figure out if we're the right fit. To start, what date are you thinking — or are you still picking?`,
+          isBot: true,
+        });
+      }
+      next.push({ id: Date.now(), text, isBot: false });
+      return next;
+    });
+
     const lowerText = text.toLowerCase();
 
     if (awaitingPlannerContact) {

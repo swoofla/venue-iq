@@ -56,39 +56,27 @@ export default function AdminBudgetEstimates() {
     setRetryingId(estimateId);
     try {
       const estimate = estimates.find(e => e.id === estimateId);
-      
-      // Attempt HighLevel sync
-      const highlevelApiKey = Deno.env?.get?.('HIGHLEVEL_API_KEY');
-      if (highlevelApiKey) {
-        const contactResponse = await fetch('https://rest.gohighlevel.com/v2/contacts/upsert', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${highlevelApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            locationId: Deno.env?.get?.('HIGHLEVEL_LOCATION_ID'),
-            email: estimate.email || undefined,
-            phone: estimate.phone || undefined,
-            firstName: estimate.name.split(' ')[0],
-            lastName: estimate.name.split(' ').slice(1).join(' '),
-            customFields: {
-              budgetEstimate: estimate.total_budget.toString(),
-              budgetPackage: estimate.guest_tier,
-              budgetSource: 'budget_calculator'
-            }
-          })
-        });
 
-        if (contactResponse.ok) {
-          const contactData = await contactResponse.json();
-          await base44.entities.SavedBudgetEstimate.update(estimateId, {
-            highlevel_sync_status: 'synced',
-            highlevel_contact_id: contactData.contact?.id
-          });
-        } else {
-          throw new Error('HighLevel sync failed');
+      // Attempt HighLevel sync via backend function
+      const response = await base44.functions.invoke('createHighLevelContact', {
+        email: estimate.email || undefined,
+        phone: estimate.phone || undefined,
+        name: estimate.name,
+        guest_count: estimate.guest_count,
+        source: 'budget_calculator',
+        custom_fields: {
+          budgetEstimate: estimate.total_budget.toString(),
+          budgetPackage: estimate.guest_tier,
         }
+      });
+
+      if (response?.data?.contact?.id || response?.data?.id) {
+        await base44.entities.SavedBudgetEstimate.update(estimateId, {
+          highlevel_sync_status: 'synced',
+          highlevel_contact_id: response.data.contact?.id || response.data.id
+        });
+      } else {
+        throw new Error('HighLevel sync failed');
       }
 
       refetch();

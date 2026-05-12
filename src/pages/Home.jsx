@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { MessageCircle } from 'lucide-react';
 
 import { createPageUrl } from '../utils';
 import useChatFlow from '../components/hooks/useChatFlow';
@@ -9,8 +8,8 @@ import useChatFlow from '../components/hooks/useChatFlow';
 import ChatMessage from '@/components/chat/ChatMessage';
 import ChatVideoMessage from '@/components/chat/ChatVideoMessage';
 import TypingIndicator from '@/components/chat/TypingIndicator';
-import QuickActions from '@/components/chat/QuickActions';
 import ChatInput from '@/components/chat/ChatInput';
+import ChatEmptyState from '@/components/chat/ChatEmptyState';
 import EnhancedBudgetCalculator from '@/components/flows/EnhancedBudgetCalculator';
 import AvailabilityChecker from '@/components/flows/AvailabilityChecker';
 import TourScheduler from '@/components/flows/TourScheduler';
@@ -86,190 +85,190 @@ export default function Home() {
     firstLookConfig,
   });
 
+  const handleTalkToPlanner = () => {
+    console.log('Talk to a planner clicked — handoff flow to be wired in next iteration');
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  const showEmptyState = chat.messages.length === 0 && !chat.activeFlow && !chat.isTyping;
+
   return (
     <div className="h-[100dvh] bg-stone-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-black text-white px-6 py-4 flex-shrink-0">
+      <header className="bg-black text-white px-6 py-3 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-light tracking-wide">{venueName}</h1>
-            <p className="text-xs tracking-[0.3em] text-stone-400 mt-0.5">VIRTUAL PLANNER</p>
+            <h1 style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
+            <p
+              style={{
+                fontSize: '10px',
+                letterSpacing: '0.2em',
+                color: 'rgba(255,255,255,0.55)',
+                marginTop: '2px',
+              }}
+            >
+              PLAN YOUR WEDDING
+            </p>
           </div>
-          <a
-            href={`sms:${venue?.phone || '+12166161598'}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white text-xs font-medium tracking-wide border border-white/20"
+          <button
+            onClick={() => chat.setActiveFlow('tour')}
+            className="bg-white text-black rounded-full hover:bg-stone-100 transition-colors"
+            style={{
+              padding: '7px 14px',
+              fontSize: '12px',
+              fontWeight: 500,
+            }}
           >
-            <MessageCircle className="w-3.5 h-3.5" />
-            Text Us
-          </a>
+            Book a tour
+          </button>
         </div>
       </header>
 
-      {/* ─── FIX #2: Added min-h-0 to main + messages div, and WebkitOverflowScrolling ─── */}
       <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm min-h-0">
         {/* Messages - scrollable area */}
-        <div 
-          className="flex-1 overflow-y-auto p-6 pb-4 min-h-0"
+        <div
+          className="flex-1 overflow-y-auto p-6 pb-4 min-h-0 flex flex-col"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {chat.messages.map((message) => (
-            <React.Fragment key={message.id}>
-              {message.isVideo ? (
-                <ChatVideoMessage
-                  videoId={message.videoId}
-                  label={message.videoLabel}
-                  aspectRatio={message.aspectRatio}
-                />
-              ) : (
-                <ChatMessage
-                  message={message.text}
-                  isBot={message.isBot}
-                />
-              )}
-              {/* Show "Meet Your Planner" buttons */}
-              {message.showMeetPlannerButtons && (
-                <div className="flex gap-2 mb-4 ml-10">
+          {showEmptyState ? (
+            <ChatEmptyState venueName={venueName} />
+          ) : (
+            <>
+              {chat.messages.map((message) => (
+                <React.Fragment key={message.id}>
+                  {message.isVideo ? (
+                    <ChatVideoMessage
+                      videoId={message.videoId}
+                      label={message.videoLabel}
+                      aspectRatio={message.aspectRatio}
+                    />
+                  ) : (
+                    <ChatMessage
+                      message={message.text}
+                      isBot={message.isBot}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+
+              {chat.isTyping && <TypingIndicator />}
+
+              {/* Tour Prompt Quick Replies */}
+              {chat.showTourPrompt && (
+                <div className="flex gap-2 mb-4">
                   <button
-                    onClick={chat.handleMeetPlanner}
-                    className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
+                    onClick={() => {
+                      chat.setShowTourPrompt(false);
+                      chat.handleUserMessage("Schedule a tour");
+                    }}
+                    className="flex-1 px-4 py-3 bg-black text-white rounded-full hover:bg-stone-800 transition-colors text-sm font-medium"
                   >
-                    Meet {firstLookConfig?.host_name || 'our planner'}
+                    Schedule a tour
                   </button>
                   <button
-                    onClick={chat.handleSkipVideos}
-                    className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
+                    onClick={() => {
+                      chat.setShowTourPrompt(false);
+                      chat.handleUserMessage("Maybe later");
+                    }}
+                    className="flex-1 px-4 py-3 bg-stone-100 text-stone-700 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium"
                   >
-                    Use planning tools
-                  </button>
-                </div>
-              )}
-              {/* Show post-video options */}
-              {message.showPostVideoOptions && (
-                <div className="flex gap-2 mb-4 ml-10">
-                  <button
-                    onClick={chat.handleBudgetFromVideo}
-                    className="px-4 py-2.5 bg-black text-white text-sm rounded-full font-medium hover:bg-stone-800 transition-colors"
-                  >
-                    💰 Calculate my budget
-                  </button>
-                  <button
-                    onClick={chat.handleMiniTourFromVideo}
-                    className="px-4 py-2.5 bg-stone-100 text-stone-600 text-sm rounded-full font-medium hover:bg-stone-200 transition-colors"
-                  >
-                    🎥 Watch mini tour
+                    Maybe later
                   </button>
                 </div>
               )}
-            </React.Fragment>
-          ))}
 
-          {chat.isTyping && <TypingIndicator />}
+              {/* Active Flow Components */}
+              {chat.activeFlow === 'budget' && venueId && (
+                <EnhancedBudgetCalculator
+                  venueId={venueId}
+                  onComplete={chat.handleBudgetComplete}
+                  onCancel={chat.closeFlow}
+                />
+              )}
 
-          {/* Tour Prompt Quick Replies */}
-          {chat.showTourPrompt && (
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => {
-                  chat.setShowTourPrompt(false);
-                  chat.handleUserMessage("Schedule a tour");
-                }}
-                className="flex-1 px-4 py-3 bg-black text-white rounded-full hover:bg-stone-800 transition-colors text-sm font-medium"
-              >
-                Schedule a tour
-              </button>
-              <button
-                onClick={() => {
-                  chat.setShowTourPrompt(false);
-                  chat.handleUserMessage("Maybe later");
-                }}
-                className="flex-1 px-4 py-3 bg-stone-100 text-stone-700 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium"
-              >
-                Maybe later
-              </button>
-            </div>
-          )}
+              {chat.activeFlow === 'availability' && (
+                <AvailabilityChecker
+                  bookedDates={bookedDates}
+                  onScheduleTour={chat.handleAvailabilityTour}
+                  onCancel={chat.closeFlow}
+                />
+              )}
 
-          {/* Active Flow Components */}
-          {chat.activeFlow === 'budget' && venueId && (
-            <EnhancedBudgetCalculator
-              venueId={venueId}
-              onComplete={chat.handleBudgetComplete}
-              onCancel={chat.closeFlow}
-            />
-          )}
-          
-          {chat.activeFlow === 'availability' && (
-            <AvailabilityChecker
-              bookedDates={bookedDates}
-              onScheduleTour={chat.handleAvailabilityTour}
-              onCancel={chat.closeFlow}
-            />
-          )}
-          
-          {chat.activeFlow === 'tour' && (
-            <TourScheduler
-              preSelectedDate={chat.preSelectedDate}
-              venue={venue}
-              prefillContact={chat.leadName && chat.leadEmail ? {
-                name: chat.leadName,
-                email: chat.leadEmail,
-                phone: chat.leadPhone
-              } : null}
-              onComplete={chat.handleTourComplete}
-              onCancel={chat.closeFlow}
-            />
-          )}
-          
-          {chat.activeFlow === 'packages' && venueId && (
-            <PackagesView
-              venueId={venueId}
-              onScheduleTour={chat.handlePackageTour}
-              onCancel={chat.closeFlow}
-            />
-          )}
+              {chat.activeFlow === 'tour' && (
+                <TourScheduler
+                  preSelectedDate={chat.preSelectedDate}
+                  venue={venue}
+                  prefillContact={chat.leadName && chat.leadEmail ? {
+                    name: chat.leadName,
+                    email: chat.leadEmail,
+                    phone: chat.leadPhone
+                  } : null}
+                  onComplete={chat.handleTourComplete}
+                  onCancel={chat.closeFlow}
+                />
+              )}
 
-          {chat.activeFlow === 'gallery' && venueId && (
-            <VenueGallery
-              venueId={venueId}
-              onScheduleTour={() => {
-                chat.setActiveFlow('tour');
-              }}
-              onCancel={chat.closeFlow}
-            />
-          )}
+              {chat.activeFlow === 'packages' && venueId && (
+                <PackagesView
+                  venueId={venueId}
+                  onScheduleTour={chat.handlePackageTour}
+                  onCancel={chat.closeFlow}
+                />
+              )}
 
-          {chat.activeFlow === 'visualizer' && venueId && (
-            <VenueVisualizer
-              venueId={venueId}
-              venueName={venueName}
-              onComplete={() => {
-                chat.setActiveFlow('tour');
-              }}
-              onCancel={chat.closeFlow}
-            />
-          )}
+              {chat.activeFlow === 'gallery' && venueId && (
+                <VenueGallery
+                  venueId={venueId}
+                  onScheduleTour={() => {
+                    chat.setActiveFlow('tour');
+                  }}
+                  onCancel={chat.closeFlow}
+                />
+              )}
 
-          <div ref={chat.messagesEndRef} />
+              {chat.activeFlow === 'visualizer' && venueId && (
+                <VenueVisualizer
+                  venueId={venueId}
+                  venueName={venueName}
+                  onComplete={() => {
+                    chat.setActiveFlow('tour');
+                  }}
+                  onCancel={chat.closeFlow}
+                />
+              )}
+
+              <div ref={chat.messagesEndRef} />
+            </>
+          )}
         </div>
-
-        {/* Quick Actions */}
-        {chat.introResponded && (
-          <QuickActions
-            onAction={chat.handleQuickAction}
-            disabled={chat.isTyping || chat.activeFlow !== null}
-          />
-        )}
 
         {/* Chat Input */}
         <ChatInput
           onSend={chat.handleUserMessage}
           disabled={chat.isTyping || chat.activeFlow !== null}
-          placeholder="Ask me your wedding questions.."
+          placeholder={`Message ${venueName}'s planner`}
         />
+
+        {/* Disclaimer + Talk to a planner */}
+        <div className="px-4 pb-3 bg-white">
+          <p
+            className="text-center text-stone-400"
+            style={{ fontSize: '10px', marginTop: '8px' }}
+          >
+            {venueName}'s virtual planner can make mistakes. Confirm details on your tour.
+          </p>
+          <button
+            type="button"
+            onClick={handleTalkToPlanner}
+            className="text-stone-500 hover:underline mt-2"
+            style={{ fontSize: '11px', cursor: 'pointer' }}
+          >
+            Talk to a planner
+          </button>
+        </div>
       </main>
     </div>
   );

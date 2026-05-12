@@ -1,0 +1,48 @@
+{
+  "name": "Venue",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Venue name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Venue description"
+    },
+    "location": {
+      "type": "string",
+      "description": "Venue location/address"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Contact email"
+    },
+    "website": {
+      "type": "string",
+      "description": "Venue website"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Custom domain for quote links and tour scheduling (e.g., sugarlakeweddings.com)"
+    },
+    "timezone": {
+      "type": "string",
+      "default": "America/New_York",
+      "description": "Venue timezone (IANA format)"
+    },
+    "head_planner_name": {
+      "type": "string",
+      "default": "Saydee",
+      "description": "Name of the head planner for this venue"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
