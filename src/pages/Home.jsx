@@ -249,7 +249,7 @@ export default function Home() {
         <ChatInput
           onSend={chat.handleUserMessage}
           disabled={chat.isTyping || chat.activeFlow !== null}
-          placeholder={`Message ${venueName}'s planner`}
+          placeholder="Ask any question here"
         />
 
         {/* Disclaimer + Talk to a planner */}
