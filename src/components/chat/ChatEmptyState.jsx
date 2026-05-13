@@ -19,17 +19,17 @@ export default function ChatEmptyState({ venueName }) {
           marginBottom: '10px',
         }}
       >
-        Hi, I'm {venueName}'s virtual planner
+        Hi, I'm your virtual planner for {venueName}
       </h2>
       <p
         className="text-stone-500 text-center"
         style={{
           fontSize: '14px',
           lineHeight: 1.55,
-          maxWidth: '260px',
+          maxWidth: '320px',
         }}
       >
-        Tell me about your wedding and I'll help you figure out if we're a fit.
+        Ask me anything about the venue or tell me about your dream wedding and I'll help you figure out if we're a fit.
       </p>
     </div>
   );
