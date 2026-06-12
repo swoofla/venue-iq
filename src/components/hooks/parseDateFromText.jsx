@@ -2,36 +2,143 @@ import { parse, isValid, format, addYears, startOfDay } from 'date-fns';
 
 /**
  * Deterministically extract a date from free-form user text.
- * Handles: "October 17th", "Oct 17", "10/17", "October 17 2027", "10/17/27", "10-17-2027", etc.
- * Returns YYYY-MM-DD or null. If no year is provided, resolves to the next FUTURE occurrence.
+ *
+ * SUPPORTED INPUTS → EXPECTED OUTPUT (assuming today = 2026-06-12):
+ *
+ *   Full month, no year:
+ *     "October 17"                 → "2026-10-17"
+ *     "october 17"                 → "2026-10-17"  (case-insensitive)
+ *     "October 17th"               → "2026-10-17"  (ordinal suffix)
+ *     "January 5"                  → "2027-01-05"  (past this year → next year)
+ *
+ *   Full month with year:
+ *     "October 17, 2027"           → "2027-10-17"
+ *     "October 17th, 2027"         → "2027-10-17"
+ *     "October 17 2027"            → "2027-10-17"
+ *
+ *   Abbreviated month (with or without period):
+ *     "Oct 17"                     → "2026-10-17"
+ *     "Oct. 17"                    → "2026-10-17"
+ *     "Oct 17, 2027"               → "2027-10-17"
+ *     "Sep 5"                      → "2026-09-05"
+ *     "Sept 5"                     → "2026-09-05"
+ *     "Sept. 5"                    → "2026-09-05"
+ *
+ *   Day-then-month order:
+ *     "17 October"                 → "2026-10-17"
+ *     "the 17th of October"        → "2026-10-17"
+ *     "17th of October 2027"       → "2027-10-17"
+ *
+ *   Numeric:
+ *     "10/17"                      → "2026-10-17"
+ *     "10-17"                      → "2026-10-17"
+ *     "10/17/27"                   → "2027-10-17"  (2-digit year → 20xx)
+ *     "10/17/2027"                 → "2027-10-17"
+ *     "10-17-2027"                 → "2027-10-17"
+ *
+ *   ISO:
+ *     "2027-10-17"                 → "2027-10-17"
+ *
+ *   Pure timeframes (NO specific date) → null:
+ *     "next fall"                  → null
+ *     "October"                    → null  (month only, no day)
+ *     "sometime in 2027"           → null  (year only)
+ *     "summer 2027"                → null
+ *     ""                           → null
+ *
+ * Rules:
+ *   - No year supplied → resolve to the next FUTURE occurrence (today or later).
+ *   - 2-digit year → prefixed with "20" (e.g. "27" → 2027).
+ *   - Case-insensitive throughout.
  */
 export default function parseDateFromText(text) {
   if (!text || typeof text !== 'string') return null;
 
-  // Normalize: strip ordinal suffixes (1st, 2nd, 3rd, 17th) and collapse whitespace
-  const cleaned = text
-    .replace(/(\d+)(st|nd|rd|th)\b/gi, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
-
+  // Normalize: strip ordinal suffixes (1st, 2nd, 3rd, 17th), keep periods on abbrevs for now
+  const cleaned = text.replace(/(\d+)(st|nd|rd|th)\b/gi, '$1').replace(/\s+/g, ' ').trim();
   const today = startOfDay(new Date());
 
-  // Patterns to try, in priority order. Each pattern includes the date-fns format and whether year is present.
+  const FULL_MONTH = '(January|February|March|April|May|June|July|August|September|October|November|December)';
+  const ABBR_MONTH = '(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)';
+
+  // Each pattern: regex + format + hasYear + normalizer that produces the string fed to date-fns parse.
+  // "Sept" is normalized to "Sep" so date-fns "MMM" can parse it.
   const patterns = [
-    // Full month name with year: "October 17 2027", "October 17, 2027"
-    { regex: /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:,)?\s+(\d{4})\b/i, fmt: 'MMMM d yyyy', hasYear: true, normalize: m => `${m[1]} ${m[2]} ${m[3]}` },
-    // Short month with year: "Oct 17 2027", "Oct 17, 2027"
-    { regex: /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(\d{1,2})(?:,)?\s+(\d{4})\b/i, fmt: 'MMM d yyyy', hasYear: true, normalize: m => `${m[1].replace(/^Sept$/i, 'Sep')} ${m[2]} ${m[3]}` },
-    // Full month name no year: "October 17"
-    { regex: /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\b/i, fmt: 'MMMM d', hasYear: false, normalize: m => `${m[1]} ${m[2]}` },
-    // Short month no year: "Oct 17"
-    { regex: /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(\d{1,2})\b/i, fmt: 'MMM d', hasYear: false, normalize: m => `${m[1].replace(/^Sept$/i, 'Sep')} ${m[2]}` },
-    // Numeric with 4-digit year: "10/17/2027", "10-17-2027"
-    { regex: /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/, fmt: 'M/d/yyyy', hasYear: true, normalize: m => `${m[1]}/${m[2]}/${m[3]}` },
+    // ISO: 2027-10-17
+    {
+      regex: /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/,
+      fmt: 'yyyy-M-d', hasYear: true,
+      normalize: m => `${m[1]}-${m[2]}-${m[3]}`,
+    },
+
+    // Full month + day + 4-digit year: "October 17, 2027" / "October 17 2027"
+    {
+      regex: new RegExp(`\\b${FULL_MONTH}\\s+(\\d{1,2})(?:,)?\\s+(\\d{4})\\b`, 'i'),
+      fmt: 'MMMM d yyyy', hasYear: true,
+      normalize: m => `${cap(m[1])} ${m[2]} ${m[3]}`,
+    },
+    // Day + full month + 4-digit year: "17 October 2027" / "17th of October 2027"
+    {
+      regex: new RegExp(`\\b(\\d{1,2})(?:\\s+of)?\\s+${FULL_MONTH}\\s+(\\d{4})\\b`, 'i'),
+      fmt: 'd MMMM yyyy', hasYear: true,
+      normalize: m => `${m[1]} ${cap(m[2])} ${m[3]}`,
+    },
+    // Abbreviated month + day + 4-digit year: "Oct 17, 2027" / "Oct. 17 2027" / "Sept. 5 2027"
+    {
+      regex: new RegExp(`\\b${ABBR_MONTH}\\.?\\s+(\\d{1,2})(?:,)?\\s+(\\d{4})\\b`, 'i'),
+      fmt: 'MMM d yyyy', hasYear: true,
+      normalize: m => `${normalizeAbbr(m[1])} ${m[2]} ${m[3]}`,
+    },
+    // Day + abbreviated month + 4-digit year: "17 Oct 2027"
+    {
+      regex: new RegExp(`\\b(\\d{1,2})(?:\\s+of)?\\s+${ABBR_MONTH}\\.?\\s+(\\d{4})\\b`, 'i'),
+      fmt: 'd MMM yyyy', hasYear: true,
+      normalize: m => `${m[1]} ${normalizeAbbr(m[2])} ${m[3]}`,
+    },
+
+    // Full month + day, no year: "October 17"
+    {
+      regex: new RegExp(`\\b${FULL_MONTH}\\s+(\\d{1,2})\\b`, 'i'),
+      fmt: 'MMMM d', hasYear: false,
+      normalize: m => `${cap(m[1])} ${m[2]}`,
+    },
+    // Day + full month, no year: "17 October" / "the 17th of October"
+    {
+      regex: new RegExp(`\\b(\\d{1,2})(?:\\s+of)?\\s+${FULL_MONTH}\\b`, 'i'),
+      fmt: 'd MMMM', hasYear: false,
+      normalize: m => `${m[1]} ${cap(m[2])}`,
+    },
+    // Abbreviated month + day, no year: "Oct 17" / "Oct. 17" / "Sept 5"
+    {
+      regex: new RegExp(`\\b${ABBR_MONTH}\\.?\\s+(\\d{1,2})\\b`, 'i'),
+      fmt: 'MMM d', hasYear: false,
+      normalize: m => `${normalizeAbbr(m[1])} ${m[2]}`,
+    },
+    // Day + abbreviated month, no year: "17 Oct"
+    {
+      regex: new RegExp(`\\b(\\d{1,2})(?:\\s+of)?\\s+${ABBR_MONTH}\\.?\\b`, 'i'),
+      fmt: 'd MMM', hasYear: false,
+      normalize: m => `${m[1]} ${normalizeAbbr(m[2])}`,
+    },
+
+    // Numeric with 4-digit year: "10/17/2027" / "10-17-2027"
+    {
+      regex: /\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/,
+      fmt: 'M/d/yyyy', hasYear: true,
+      normalize: m => `${m[1]}/${m[2]}/${m[3]}`,
+    },
     // Numeric with 2-digit year: "10/17/27"
-    { regex: /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2})\b/, fmt: 'M/d/yy', hasYear: true, normalize: m => `${m[1]}/${m[2]}/${m[3]}` },
-    // Numeric no year: "10/17", "10-17"
-    { regex: /\b(\d{1,2})[/-](\d{1,2})\b/, fmt: 'M/d', hasYear: false, normalize: m => `${m[1]}/${m[2]}` },
+    {
+      regex: /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2})\b/,
+      fmt: 'M/d/yyyy', hasYear: true,
+      normalize: m => `${m[1]}/${m[2]}/20${m[3]}`,
+    },
+    // Numeric, no year: "10/17" / "10-17"
+    {
+      regex: /\b(\d{1,2})[/-](\d{1,2})\b/,
+      fmt: 'M/d', hasYear: false,
+      normalize: m => `${m[1]}/${m[2]}`,
+    },
   ];
 
   for (const { regex, fmt, hasYear, normalize } of patterns) {
@@ -42,13 +149,25 @@ export default function parseDateFromText(text) {
     let parsed = parse(candidate, fmt, today);
     if (!isValid(parsed)) continue;
 
-    // If no year was supplied, default to current year; bump to next year if already past
-    if (!hasYear) {
-      if (parsed < today) parsed = addYears(parsed, 1);
-    }
+    // Sanity: numeric M/d patterns can also match things like phone fragments; ensure month/day are real.
+    const m = parsed.getMonth() + 1;
+    const d = parsed.getDate();
+    if (m < 1 || m > 12 || d < 1 || d > 31) continue;
+
+    if (!hasYear && parsed < today) parsed = addYears(parsed, 1);
 
     return format(parsed, 'yyyy-MM-dd');
   }
 
   return null;
+}
+
+function cap(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+function normalizeAbbr(s) {
+  const lower = s.toLowerCase();
+  if (lower === 'sept') return 'Sep';
+  return cap(lower);
 }
