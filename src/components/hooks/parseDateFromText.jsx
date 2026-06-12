@@ -51,12 +51,39 @@ import { parse, isValid, format, addYears, startOfDay } from 'date-fns';
  *   - 2-digit year → prefixed with "20" (e.g. "27" → 2027).
  *   - Case-insensitive throughout.
  */
-export default function parseDateFromText(text) {
+export default function parseDateFromText(text, context) {
   if (!text || typeof text !== 'string') return null;
 
   // Normalize: strip ordinal suffixes (1st, 2nd, 3rd, 17th), keep periods on abbrevs for now
   const cleaned = text.replace(/(\d+)(st|nd|rd|th)\b/gi, '$1').replace(/\s+/g, ' ').trim();
   const today = startOfDay(new Date());
+
+  // ── Context-aware bare-day resolution ──────────────────────────────
+  // If the user says "the 28th" / "what about the 17th" / "the 5" and we have
+  // an active date context (most recent month/year discussed), resolve against it.
+  // We only do this when the message contains NO month name and NO slash/dash date,
+  // so we don't hijack a real month+day phrase.
+  if (context && Number.isInteger(context.month) && Number.isInteger(context.year)) {
+    const hasMonth = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\b/i.test(cleaned);
+    const hasNumericDate = /\b\d{1,2}[/-]\d{1,2}\b/.test(cleaned) || /\b\d{4}-\d{1,2}-\d{1,2}\b/.test(cleaned);
+    if (!hasMonth && !hasNumericDate) {
+      // "the 28", "the 28th" (suffix already stripped), or a bare " 28 " in a short phrase
+      const bare = cleaned.match(/\bthe\s+(\d{1,2})\b/i) || cleaned.match(/^(\d{1,2})$/);
+      if (bare) {
+        const day = parseInt(bare[1], 10);
+        if (day >= 1 && day <= 31) {
+          const parsed = new Date(context.year, context.month - 1, day);
+          if (
+            isValid(parsed) &&
+            parsed.getMonth() === context.month - 1 &&
+            parsed.getDate() === day
+          ) {
+            return format(parsed, 'yyyy-MM-dd');
+          }
+        }
+      }
+    }
+  }
 
   const FULL_MONTH = '(January|February|March|April|May|June|July|August|September|October|November|December)';
   const ABBR_MONTH = '(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)';
@@ -154,7 +181,16 @@ export default function parseDateFromText(text) {
     const d = parsed.getDate();
     if (m < 1 || m > 12 || d < 1 || d > 31) continue;
 
-    if (!hasYear && parsed < today) parsed = addYears(parsed, 1);
+    if (!hasYear) {
+      // Prefer the active context year when it produces a today-or-later date.
+      if (context && Number.isInteger(context.year)) {
+        const candidate = new Date(context.year, parsed.getMonth(), parsed.getDate());
+        if (isValid(candidate) && candidate >= today) {
+          return format(candidate, 'yyyy-MM-dd');
+        }
+      }
+      if (parsed < today) parsed = addYears(parsed, 1);
+    }
 
     return format(parsed, 'yyyy-MM-dd');
   }

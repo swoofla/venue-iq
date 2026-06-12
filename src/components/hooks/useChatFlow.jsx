@@ -73,6 +73,14 @@ export default function useChatFlow({
   const leadBudgetRangeRef = useRef(null);
   const debounceTimerRef = useRef(null);
 
+  // Conversational date context: most recent month/year discussed in a date_inquiry.
+  // Used to resolve bare-day references ("the 28th") and prefer the right year for
+  // month+day references ("May 28" while already discussing May 2027).
+  const activeDateContextRef = useRef(null); // { month: 1-12, year: yyyy } | null
+  // Track which dates we've already checked this session so we don't re-prepend the
+  // full "Good news —" verdict for a date that's already been discussed.
+  const checkedDatesRef = useRef(new Set());
+
   const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
 
@@ -346,8 +354,11 @@ ${handoffPendingBlock}`,
       // Deterministic date parsing takes priority over the classifier's wedding_date(s).
       // Multi-date parser runs first; if it returns >1 dates we use them as a list.
       // Otherwise fall back to single-date parser, then classifier.
-      const deterministicDates = parseDatesFromText(text);
-      const deterministicDate = parseDateFromText(text);
+      // Both parsers receive the active date context so bare-day references
+      // ("the 28th") and bare month+day ("May 28") resolve against the ongoing thread.
+      const dateContext = activeDateContextRef.current;
+      const deterministicDates = parseDatesFromText(text, dateContext);
+      const deterministicDate = parseDateFromText(text, dateContext);
       const classifierDates = Array.isArray(classifier?.wedding_dates)
         ? classifier.wedding_dates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
         : [];
@@ -391,22 +402,44 @@ ${handoffPendingBlock}`,
       // ── Multi-date branch: always compact, no generator call ─────
       if (intent === 'date_inquiry' && weddingDates.length > 1) {
         try {
+          const nowParts = (() => {
+            const n = new Date();
+            return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+          })();
+          const isPastIso = (iso) => {
+            const p = partsFromIso(iso);
+            if (p.y !== nowParts.y) return p.y < nowParts.y;
+            if (p.m !== nowParts.m) return p.m < nowParts.m;
+            return p.d < nowParts.d;
+          };
+
           const results = await Promise.all(
-            weddingDates.map(d =>
-              base44.functions.invoke('checkDateAvailability', {
+            weddingDates.map(d => {
+              if (isPastIso(d)) {
+                return Promise.resolve({ date: d, isPast: true });
+              }
+              return base44.functions.invoke('checkDateAvailability', {
                 venueId,
                 date: d,
                 alternativesCount: 0,
               }).then(r => ({ date: d, isAvailable: r?.data?.isAvailable !== false }))
-                .catch(() => ({ date: d, isAvailable: null }))
-            )
+                .catch(() => ({ date: d, isAvailable: null }));
+            })
           );
           const lines = results.map(r => {
             const label = formatShortDate(r.date);
+            if (r.isPast) return `${label}: already passed`;
             if (r.isAvailable === null) return `${label}: let me double-check`;
             return `${label}: ${r.isAvailable ? 'open' : 'already booked'}`;
           });
           const multiReply = `Here's what I found — ${lines.join(' · ')}. Want me to check any others?`;
+          // Record checked dates and update active date context to the latest checked.
+          results.forEach(r => { if (!r.isPast) checkedDatesRef.current.add(r.date); });
+          const last = weddingDates[weddingDates.length - 1];
+          if (last) {
+            const lp = partsFromIso(last);
+            activeDateContextRef.current = { month: lp.m, year: lp.y };
+          }
           setIsTyping(false);
           setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
           return;
@@ -417,44 +450,116 @@ ${handoffPendingBlock}`,
       }
 
       if (intent === 'date_inquiry' && weddingDate) {
+        // Update active date context for the NEXT message in the thread.
+        {
+          const parts = partsFromIso(weddingDate);
+          activeDateContextRef.current = { month: parts.m, year: parts.y };
+        }
+
+        // ── Past-date guard ─────────────────────────────────────────
+        // Never run availability or declare "open" for a date that's already past.
+        // Compose a heads-up in code; if a same-day-of-week future date is obvious,
+        // check THAT one instead and note the year.
+        const todayParts = (() => {
+          const n = new Date();
+          return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+        })();
+        const isPast = (() => {
+          const p = partsFromIso(weddingDate);
+          if (p.y !== todayParts.y) return p.y < todayParts.y;
+          if (p.m !== todayParts.m) return p.m < todayParts.m;
+          return p.d < todayParts.d;
+        })();
+
+        let effectiveDate = weddingDate;
+        let pastHeadsUp = '';
+        if (isPast) {
+          const formattedPast = formatFullDate(weddingDate);
+          // Next future occurrence of the same month/day, same day-of-week preferred.
+          const p = partsFromIso(weddingDate);
+          let candidateYear = todayParts.y;
+          // Walk forward year-by-year until the date is today or later AND day-of-week matches original.
+          // Cap at +10 years to avoid runaway loops.
+          const originalDow = p.jsDate.getDay();
+          let chosen = null;
+          for (let i = 0; i < 10 && !chosen; i++) {
+            const test = new Date(candidateYear + i, p.m - 1, p.d);
+            const testFloor = new Date(test.getFullYear(), test.getMonth(), test.getDate());
+            const todayFloor = new Date(todayParts.y, todayParts.m - 1, todayParts.d);
+            if (testFloor >= todayFloor && test.getDay() === originalDow) {
+              chosen = test;
+            }
+          }
+          if (!chosen) {
+            // Fallback: just next year regardless of weekday match.
+            chosen = new Date(p.y + 1, p.m - 1, p.d);
+          }
+          const y = chosen.getFullYear();
+          const m = String(chosen.getMonth() + 1).padStart(2, '0');
+          const d = String(chosen.getDate()).padStart(2, '0');
+          effectiveDate = `${y}-${m}-${d}`;
+          const formattedFuture = formatFullDate(effectiveDate);
+          pastHeadsUp = `Just a heads up — ${formattedPast} has already passed! Did you mean ${formattedFuture}? `;
+          // Refresh active context to the future date we're actually checking.
+          activeDateContextRef.current = { month: chosen.getMonth() + 1, year: y };
+        }
+
+        // ── Repeat-date handling ────────────────────────────────────
+        const alreadyChecked = checkedDatesRef.current.has(effectiveDate);
+
         try {
-          // Use the public backend function so the anonymous chatbot can read
-          // BookedWeddingDate / BlockedDate without tripping RLS.
           const availRes = await base44.functions.invoke('checkDateAvailability', {
             venueId,
-            date: weddingDate,
+            date: effectiveDate,
             alternativesCount: 3,
           });
           const availData = availRes?.data || {};
           if (availData.error) throw new Error(availData.error);
           const isTaken = availData.isAvailable === false;
-          const formattedRequested = formatFullDate(weddingDate);
+          const formattedRequested = formatFullDate(effectiveDate);
+
           if (isTaken) {
             const nearest = Array.isArray(availData.alternatives) ? availData.alternatives : [];
             const formattedNearest = nearest.map(formatShortDate);
-            availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is BOOKED. Nearest available: [${nearest.join(', ')}]`;
-            verdictSentence = nearest.length > 0
-              ? `I'm so sorry — ${formattedRequested} is already booked. The closest open dates are ${formatList(formattedNearest)}.`
-              : `I'm so sorry — ${formattedRequested} is already booked.`;
+            availabilityContext = `AVAILABILITY CHECK RESULT: ${effectiveDate} is BOOKED. Nearest available: [${nearest.join(', ')}]`;
+            if (alreadyChecked) {
+              verdictSentence = `Right — ${formattedRequested}, and it's already booked.`;
+            } else {
+              verdictSentence = nearest.length > 0
+                ? `${pastHeadsUp}I'm so sorry — ${formattedRequested} is already booked. The closest open dates are ${formatList(formattedNearest)}.`
+                : `${pastHeadsUp}I'm so sorry — ${formattedRequested} is already booked.`;
+            }
             if (isRapidDateCheck) {
-              compactReply = nearest.length > 0
-                ? `Unfortunately, ${formattedRequested} is already booked — but ${formatList(formattedNearest)} are open. Any others you'd like to check?`
-                : `Unfortunately, ${formattedRequested} is already booked. Any others you'd like to check?`;
+              compactReply = alreadyChecked
+                ? `Right — ${formattedRequested}, still booked.`
+                : (nearest.length > 0
+                    ? `${pastHeadsUp}Unfortunately, ${formattedRequested} is already booked — but ${formatList(formattedNearest)} are open. Any others you'd like to check?`
+                    : `${pastHeadsUp}Unfortunately, ${formattedRequested} is already booked. Any others you'd like to check?`);
             }
           } else {
-            availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is AVAILABLE`;
-            verdictSentence = `Good news — ${formattedRequested} is open!`;
+            availabilityContext = `AVAILABILITY CHECK RESULT: ${effectiveDate} is AVAILABLE`;
+            if (alreadyChecked) {
+              verdictSentence = `Right — ${formattedRequested}, and it's open.`;
+            } else {
+              verdictSentence = `${pastHeadsUp}Good news — ${formattedRequested} is open!`;
+            }
             if (isRapidDateCheck) {
-              compactReply = `Yes — ${formattedRequested} is open! Any other dates you'd like to check?`;
+              compactReply = alreadyChecked
+                ? `Right — ${formattedRequested}, still open.`
+                : `${pastHeadsUp}Yes — ${formattedRequested} is open! Any other dates you'd like to check?`;
             }
           }
-          const monthNum = parseInt(weddingDate.slice(5, 7), 10);
+
+          // Mark this date as checked AFTER we've used the alreadyChecked flag.
+          checkedDatesRef.current.add(effectiveDate);
+
+          const monthNum = parseInt(effectiveDate.slice(5, 7), 10);
           const monthName = MONTH_NAMES[monthNum - 1];
           monthContext = `Date month: ${monthName} (apply any seasonal knowledge — e.g. Jan–Mar policy, off-season guest caps).`;
         } catch (err) {
           console.error('Availability check failed:', err?.message || err);
           availabilityContext = `AVAILABILITY CHECK FAILED: do not state whether the date is open or booked. Warmly say you want to double-check that date and offer to have the planner confirm it.`;
-          verdictSentence = `I want to double-check that date for you — let me have ${plannerNameEarly} confirm it!`;
+          verdictSentence = `${pastHeadsUp}I want to double-check that date for you — let me have ${plannerNameEarly} confirm it!`;
           if (isRapidDateCheck) compactReply = verdictSentence;
         }
       }
@@ -492,6 +597,11 @@ After answering, open ONE door. Ways to do this: connect the fact to something s
 Forward motion stays light: one door per reply, never two. Never hard-sell, never push a tour unless she signals interest. If she ignored your last opening, answer cleanly and don't reuse that kind of opening next time.
 Match her energy on length — short functional questions get efficient answers — but efficiency never means dead-ends: even a short answer can carry a six-word door.
 Warm Sugar Lake personality: at most one emoji per message ( 😊 💕 🎉 ), after warmth or good news, never inside prices or availability facts. If she says she booked elsewhere: congratulate genuinely, thank her, wish her well — no counter-selling. This is the one case where a warm goodbye is right.
+Answer first. No preamble like 'Great question!' or 'That's a wonderful thought!'
+When the bride corrects you or points out an inconsistency: acknowledge in a few plain words ('You're right —'), give the corrected answer, and move on. No effusive praise for catching it, no over-apologizing.
+Answer the question that was asked with the facts provided. Do NOT invent hypothetical complications (e.g., speculating she might have more guests than a package allows) unless she has stated something that creates the issue.
+If asked the price of a date that's already booked: give the normal price for that day and season anyway (it's useful for comparison), with a gentle note that the date itself is taken.
+Offer the ${plannerName} handoff at most once per topic. If a handoff offer was made in the last two bot messages, do not offer again — just answer as well as you can.
 
 STRICT GUARDRAILS:
 - Answer ONLY from the provided venue knowledge, package data, and availability results below.

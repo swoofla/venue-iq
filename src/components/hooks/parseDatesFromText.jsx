@@ -14,7 +14,7 @@ import parseDateFromText from './parseDateFromText';
  * year resolves to its next future occurrence. Duplicates are removed, order preserved.
  * Returns [] when nothing is found.
  */
-export default function parseDatesFromText(text) {
+export default function parseDatesFromText(text, context) {
   if (!text || typeof text !== 'string') return [];
 
   const cleaned = text.replace(/(\d+)(st|nd|rd|th)\b/gi, '$1').replace(/\s+/g, ' ').trim();
@@ -46,7 +46,7 @@ export default function parseDatesFromText(text) {
     const monthName = normalizeMonth(monthRaw);
     const days = [firstDay, ...tail.split(/[\/,&]|or|and/i).map(s => s.trim()).filter(Boolean)];
     for (const day of days) {
-      const iso = resolveMonthDay(monthName, day, today);
+      const iso = resolveMonthDay(monthName, day, today, context);
       if (iso) push(iso);
     }
   }
@@ -55,13 +55,13 @@ export default function parseDatesFromText(text) {
   // Catches "9/10 or 9/17", "Oct 17 or Nov 1", "May 30 and June 3", etc.
   const chunks = cleaned.split(/\s*(?:,|;| or | and | & )\s*/i).filter(Boolean);
   for (const chunk of chunks) {
-    const iso = parseDateFromText(chunk);
+    const iso = parseDateFromText(chunk, context);
     if (iso) push(iso);
   }
 
   // ── Fallback: if nothing matched, try the single parser on the whole string ──
   if (found.length === 0) {
-    const iso = parseDateFromText(cleaned);
+    const iso = parseDateFromText(cleaned, context);
     if (iso) push(iso);
   }
 
@@ -74,7 +74,7 @@ function normalizeMonth(raw) {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-function resolveMonthDay(monthName, day, today) {
+function resolveMonthDay(monthName, day, today, context) {
   // Try full month first, then abbreviated.
   const candidates = [
     { str: `${monthName} ${day}`, fmt: 'MMMM d' },
@@ -86,6 +86,13 @@ function resolveMonthDay(monthName, day, today) {
     const mm = parsed.getMonth() + 1;
     const dd = parsed.getDate();
     if (mm < 1 || mm > 12 || dd < 1 || dd > 31) continue;
+    // Prefer the active context year when it yields a today-or-later date.
+    if (context && Number.isInteger(context.year)) {
+      const ctxCandidate = new Date(context.year, parsed.getMonth(), parsed.getDate());
+      if (isValid(ctxCandidate) && ctxCandidate >= today) {
+        return format(ctxCandidate, 'yyyy-MM-dd');
+      }
+    }
     if (parsed < today) parsed = addYears(parsed, 1);
     return format(parsed, 'yyyy-MM-dd');
   }
