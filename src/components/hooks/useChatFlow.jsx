@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import parseDateFromText from './parseDateFromText';
+import parseDatesFromText from './parseDatesFromText';
 
 // ── Safe date formatting (NEVER use new Date('YYYY-MM-DD') — it parses as UTC and shifts) ──
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -318,6 +319,7 @@ ${handoffPendingBlock}`,
           properties: {
             intent: { type: 'string', enum: ['general', 'date_inquiry', 'tour_interest', 'package_inquiry', 'visual_request'] },
             wedding_date: { type: ['string', 'null'] },
+            wedding_dates: { type: ['array', 'null'], items: { type: 'string' } },
             guest_count: { type: ['number', 'null'] },
             handoff_response: { type: ['string', 'null'], enum: ['accepted', 'declined', 'unrelated', null] },
           },
@@ -341,11 +343,23 @@ ${handoffPendingBlock}`,
       const intent = classifier?.intent || 'general';
       const guestCount = classifier?.guest_count || null;
 
-      // Deterministic date parsing takes priority over the classifier's wedding_date.
-      // Only fall back to the classifier if our parser finds nothing.
+      // Deterministic date parsing takes priority over the classifier's wedding_date(s).
+      // Multi-date parser runs first; if it returns >1 dates we use them as a list.
+      // Otherwise fall back to single-date parser, then classifier.
+      const deterministicDates = parseDatesFromText(text);
       const deterministicDate = parseDateFromText(text);
-      const weddingDate = deterministicDate || classifier?.wedding_date || null;
-      console.log('[useChatFlow] Date parsing — deterministic:', deterministicDate, '| classifier:', classifier?.wedding_date, '| final:', weddingDate);
+      const classifierDates = Array.isArray(classifier?.wedding_dates)
+        ? classifier.wedding_dates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        : [];
+      let weddingDates = [];
+      if (deterministicDates.length > 1) {
+        weddingDates = deterministicDates;
+      } else if (classifierDates.length > 1) {
+        weddingDates = classifierDates;
+      }
+      weddingDates = weddingDates.slice(0, 5); // cap at 5 per spec
+      const weddingDate = deterministicDate || classifier?.wedding_date || (weddingDates[0] || null);
+      console.log('[useChatFlow] Date parsing — deterministicDates:', deterministicDates, '| deterministicDate:', deterministicDate, '| classifier:', classifier?.wedding_date, classifier?.wedding_dates, '| final single:', weddingDate, '| final multi:', weddingDates);
 
       // Persist intent metadata onto the user message (flows through ChatSession sync)
       setMessages(prev => prev.map(m =>
@@ -373,6 +387,34 @@ ${handoffPendingBlock}`,
       let verdictSentence = '';
       let compactReply = '';
       const plannerNameEarly = venue?.planner_name || 'our planner';
+
+      // ── Multi-date branch: always compact, no generator call ─────
+      if (intent === 'date_inquiry' && weddingDates.length > 1) {
+        try {
+          const results = await Promise.all(
+            weddingDates.map(d =>
+              base44.functions.invoke('checkDateAvailability', {
+                venueId,
+                date: d,
+                alternativesCount: 0,
+              }).then(r => ({ date: d, isAvailable: r?.data?.isAvailable !== false }))
+                .catch(() => ({ date: d, isAvailable: null }))
+            )
+          );
+          const lines = results.map(r => {
+            const label = formatShortDate(r.date);
+            if (r.isAvailable === null) return `${label}: let me double-check`;
+            return `${label}: ${r.isAvailable ? 'open' : 'already booked'}`;
+          });
+          const multiReply = `Here's what I found — ${lines.join(' · ')}. Want me to check any others?`;
+          setIsTyping(false);
+          setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
+          return;
+        } catch (err) {
+          console.error('Multi-date availability check failed:', err?.message || err);
+          // Fall through to generic handling if something truly broke
+        }
+      }
 
       if (intent === 'date_inquiry' && weddingDate) {
         try {
@@ -447,6 +489,12 @@ CONVERSATIONAL REGISTER:
 - Ask at most ONE question per reply, and only when it flows naturally. If she did not answer your previous question, do NOT ask another — just answer what she asked.
 - Never ask the same or a similar follow-up question twice in the conversation (check the recent history provided).
 - No filler enthusiasm. Skip preamble like "That's a great question!" — answer first.
+
+SUGAR LAKE VOICE (from real conversations — match this register):
+- Short messages, one thought at a time. Warm, never gushing or salesy.
+- Light emoji seasoning: at most one per message ( :) 😊 💕 🎉 ), used after good news or warmth — never inside factual statements, prices, or availability verdicts.
+- Natural phrases that fit this venue: "Happy Planning 💕", "Let me know if you have any questions while looking things over!"
+- If the bride mentions she booked another venue or is no longer interested: congratulate her genuinely ("Congratulations, that's so exciting 🎉"), thank her for considering Sugar Lake, and wish her well. NEVER counter-sell, discount, or try to win her back.
 
 STRICT GUARDRAILS:
 - Answer ONLY from the provided venue knowledge, package data, and availability results below.
