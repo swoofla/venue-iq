@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import parseDateFromText from './parseDateFromText';
 
 export default function useChatFlow({
   venueId,
@@ -297,6 +298,21 @@ export default function useChatFlow({
 
     setIsTyping(true);
 
+    // Guard against load race: wait for venueId to resolve before classifying/querying
+    if (!venueId) {
+      console.log('[useChatFlow] Waiting for venueId to resolve before processing message...');
+      const start = Date.now();
+      while (!venueId && Date.now() - start < 5000) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!venueId) {
+        console.warn('[useChatFlow] venueId still not resolved after 5s — aborting message processing.');
+        setIsTyping(false);
+        setMessages(prev => [...prev, { id: Date.now(), text: "Sorry, I'm still loading. Could you try that again in a moment?", isBot: true }]);
+        return;
+      }
+    }
+
     try {
       // ── STEP 1: Classify intent ─────────────────────────────────
       const recentHistory = [...messagesRef.current]
@@ -341,9 +357,16 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
         }
       });
 
+      console.log('CLASSIFIER:', JSON.stringify(classifier));
+
       const intent = classifier?.intent || 'general';
-      const weddingDate = classifier?.wedding_date || null;
       const guestCount = classifier?.guest_count || null;
+
+      // Deterministic date parsing takes priority over the classifier's wedding_date.
+      // Only fall back to the classifier if our parser finds nothing.
+      const deterministicDate = parseDateFromText(text);
+      const weddingDate = deterministicDate || classifier?.wedding_date || null;
+      console.log('[useChatFlow] Date parsing — deterministic:', deterministicDate, '| classifier:', classifier?.wedding_date, '| final:', weddingDate);
 
       // Persist intent metadata onto the user message (flows through ChatSession sync)
       setMessages(prev => prev.map(m =>
@@ -381,6 +404,8 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
           availabilityContext = `AVAILABILITY CHECK FAILED: do not state whether the date is open or booked. Warmly say you want to double-check that date and offer to have the planner confirm it.`;
         }
       }
+
+      console.log('AVAILABILITY CONTEXT:', availabilityContext);
 
       if (intent === 'package_inquiry' && venueId) {
         const pkgs = await base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true });
