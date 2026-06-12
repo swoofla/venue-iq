@@ -482,7 +482,8 @@ Before considering a handoff, check whether the knowledge base contains anything
             answer: { type: 'string' }
           },
           required: ['needsHandoff']
-        }
+        },
+        model: 'claude_opus_4_8'
       });
 
       setIsTyping(false);
