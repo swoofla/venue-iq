@@ -94,9 +94,7 @@
     "read": {
       "data.venue_id": "{{user.venue_id}}"
     },
-    "update": {
-      "data.venue_id": "{{user.venue_id}}"
-    },
+    "update": null,
     "delete": {
       "data.venue_id": "{{user.venue_id}}"
     }
