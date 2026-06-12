@@ -57,16 +57,52 @@
   ],
   "rls": {
     "create": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "read": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "update": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "delete": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     }
   }
 }
