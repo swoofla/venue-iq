@@ -88,5 +88,17 @@
   },
   "required": [
     "venue_id"
-  ]
+  ],
+  "rls": {
+    "create": null,
+    "read": {
+      "data.venue_id": "{{user.venue_id}}"
+    },
+    "update": {
+      "data.venue_id": "{{user.venue_id}}"
+    },
+    "delete": {
+      "data.venue_id": "{{user.venue_id}}"
+    }
+  }
 }

@@ -52,5 +52,23 @@
     "venue_id",
     "role",
     "token"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "data.token": "{{request.query.token}}"
+    },
+    "update": {
+      "data.token": "{{request.query.token}}"
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
