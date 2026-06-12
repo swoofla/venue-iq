@@ -235,6 +235,38 @@ export default function useChatFlow({
     return false;
   };
 
+  // Find the N nearest available dates to a target date, checking both BookedWeddingDate and BlockedDate
+  const findNearestAvailableDates = async (targetDateStr, count = 3) => {
+    if (!venueId || !targetDateStr) return [];
+    const target = new Date(targetDateStr + 'T00:00:00');
+    if (isNaN(target.getTime())) return [];
+
+    // Pull a window of unavailable dates around the target (±120 days)
+    const [booked, blocked] = await Promise.all([
+      base44.entities.BookedWeddingDate.filter({ venue_id: venueId }),
+      base44.entities.BlockedDate.filter({ venue_id: venueId }),
+    ]);
+    const unavailable = new Set([
+      ...booked.map(b => b.date),
+      ...blocked.map(b => b.date),
+    ]);
+
+    const results = [];
+    for (let offset = 1; offset <= 120 && results.length < count; offset++) {
+      for (const dir of [1, -1]) {
+        const d = new Date(target);
+        d.setDate(d.getDate() + offset * dir);
+        if (d < new Date(new Date().toDateString())) continue;
+        const iso = d.toISOString().slice(0, 10);
+        if (!unavailable.has(iso) && !results.includes(iso)) {
+          results.push(iso);
+          if (results.length >= count) break;
+        }
+      }
+    }
+    return results;
+  };
+
   const handleUserMessage = async (text) => {
     setShowGreeting(false);
 
@@ -243,16 +275,17 @@ export default function useChatFlow({
 
     // If this is the first message, inject the bot's opening question before the user message
     const isFirstMessage = messages.length === 0;
+    const userMsgId = Date.now();
     setMessages(prev => {
       const next = [...prev];
       if (isFirstMessage) {
         next.push({
-          id: Date.now() - 1,
+          id: userMsgId - 1,
           text: `Hey! I'm ${venueName}'s virtual planner. I'd love to help you figure out if we're the right fit. To start, what date are you thinking — or are you still picking?`,
           isBot: true,
         });
       }
-      next.push({ id: Date.now(), text, isBot: false });
+      next.push({ id: userMsgId, text, isBot: false });
       return next;
     });
 
@@ -262,106 +295,157 @@ export default function useChatFlow({
       if (handled) return;
     }
 
-    const lowerText = text.toLowerCase();
+    setIsTyping(true);
 
-    if (lowerText.includes('budget') || lowerText.includes('cost') || lowerText.includes('price')) {
-      addBotMessage("Great question! Let me help you figure out the perfect package for your budget. I'll walk you through our budget calculator.");
-      setTimeout(() => setActiveFlow('budget'), 1500);
-    } else if (lowerText.includes('available') || lowerText.includes('date') || lowerText.includes('book')) {
-      addBotMessage("Let's check if your desired date is available! Please select a date below.");
-      setTimeout(() => setActiveFlow('availability'), 1500);
-    } else if (lowerText.includes('tour') || lowerText.includes('visit') || lowerText.includes('see')) {
-      addBotMessage("We'd love to show you around Sugar Lake! Let's schedule a tour that works for you.");
-      setTimeout(() => setActiveFlow('tour'), 1500);
-    } else if (lowerText.includes('package') || lowerText.includes('option')) {
-      addBotMessage("We have three beautiful packages designed to fit different wedding styles and sizes. Take a look:");
-      setTimeout(() => setActiveFlow('packages'), 1500);
-    } else if (lowerText.includes('photo') || lowerText.includes('picture') ||
-               lowerText.includes('gallery') || lowerText.includes('look like') ||
-               lowerText.includes('see the venue') || lowerText.includes('show me')) {
-      addBotMessage("Let me show you around! Here are some photos of our beautiful venue.");
-      setTimeout(() => setActiveFlow('gallery'), 1500);
-    } else if (lowerText.includes('visualize') || lowerText.includes('design') ||
-               lowerText.includes('see my wedding') || lowerText.includes('what would it look like') ||
-               lowerText.includes('decorate') || lowerText.includes('style')) {
-      addBotMessage("Let me show you what your wedding could look like at our venue! ✨");
-      setTimeout(() => setActiveFlow('visualizer'), 1500);
-    } else if (lowerText.includes('video') || lowerText.includes('watch') ||
-               lowerText.includes('first look') || lowerText.includes('virtual tour')) {
-      if (firstLookConfig?.welcome_video_id) {
-        addBotMessage("Here's a quick video tour of our venue! 🎥");
-        setTimeout(() => {
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            isBot: true,
-            isVideo: true,
-            videoId: firstLookConfig.welcome_video_id,
-            videoLabel: `Welcome to ${venueName}`,
-            aspectRatio: 'portrait'
-          }]);
-        }, 1000);
-      } else {
-        addBotMessage("Let me show you around with some photos!");
-        setTimeout(() => setActiveFlow('gallery'), 1500);
+    try {
+      // ── STEP 1: Classify intent ─────────────────────────────────
+      const recentHistory = [...messagesRef.current]
+        .slice(-6)
+        .map(m => `${m.isBot ? 'Bot' : 'User'}: ${m.text || ''}`)
+        .join('\n');
+
+      const today = new Date().toISOString().slice(0, 10);
+      const tz = venue?.timezone || 'America/New_York';
+
+      const classifier = await base44.integrations.Core.InvokeLLM({
+        prompt: `You classify a bride's message to a wedding venue chatbot.
+
+Today's date: ${today}
+Venue timezone: ${tz}
+
+Recent conversation (last 6 messages):
+${recentHistory}
+
+Current user message: "${text}"
+
+Classify into one intent:
+- "date_inquiry": asking whether a specific date or timeframe is available
+- "tour_interest": wants to visit, see the venue in person, schedule a tour
+- "package_inquiry": asking about packages, pricing tiers, what's included, costs, budget
+- "visual_request": asking to see photos, what spaces look like, gallery
+- "general": everything else (FAQs, policies, amenities, etc.)
+
+When a message fits multiple intents, prefer the action intent (date_inquiry or tour_interest) over general.
+
+Extract wedding_date: the specific date the bride is asking about, resolved to YYYY-MM-DD. If she gives a date without a year (e.g. "October 17th"), resolve to the next FUTURE occurrence relative to today. If she only mentions a month or vague timeframe ("next fall", "summer"), return null.
+
+Extract guest_count: number if mentioned anywhere in recent context, otherwise null.`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            intent: { type: 'string', enum: ['general', 'date_inquiry', 'tour_interest', 'package_inquiry', 'visual_request'] },
+            wedding_date: { type: ['string', 'null'] },
+            guest_count: { type: ['number', 'null'] },
+          },
+          required: ['intent']
+        }
+      });
+
+      const intent = classifier?.intent || 'general';
+      const weddingDate = classifier?.wedding_date || null;
+      const guestCount = classifier?.guest_count || null;
+
+      // Persist intent metadata onto the user message
+      setMessages(prev => prev.map(m =>
+        m.id === userMsgId ? { ...m, metadata: { intent, wedding_date: weddingDate, guest_count: guestCount } } : m
+      ));
+
+      if (guestCount && !leadGuestCountRef.current) leadGuestCountRef.current = guestCount;
+      if (weddingDate && !leadWeddingDateRef.current) leadWeddingDateRef.current = weddingDate;
+
+      // ── STEP 2: Route by intent ─────────────────────────────────
+      let availabilityContext = '';
+      let packageContext = '';
+      let monthContext = '';
+
+      if (intent === 'date_inquiry' && weddingDate) {
+        const [bookedHits, blockedHits] = await Promise.all([
+          base44.entities.BookedWeddingDate.filter({ venue_id: venueId, date: weddingDate }),
+          base44.entities.BlockedDate.filter({ venue_id: venueId, date: weddingDate }),
+        ]);
+        const isTaken = (bookedHits?.length || 0) + (blockedHits?.length || 0) > 0;
+        if (isTaken) {
+          const nearest = await findNearestAvailableDates(weddingDate, 3);
+          availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is BOOKED. Nearest available: [${nearest.join(', ')}]`;
+        } else {
+          availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is AVAILABLE`;
+        }
+        const monthNum = parseInt(weddingDate.slice(5, 7), 10);
+        const monthName = ['January','February','March','April','May','June','July','August','September','October','November','December'][monthNum - 1];
+        monthContext = `Date month: ${monthName} (apply any seasonal knowledge — e.g. Jan–Mar policy, off-season guest caps).`;
       }
-    } else {
-      // Try local knowledge match first
-      const relevantKnowledge = venueKnowledge.find(k =>
-        lowerText.includes(k.question.toLowerCase()) ||
-        k.question.toLowerCase().includes(lowerText)
-      );
 
-      if (relevantKnowledge) {
-        addBotMessage(relevantKnowledge.answer);
-      } else {
-        setIsTyping(true);
-        try {
-          const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
+      if (intent === 'package_inquiry' && venueId) {
+        const pkgs = await base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true });
+        packageContext = 'ACTIVE PACKAGES:\n' + pkgs
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+          .map(p => `- ${p.name} — $${p.price?.toLocaleString?.() || p.price} (up to ${p.max_guests} guests)\n  ${p.description || ''}\n  Includes: ${(p.includes || []).join('; ')}`)
+          .join('\n\n');
+      }
 
-          const llmResult = await base44.integrations.Core.InvokeLLM({
-            prompt: `You are a warm, helpful wedding venue chatbot assistant for ${venueName}. You have access to a knowledge base of venue-specific Q&A.
+      const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
+      const plannerName = venue?.head_planner_name || 'Nadine';
 
-If you can confidently answer the question from the venue knowledge base provided, do so warmly and conversationally. If the question requires venue-specific policy not in the knowledge base, OR it touches any of these topics — fireworks, sparklers, pets, religious customs, dietary restrictions, custom vendor policies, ADA accommodations, alcohol or bar policy, noise ordinances, overnight stays, drone use, boat or lake access — OR the bride explicitly asks to talk to a human, respond by setting needsHandoff: true with a 2-6 word topicSummary and a warm one-line acknowledgment that thanks her for the question.
+      // ── STEP 3: Generate response ───────────────────────────────
+      const generator = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a warm, helpful wedding venue chatbot for ${venueName}. Respond conversationally to the bride.
 
-Do NOT guess at venue policy. Better to escalate than to misinform.
+STRICT GUARDRAILS:
+- Answer ONLY from the provided venue knowledge, package data, and availability results below.
+- NEVER invent prices, dates, availability, or venue details.
+- If asked something not covered, warmly say it's a great question for ${plannerName} and set needsHandoff: true.
+- NEVER claim a date is available or booked except per the AVAILABILITY CHECK RESULT provided.
 
+Intent: ${intent}
+${availabilityContext ? availabilityContext + '\n' : ''}${monthContext ? monthContext + '\n' : ''}${packageContext ? packageContext + '\n\n' : ''}
 Venue Knowledge Base:
 ${knowledgeContext}
 
-User Question: ${text}`,
-            response_json_schema: {
-              type: 'object',
-              properties: {
-                needsHandoff: { type: 'boolean' },
-                topicSummary: { type: 'string' },
-                acknowledgment: { type: 'string' },
-                answer: { type: 'string' }
-              },
-              required: ['needsHandoff']
-            }
-          });
+Recent conversation:
+${recentHistory}
 
-          setIsTyping(false);
+User's current message: "${text}"
 
-          if (llmResult?.needsHandoff) {
-            const topic = llmResult.topicSummary || 'your question';
-            const ack = llmResult.acknowledgment || 'Thanks for asking!';
-            const plannerName = venue?.head_planner_name || 'our head planner';
-            setHandoffTopic(topic);
-            setHandoffOriginalQuestion(text);
-            setHandoffStage('offered');
-            addBotMessageImmediate(`${ack} Want me to have ${plannerName} text you? She usually responds within an hour or two.`);
-          } else {
-            const answer = llmResult?.answer || "Thanks for reaching out! I can help with budget planning, date availability, scheduling a tour, or exploring our packages. What would you like to know more about?";
-            setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
-          }
-        } catch (error) {
-          console.error('AI response error:', error?.message || error);
-          setIsTyping(false);
-          setMessages(prev => [...prev, { id: Date.now(), text: "Thank you for reaching out! I can help you with budget planning, checking date availability, scheduling a tour, or exploring our packages. What would you like to know more about?", isBot: true }]);
+${intent === 'tour_interest' ? 'Give a SHORT warm reply (1-2 sentences) — the tour scheduler will open right after.' : ''}
+${intent === 'visual_request' ? 'No photo gallery exists yet. Warmly describe the relevant spaces from the knowledge base and offer a tour to see them in person.' : ''}
+${intent === 'date_inquiry' && !weddingDate ? 'Respond naturally and ask which date or timeframe she\'s considering.' : ''}
+
+If the question touches venue-specific policy NOT in the knowledge base, OR topics like fireworks, sparklers, pets, religious customs, dietary restrictions, custom vendor policies, ADA accommodations, drone use, boat/lake access, OR she explicitly asks to talk to a human — set needsHandoff: true with a 2-6 word topicSummary and a warm one-line acknowledgment.`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            needsHandoff: { type: 'boolean' },
+            topicSummary: { type: 'string' },
+            acknowledgment: { type: 'string' },
+            answer: { type: 'string' }
+          },
+          required: ['needsHandoff']
         }
+      });
+
+      setIsTyping(false);
+
+      if (generator?.needsHandoff) {
+        const topic = generator.topicSummary || 'your question';
+        const ack = generator.acknowledgment || 'Thanks for asking!';
+        setHandoffTopic(topic);
+        setHandoffOriginalQuestion(text);
+        setHandoffStage('offered');
+        addBotMessageImmediate(`${ack} Want me to have ${plannerName} text you? She usually responds within an hour or two.`);
         return;
       }
+
+      const answer = generator?.answer || "Thanks for reaching out! What would you like to know more about?";
+      setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
+
+      // Trigger tour scheduler after the warm reply for tour_interest
+      if (intent === 'tour_interest') {
+        setTimeout(() => setActiveFlow('tour'), 1200);
+      }
+    } catch (error) {
+      console.error('Intent routing error:', error?.message || error);
+      setIsTyping(false);
+      setMessages(prev => [...prev, { id: Date.now(), text: "Thanks for reaching out! What would you like to know more about?", isBot: true }]);
     }
   };
 
