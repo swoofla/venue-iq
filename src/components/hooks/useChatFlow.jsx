@@ -376,14 +376,19 @@ ${handoffPendingBlock}`,
 
       if (intent === 'date_inquiry' && weddingDate) {
         try {
-          const [bookedHits, blockedHits] = await Promise.all([
-            base44.entities.BookedWeddingDate.filter({ venue_id: venueId, date: weddingDate }),
-            base44.entities.BlockedDate.filter({ venue_id: venueId, date: weddingDate }),
-          ]);
-          const isTaken = (bookedHits?.length || 0) + (blockedHits?.length || 0) > 0;
+          // Use the public backend function so the anonymous chatbot can read
+          // BookedWeddingDate / BlockedDate without tripping RLS.
+          const availRes = await base44.functions.invoke('checkDateAvailability', {
+            venueId,
+            date: weddingDate,
+            alternativesCount: 3,
+          });
+          const availData = availRes?.data || {};
+          if (availData.error) throw new Error(availData.error);
+          const isTaken = availData.isAvailable === false;
           const formattedRequested = formatFullDate(weddingDate);
           if (isTaken) {
-            const nearest = await findNearestAvailableDates(weddingDate, 3);
+            const nearest = Array.isArray(availData.alternatives) ? availData.alternatives : [];
             const formattedNearest = nearest.map(formatShortDate);
             availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is BOOKED. Nearest available: [${nearest.join(', ')}]`;
             verdictSentence = nearest.length > 0
