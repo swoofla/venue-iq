@@ -45,6 +45,10 @@
       "type": "string",
       "default": "our planner",
       "description": "Display name used for human handoffs in the virtual planner chatbot"
+    },
+    "google_calendar_id": {
+      "type": "string",
+      "description": "Google Calendar ID selected for this venue's wedding-date sync"
     }
   },
   "required": [

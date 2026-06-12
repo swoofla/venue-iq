@@ -1,108 +1,165 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+const GOOGLE_CALENDAR_CONNECTOR_ID = '6a2b72d0b1ae3cefb36ece05';
+
+// Convert an event's start (date or dateTime) into a YYYY-MM-DD string in the venue's timezone.
+function eventDateInTz(event, timeZone) {
+  // All-day events use event.start.date already as YYYY-MM-DD — return as-is.
+  if (event.start?.date) return event.start.date;
+  const dt = event.start?.dateTime;
+  if (!dt) return null;
+  try {
+    const d = new Date(dt);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZone || 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const y = parts.find(p => p.type === 'year')?.value;
+    const m = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (!y || !m || !day) return null;
+    return `${y}-${m}-${day}`;
+  } catch (_) {
+    return null;
+  }
+}
 
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-
-  if (!user) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { action, calendarId, venueId } = await req.json();
-
   try {
-    const accessToken = await base44.asServiceRole.connectors.getAccessToken('googlecalendar');
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // List all calendars
+    const { action, calendarId, venueId } = await req.json();
+
+    // Get the current app user's Google Calendar connection.
+    // If absent, return a clear not_connected status (NOT a 500).
+    let accessToken;
+    try {
+      const conn = await base44.asServiceRole.connectors.getCurrentAppUserConnection(GOOGLE_CALENDAR_CONNECTOR_ID);
+      accessToken = conn?.accessToken;
+      if (!accessToken) {
+        return Response.json({ status: 'not_connected' });
+      }
+    } catch (_) {
+      return Response.json({ status: 'not_connected' });
+    }
+
     if (action === 'list_calendars') {
       const response = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
-
-      if (!response.ok) {
-        throw new Error(`Google API error: ${response.statusText}`);
+      if (response.status === 401 || response.status === 403) {
+        return Response.json({ status: 'not_connected' });
       }
-
+      if (!response.ok) {
+        const text = await response.text();
+        return Response.json({ error: `Google API error: ${response.status} ${text}` }, { status: 502 });
+      }
       const data = await response.json();
-      const calendars = data.items.map(cal => ({
+      const calendars = (data.items || []).map(cal => ({
         id: cal.id,
         name: cal.summary,
         description: cal.description || ''
       }));
-
-      return Response.json({ calendars });
+      return Response.json({ status: 'connected', calendars });
     }
 
-    // Sync events from selected calendar
     if (action === 'sync_calendar') {
       if (!calendarId || !venueId) {
         return Response.json({ error: 'calendarId and venueId required' }, { status: 400 });
       }
-      
-      console.log(`[SYNC DEBUG] Starting sync for venueId: ${venueId}, calendarId: ${calendarId}`);
 
-      // Fetch events from the selected calendar
-      const eventsResponse = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=250`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-
-      if (!eventsResponse.ok) {
-        throw new Error(`Failed to fetch calendar events: ${eventsResponse.statusText}`);
+      // Persist the selected calendarId on the Venue so future syncs reuse it.
+      try {
+        await base44.asServiceRole.entities.Venue.update(venueId, { google_calendar_id: calendarId });
+      } catch (e) {
+        console.log(`Failed to persist google_calendar_id on venue ${venueId}: ${e.message}`);
       }
 
+      // Get the venue for timezone resolution.
+      let venueTz = 'America/New_York';
+      try {
+        const v = await base44.asServiceRole.entities.Venue.get(venueId);
+        if (v?.timezone) venueTz = v.timezone;
+      } catch (_) { /* fall through with default */ }
+
+      // Fetch events from the selected calendar.
+      const eventsResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=250&singleEvents=true&orderBy=startTime`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (eventsResponse.status === 401 || eventsResponse.status === 403) {
+        return Response.json({ status: 'not_connected' });
+      }
+      if (!eventsResponse.ok) {
+        const text = await eventsResponse.text();
+        return Response.json({ error: `Failed to fetch calendar events: ${eventsResponse.status} ${text}` }, { status: 502 });
+      }
       const eventsData = await eventsResponse.json();
       const events = eventsData.items || [];
 
-      // Create BookedWeddingDate entries from calendar events
-      const syncedDates = [];
+      // Load already-synced google_event_ids for this venue to dedupe.
+      const existing = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
+      const alreadySynced = new Set(
+        existing.map(b => b.google_event_id).filter(Boolean)
+      );
+
       const bookingsToCreate = [];
-      
+      let skippedDuplicates = 0;
+      let skippedNoDate = 0;
+
       for (const event of events) {
-        const eventDate = event.start?.date || event.start?.dateTime;
-        if (!eventDate) continue;
-
-        const dateStr = eventDate.split('T')[0];
-        const title = event.summary || 'Wedding Booking';
-        const description = event.description || '';
-
+        if (!event.id) continue;
+        if (alreadySynced.has(event.id)) {
+          skippedDuplicates += 1;
+          continue;
+        }
+        const dateStr = eventDateInTz(event, venueTz);
+        if (!dateStr) {
+          skippedNoDate += 1;
+          continue;
+        }
         bookingsToCreate.push({
           venue_id: venueId,
           date: dateStr,
-          couple_name: title,
-          email: user.email,
-          phone: '',
-          guest_count: null,
-          notes: description
+          couple_name: event.summary || 'Wedding Booking',
+          notes: event.description || '',
+          google_event_id: event.id,
         });
       }
 
-      // Batch create to avoid rate limits
+      const syncedDates = [];
       if (bookingsToCreate.length > 0) {
         try {
           const created = await base44.asServiceRole.entities.BookedWeddingDate.bulkCreate(bookingsToCreate);
           syncedDates.push(...created.map(c => ({ id: c.id, date: c.date, couple_name: c.couple_name })));
         } catch (error) {
-          console.log(`Bulk create error: ${error.message}`);
-          // Fallback: try creating individually for partial success
+          console.log(`Bulk create error: ${error.message} — falling back to individual creates`);
           for (const booking of bookingsToCreate) {
             try {
               const created = await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
               syncedDates.push({ id: created.id, date: created.date, couple_name: created.couple_name });
             } catch (e) {
-              console.log(`Skipped: ${booking.date}`);
+              console.log(`Skipped ${booking.date}: ${e.message}`);
             }
           }
         }
       }
 
-      console.log(`[SYNC DEBUG] Successfully synced ${syncedDates.length} dates for venueId: ${venueId}`);
-      
-      return Response.json({ 
-        success: true, 
+      return Response.json({
+        status: 'connected',
+        success: true,
         syncedCount: syncedDates.length,
+        skippedDuplicates,
+        skippedNoDate,
         syncedDates,
-        venueId 
+        venueId,
+        calendarId,
       });
     }
 

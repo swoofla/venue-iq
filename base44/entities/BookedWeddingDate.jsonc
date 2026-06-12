@@ -45,6 +45,10 @@
       "type": "boolean",
       "default": false,
       "description": "Whether deposit is received"
+    },
+    "google_event_id": {
+      "type": "string",
+      "description": "Google Calendar event ID this booking was synced from (used to dedupe re-syncs)"
     }
   },
   "required": [
