@@ -393,11 +393,21 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
       if (guestCount && !leadGuestCountRef.current) leadGuestCountRef.current = guestCount;
       if (weddingDate && !leadWeddingDateRef.current) leadWeddingDateRef.current = weddingDate;
 
+      // Detect rapid date-checking: previous USER message was also a date_inquiry
+      const previousUserMsg = [...messagesRef.current]
+        .filter(m => !m.isBot && m.id !== userMsgId)
+        .pop();
+      const isRapidDateCheck =
+        intent === 'date_inquiry' &&
+        previousUserMsg?.metadata?.intent === 'date_inquiry';
+      console.log('[useChatFlow] Rapid date-check mode:', isRapidDateCheck);
+
       // ── STEP 2: Route by intent ─────────────────────────────────
       let availabilityContext = '';
       let packageContext = '';
       let monthContext = '';
       let verdictSentence = '';
+      let compactReply = '';
       const plannerNameEarly = venue?.head_planner_name || 'Nadine';
 
       if (intent === 'date_inquiry' && weddingDate) {
@@ -415,9 +425,17 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
             verdictSentence = nearest.length > 0
               ? `I'm so sorry — ${formattedRequested} is already booked. The closest open dates are ${formatList(formattedNearest)}.`
               : `I'm so sorry — ${formattedRequested} is already booked.`;
+            if (isRapidDateCheck) {
+              compactReply = nearest.length > 0
+                ? `Unfortunately, ${formattedRequested} is already booked — but ${formatList(formattedNearest)} are open. Any others you'd like to check?`
+                : `Unfortunately, ${formattedRequested} is already booked. Any others you'd like to check?`;
+            }
           } else {
             availabilityContext = `AVAILABILITY CHECK RESULT: ${weddingDate} is AVAILABLE`;
             verdictSentence = `Good news — ${formattedRequested} is open!`;
+            if (isRapidDateCheck) {
+              compactReply = `Yes — ${formattedRequested} is open! Any other dates you'd like to check?`;
+            }
           }
           const monthNum = parseInt(weddingDate.slice(5, 7), 10);
           const monthName = MONTH_NAMES[monthNum - 1];
@@ -426,11 +444,19 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
           console.error('Availability check failed:', err?.message || err);
           availabilityContext = `AVAILABILITY CHECK FAILED: do not state whether the date is open or booked. Warmly say you want to double-check that date and offer to have the planner confirm it.`;
           verdictSentence = `I want to double-check that date for you — let me have ${plannerNameEarly} confirm it!`;
+          if (isRapidDateCheck) compactReply = verdictSentence;
         }
       }
 
       console.log('AVAILABILITY CONTEXT:', availabilityContext);
       console.log('VERDICT SENTENCE:', verdictSentence);
+
+      // Compact mode: skip the generator LLM entirely and post the code-composed reply
+      if (compactReply) {
+        setIsTyping(false);
+        setMessages(prev => [...prev, { id: Date.now(), text: compactReply, isBot: true }]);
+        return;
+      }
 
       if (intent === 'package_inquiry' && venueId) {
         const pkgs = await base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true });
