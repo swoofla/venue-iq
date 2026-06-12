@@ -79,15 +79,9 @@
     "answer"
   ],
   "rls": {
-    "create": {
-      "data.venue_id": "{{user.venue_id}}"
-    },
+    "create": null,
     "read": null,
-    "update": {
-      "data.venue_id": "{{user.venue_id}}"
-    },
-    "delete": {
-      "data.venue_id": "{{user.venue_id}}"
-    }
+    "update": null,
+    "delete": null
   }
 }
