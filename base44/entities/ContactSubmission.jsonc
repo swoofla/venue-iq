@@ -51,6 +51,10 @@
       "type": "string",
       "description": "Recommended venue package"
     },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes attached to this lead (e.g. handoff topic, errors from HighLevel sync)"
+    },
     "source": {
       "type": "string",
       "enum": [
