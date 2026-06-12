@@ -7,6 +7,7 @@ import useChatFlow from '../components/hooks/useChatFlow';
 
 import ChatMessage from '@/components/chat/ChatMessage';
 import ChatVideoMessage from '@/components/chat/ChatVideoMessage';
+import HandoffContactCard from '@/components/chat/HandoffContactCard';
 import TypingIndicator from '@/components/chat/TypingIndicator';
 import ChatInput from '@/components/chat/ChatInput';
 import ChatEmptyState from '@/components/chat/ChatEmptyState';
@@ -144,6 +145,13 @@ export default function Home() {
                       videoId={message.videoId}
                       label={message.videoLabel}
                       aspectRatio={message.aspectRatio}
+                    />
+                  ) : message.isHandoffCard ? (
+                    <HandoffContactCard
+                      plannerName={venue?.planner_name || 'our planner'}
+                      topicSummary={message.topicSummary}
+                      venueId={venueId}
+                      chatSessionId={chat.chatSessionId}
                     />
                   ) : (
                     <ChatMessage

@@ -55,11 +55,11 @@ export default function useChatFlow({
   const [userWantsWelcomeVideo, setUserWantsWelcomeVideo] = useState(false);
   const [userWantsAdditionalVideos, setUserWantsAdditionalVideos] = useState(false);
 
-  // Handoff state machine: idle | offered | awaiting_name | awaiting_phone | sending | completed
-  const [handoffStage, setHandoffStage] = useState('idle');
-  const [handoffTopic, setHandoffTopic] = useState('');
-  const [handoffOriginalQuestion, setHandoffOriginalQuestion] = useState('');
-  const [handoffTriggered, setHandoffTriggered] = useState(false);
+  // Handoff: lightweight pending flag (no state machine, no message interception).
+  // When a handoff offer is on screen, handoffPending holds the topicSummary so the
+  // classifier knows to look for acceptance on the NEXT message. Any non-accepted
+  // message clears it and flows through normal classifier → generator routing.
+  const [handoffPending, setHandoffPending] = useState(null); // null | { topicSummary }
 
   // ChatSession tracking
   const [chatSessionId, setChatSessionId] = useState(null);
@@ -156,112 +156,27 @@ export default function useChatFlow({
     setMessages(prev => [...prev, { id: Date.now() + Math.random(), text, isBot: true }]);
   };
 
-  // Trigger the handoff offer — used by LLM detection AND by "Talk to a planner" link
-  const offerHandoff = (topicSummary, question) => {
-    if (handoffTriggered) {
-      addBotMessage(`I already passed your info to ${venue?.head_planner_name || 'our head planner'} — she'll text you on that same thread. Anything else I can help with in the meantime?`);
-      return;
-    }
-    setHandoffTopic(topicSummary);
-    setHandoffOriginalQuestion(question);
-    setHandoffStage('offered');
+  // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
+  const offerHandoff = (topicSummary) => {
+    const plannerName = venue?.planner_name || 'our planner';
+    setHandoffPending({ topicSummary: topicSummary || 'general inquiry' });
+    addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
   };
 
   // Public helper used by "Talk to a planner" link
   const requestPlannerHandoff = async () => {
     await ensureChatSession();
-    if (handoffTriggered) {
-      addBotMessage(`I already passed your info to ${venue?.head_planner_name || 'our head planner'} — she'll text you on that same thread. Anything else I can help with in the meantime?`);
-      return;
-    }
-    // Find most recent user message
-    const lastUserMsg = [...messagesRef.current].reverse().find(m => !m.isBot && typeof m.text === 'string');
-    const question = lastUserMsg?.text || '(she just wanted to talk to a human)';
-    setHandoffTopic('general inquiry');
-    setHandoffOriginalQuestion(question);
-    setHandoffStage('offered');
-    const plannerName = venue?.head_planner_name || 'our head planner';
-    addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
+    offerHandoff('general inquiry');
   };
 
-  const sendHandoffRequest = async (finalName, finalPhone) => {
-    setHandoffStage('sending');
-    const plannerName = venue?.head_planner_name || 'our head planner';
-    addBotMessage(`Got it. Sending you a text now from ${plannerName}'s line — check your messages!`);
-
-    const sid = await ensureChatSession();
-
-    try {
-      const res = await base44.functions.invoke('createHighLevelLeadAndNotify', {
-        venueId,
-        chatSessionId: sid,
-        leadName: finalName,
-        leadPhone: finalPhone,
-        leadEmail: leadEmail || user?.email || undefined,
-        topicSummary: handoffTopic,
-        originalQuestion: handoffOriginalQuestion,
-      });
-
-      if (res?.data?.success) {
-        setHandoffTriggered(true);
-        setHandoffStage('completed');
-        addBotMessage(`All set. Anything else I can help with while you wait for ${plannerName}?`);
-      } else {
-        setHandoffStage('completed');
-        addBotMessage(`I had a little trouble reaching ${plannerName} directly, but I've saved your info — someone will follow up within 24 hours.`);
-      }
-    } catch (err) {
-      console.error('Handoff request failed:', err?.message || err);
-      setHandoffStage('completed');
-      addBotMessage(`I had a little trouble reaching ${plannerName} directly, but I've saved your info — someone will follow up within 24 hours.`);
-    }
-  };
-
-  const handleHandoffUserInput = (text) => {
-    const plannerName = venue?.head_planner_name || 'our head planner';
-
-    if (handoffStage === 'offered') {
-      // Expecting yes/no
-      const lower = text.toLowerCase();
-      const isYes = /\b(yes|yeah|yep|sure|ok|okay|please|y)\b/.test(lower);
-      const isNo = /\b(no|nope|nah|not now|maybe later)\b/.test(lower);
-      if (isYes) {
-        setHandoffStage('awaiting_name');
-        addBotMessage(`Perfect. What's your name?`);
-      } else if (isNo) {
-        setHandoffStage('idle');
-        addBotMessage(`No problem — let me know if there's anything else I can help with.`);
-      } else {
-        addBotMessage(`Just a yes or no — want me to have ${plannerName} text you?`);
-      }
-      return true;
-    }
-
-    if (handoffStage === 'awaiting_name') {
-      const trimmed = text.trim();
-      if (trimmed.length < 2) {
-        addBotMessage(`Could you share your name?`);
-        return true;
-      }
-      setLeadName(trimmed);
-      setHandoffStage('awaiting_phone');
-      addBotMessage(`Nice to meet you, ${trimmed.split(' ')[0]}. Best number to text you at?`);
-      return true;
-    }
-
-    if (handoffStage === 'awaiting_phone') {
-      const isValid = /^[\d\s\-()+]{10,}$/.test(text.trim());
-      if (!isValid) {
-        addBotMessage(`Hmm, that doesn't look right — could you include the area code?`);
-        return true;
-      }
-      const cleaned = text.trim();
-      setLeadPhone(cleaned);
-      sendHandoffRequest(leadName, cleaned);
-      return true;
-    }
-
-    return false;
+  // Append an inline contact-card message and the warm "drop your info" lead-in.
+  const appendHandoffCard = (topicSummary) => {
+    const plannerName = venue?.planner_name || 'our planner';
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now(), text: `Perfect — drop your name and number below and ${plannerName} will text you!`, isBot: true },
+      { id: Date.now() + 1, isBot: true, isHandoffCard: true, topicSummary: topicSummary || 'general inquiry' },
+    ]);
   };
 
   // Find the N nearest available dates to a target date.
@@ -342,12 +257,6 @@ export default function useChatFlow({
     const userMsgId = Date.now();
     setMessages(prev => [...prev, { id: userMsgId, text, isBot: false }]);
 
-    // Active handoff flow handles input first
-    if (handoffStage !== 'idle' && handoffStage !== 'completed') {
-      const handled = handleHandoffUserInput(text);
-      if (handled) return;
-    }
-
     setIsTyping(true);
 
     // Guard against load race: wait for venueId to resolve before classifying/querying
@@ -374,6 +283,11 @@ export default function useChatFlow({
 
       const today = new Date().toISOString().slice(0, 10);
       const tz = venue?.timezone || 'America/New_York';
+      const plannerNameForClassifier = venue?.planner_name || 'our planner';
+
+      const handoffPendingBlock = handoffPending ? `
+A handoff offer (having ${plannerNameForClassifier} text the bride) is currently pending. Additionally return handoff_response: 'accepted' if this message clearly accepts being contacted (e.g. 'yes', 'sure', 'yes please text me'), 'declined' if it declines, or 'unrelated' otherwise. Farewells ('ok bye'), reactions ('wow'), and new questions are 'unrelated' — NEVER 'accepted'.
+` : '';
 
       const classifier = await base44.integrations.Core.InvokeLLM({
         prompt: `You classify a bride's message to a wedding venue chatbot.
@@ -397,19 +311,32 @@ When a message fits multiple intents, prefer the action intent (date_inquiry or 
 
 Extract wedding_date: the specific date the bride is asking about, resolved to YYYY-MM-DD. If she gives a date without a year (e.g. "October 17th"), resolve to the next FUTURE occurrence relative to today. If she only mentions a month or vague timeframe ("next fall", "summer"), return null.
 
-Extract guest_count: number if mentioned anywhere in recent context, otherwise null.`,
+Extract guest_count: number if mentioned anywhere in recent context, otherwise null.
+${handoffPendingBlock}`,
         response_json_schema: {
           type: 'object',
           properties: {
             intent: { type: 'string', enum: ['general', 'date_inquiry', 'tour_interest', 'package_inquiry', 'visual_request'] },
             wedding_date: { type: ['string', 'null'] },
             guest_count: { type: ['number', 'null'] },
+            handoff_response: { type: ['string', 'null'], enum: ['accepted', 'declined', 'unrelated', null] },
           },
           required: ['intent']
         }
       });
 
       console.log('CLASSIFIER:', JSON.stringify(classifier));
+
+      // Handoff acceptance: append inline card, clear pending, stop here.
+      if (handoffPending && classifier?.handoff_response === 'accepted') {
+        const topic = handoffPending.topicSummary;
+        setHandoffPending(null);
+        setIsTyping(false);
+        appendHandoffCard(topic);
+        return;
+      }
+      // Any non-accepted message clears the pending offer; conversation continues normally.
+      if (handoffPending) setHandoffPending(null);
 
       const intent = classifier?.intent || 'general';
       const guestCount = classifier?.guest_count || null;
@@ -445,7 +372,7 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
       let monthContext = '';
       let verdictSentence = '';
       let compactReply = '';
-      const plannerNameEarly = venue?.head_planner_name || 'Nadine';
+      const plannerNameEarly = venue?.planner_name || 'our planner';
 
       if (intent === 'date_inquiry' && weddingDate) {
         try {
@@ -504,7 +431,7 @@ Extract guest_count: number if mentioned anywhere in recent context, otherwise n
       }
 
       const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
-      const plannerName = venue?.head_planner_name || 'Nadine';
+      const plannerName = venue?.planner_name || 'our planner';
 
       // ── STEP 3: Generate response ───────────────────────────────
       const generator = await base44.integrations.Core.InvokeLLM({
@@ -571,14 +498,12 @@ If the question touches venue-specific policy NOT in the knowledge base, OR topi
         answer = generatorFollowUp || "Thanks for reaching out! What would you like to know more about?";
       }
 
+      setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
+
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
-        setHandoffTopic(topic);
-        setHandoffOriginalQuestion(text);
-        setHandoffStage('offered');
+        setHandoffPending({ topicSummary: topic });
       }
-
-      setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
 
       // Trigger tour scheduler after the warm reply for tour_interest
       if (intent === 'tour_interest') {
@@ -628,7 +553,7 @@ If the question touches venue-specific policy NOT in the knowledge base, OR topi
         break;
       case 'contact':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to talk to a real person", isBot: false }]);
-        offerHandoff('general inquiry', '(she just wanted to talk to a human)');
+        offerHandoff('general inquiry');
         break;
     }
   };
