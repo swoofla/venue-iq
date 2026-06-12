@@ -274,21 +274,8 @@ export default function useChatFlow({
     // Ensure session exists on first message
     await ensureChatSession();
 
-    // If this is the first message, inject the bot's opening question before the user message
-    const isFirstMessage = messages.length === 0;
     const userMsgId = Date.now();
-    setMessages(prev => {
-      const next = [...prev];
-      if (isFirstMessage) {
-        next.push({
-          id: userMsgId - 1,
-          text: `Hey! I'm ${venueName}'s virtual planner. I'd love to help you figure out if we're the right fit. To start, what date are you thinking — or are you still picking?`,
-          isBot: true,
-        });
-      }
-      next.push({ id: userMsgId, text, isBot: false });
-      return next;
-    });
+    setMessages(prev => [...prev, { id: userMsgId, text, isBot: false }]);
 
     // Active handoff flow handles input first
     if (handoffStage !== 'idle' && handoffStage !== 'completed') {
