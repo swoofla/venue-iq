@@ -472,7 +472,7 @@ ${intent === 'tour_interest' ? 'Give a SHORT warm reply (1-2 sentences) — the 
 ${intent === 'visual_request' ? 'No photo gallery exists yet. Warmly describe the relevant spaces from the knowledge base and offer a tour to see them in person.' : ''}
 ${intent === 'date_inquiry' && !weddingDate ? 'Respond naturally and ask which date or timeframe she\'s considering.' : ''}
 
-If the question touches venue-specific policy NOT in the knowledge base, OR topics like fireworks, sparklers, pets, religious customs, dietary restrictions, custom vendor policies, ADA accommodations, drone use, boat/lake access, OR she explicitly asks to talk to a human — set needsHandoff: true with a 2-6 word topicSummary and a warm one-line acknowledgment.`,
+Before considering a handoff, check whether the knowledge base contains anything related to the question — including general policies like the outside-vendor policy that may answer it indirectly. If related knowledge exists, answer from it warmly, and at most add a light offer to confirm specifics with ${plannerName}. Set needsHandoff: true ONLY when the knowledge base contains nothing relevant at all, the topic involves contracts/refunds/payment disputes or emotionally sensitive situations, or the bride explicitly asks for a human. A partial answer with a confirm-offer is ALWAYS better than a pure handoff.`,
         response_json_schema: {
           type: 'object',
           properties: {
