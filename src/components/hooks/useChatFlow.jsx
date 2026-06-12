@@ -264,13 +264,16 @@ export default function useChatFlow({
     return false;
   };
 
-  // Find the N nearest available dates to a target date, checking both BookedWeddingDate and BlockedDate
+  // Find the N nearest available dates to a target date.
+  // PREFERENCE ORDER:
+  //   1) Same day-of-week within ±6 weeks (a Saturday bride wants Saturdays)
+  //   2) Fallback: nearest calendar days within ±120 days
+  // Day-of-week is computed via partsFromIso (integer parts → local Date), never new Date('YYYY-MM-DD').
   const findNearestAvailableDates = async (targetDateStr, count = 3) => {
     if (!venueId || !targetDateStr) return [];
-    const target = new Date(targetDateStr + 'T00:00:00');
-    if (isNaN(target.getTime())) return [];
+    const target = partsFromIso(targetDateStr);
+    if (!target.jsDate || isNaN(target.jsDate.getTime())) return [];
 
-    // Pull a window of unavailable dates around the target (±120 days)
     const [booked, blocked] = await Promise.all([
       base44.entities.BookedWeddingDate.filter({ venue_id: venueId }),
       base44.entities.BlockedDate.filter({ venue_id: venueId }),
@@ -280,19 +283,53 @@ export default function useChatFlow({
       ...blocked.map(b => b.date),
     ]);
 
+    // "Today" floor, computed in local time
+    const now = new Date();
+    const todayFloor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Convert a local Date to YYYY-MM-DD without UTC shift
+    const toIso = (jsDate) => {
+      const y = jsDate.getFullYear();
+      const m = String(jsDate.getMonth() + 1).padStart(2, '0');
+      const d = String(jsDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    // Build a candidate at an offset (in days) from target, using local-date arithmetic
+    const candidateAt = (offsetDays) => {
+      const d = new Date(target.jsDate);
+      d.setDate(d.getDate() + offsetDays);
+      if (d < todayFloor) return null;
+      const iso = toIso(d);
+      if (unavailable.has(iso)) return null;
+      return iso;
+    };
+
     const results = [];
-    for (let offset = 1; offset <= 120 && results.length < count; offset++) {
+    const seen = new Set();
+    const push = (iso) => {
+      if (iso && !seen.has(iso)) {
+        seen.add(iso);
+        results.push(iso);
+      }
+    };
+
+    // PASS 1 — same day-of-week, ±6 weeks (offsets ±7, ±14, ..., ±42)
+    for (let weeks = 1; weeks <= 6 && results.length < count; weeks++) {
       for (const dir of [1, -1]) {
-        const d = new Date(target);
-        d.setDate(d.getDate() + offset * dir);
-        if (d < new Date(new Date().toDateString())) continue;
-        const iso = d.toISOString().slice(0, 10);
-        if (!unavailable.has(iso) && !results.includes(iso)) {
-          results.push(iso);
-          if (results.length >= count) break;
-        }
+        if (results.length >= count) break;
+        push(candidateAt(weeks * 7 * dir));
       }
     }
+
+    // PASS 2 — fallback: nearest calendar days within ±120 days
+    for (let offset = 1; offset <= 120 && results.length < count; offset++) {
+      for (const dir of [1, -1]) {
+        if (results.length >= count) break;
+        push(candidateAt(offset * dir));
+      }
+    }
+
     return results;
   };
 
