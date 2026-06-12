@@ -1,0 +1,49 @@
+{
+  "name": "VenuePackage",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this package belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Package name"
+    },
+    "price": {
+      "type": "number",
+      "description": "Package price"
+    },
+    "max_guests": {
+      "type": "number",
+      "description": "Maximum number of guests"
+    },
+    "description": {
+      "type": "string",
+      "description": "Package description"
+    },
+    "includes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What's included in the package"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display order"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether package is active"
+    }
+  },
+  "required": [
+    "venue_id",
+    "name",
+    "price",
+    "max_guests"
+  ]
+}

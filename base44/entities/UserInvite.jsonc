@@ -1,0 +1,56 @@
+{
+  "name": "UserInvite",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email to invite"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the person"
+    },
+    "venue_id": {
+      "type": "string",
+      "description": "Venue to assign them to"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "venue_owner",
+        "venue_staff"
+      ],
+      "description": "Role to assign"
+    },
+    "token": {
+      "type": "string",
+      "description": "Secure invite token (UUID)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "expired"
+      ],
+      "default": "pending"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the invite expires"
+    },
+    "accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When they accepted"
+    }
+  },
+  "required": [
+    "email",
+    "venue_id",
+    "role",
+    "token"
+  ]
+}

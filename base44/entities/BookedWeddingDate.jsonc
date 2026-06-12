@@ -1,0 +1,54 @@
+{
+  "name": "BookedWeddingDate",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue for this booking"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "The booked wedding date"
+    },
+    "couple_name": {
+      "type": "string",
+      "description": "Names of the couple"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "Contact email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone"
+    },
+    "guest_count": {
+      "type": "number",
+      "description": "Expected number of guests"
+    },
+    "package": {
+      "type": "string",
+      "enum": [
+        "intimate_garden",
+        "classic_elegance",
+        "grand_estate"
+      ],
+      "description": "Selected package"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "deposit_paid": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether deposit is received"
+    }
+  },
+  "required": [
+    "venue_id",
+    "date"
+  ]
+}

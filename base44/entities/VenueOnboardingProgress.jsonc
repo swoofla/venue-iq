@@ -1,0 +1,141 @@
+{
+  "name": "VenueOnboardingProgress",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to the Venue entity"
+    },
+    "overall_progress": {
+      "type": "number",
+      "default": 0,
+      "description": "Overall onboarding readiness percentage (0-100)"
+    },
+    "section_venue_basics": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of venue basics section"
+    },
+    "section_spaces": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of spaces & amenities section"
+    },
+    "section_policies": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of policies section"
+    },
+    "section_faq": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of FAQ section"
+    },
+    "section_personality": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of personality/brand voice section"
+    },
+    "section_packages": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of packages section"
+    },
+    "section_pricing": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of pricing section"
+    },
+    "section_transcripts": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "complete",
+        "auto_complete"
+      ],
+      "default": "not_started",
+      "description": "Status of transcripts section"
+    },
+    "answers_venue_basics": {
+      "type": "object",
+      "default": {},
+      "description": "Raw answers for venue basics section"
+    },
+    "answers_spaces": {
+      "type": "object",
+      "default": {},
+      "description": "Raw answers for spaces & amenities section"
+    },
+    "answers_policies": {
+      "type": "object",
+      "default": {},
+      "description": "Raw answers for policies section"
+    },
+    "answers_faq": {
+      "type": "object",
+      "default": {},
+      "description": "Raw answers for FAQ section"
+    },
+    "answers_personality": {
+      "type": "object",
+      "default": {},
+      "description": "Raw answers for personality/brand voice section"
+    },
+    "knowledge_generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When knowledge entries were last generated from onboarding"
+    },
+    "knowledge_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total VenueKnowledge entries generated from onboarding"
+    }
+  },
+  "required": [
+    "venue_id"
+  ]
+}

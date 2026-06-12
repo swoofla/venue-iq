@@ -1,0 +1,93 @@
+{
+  "name": "VenueKnowledge",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this knowledge belongs to"
+    },
+    "question": {
+      "type": "string",
+      "description": "Common question or topic"
+    },
+    "answer": {
+      "type": "string",
+      "description": "How the chatbot should respond"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "faq",
+        "pricing",
+        "pricing_nuance",
+        "capacity",
+        "policy",
+        "amenities",
+        "ceremony_spaces",
+        "lodging",
+        "sales_workflow",
+        "objection_handling",
+        "brand_voice",
+        "vendor_info",
+        "seasonal",
+        "location_directions",
+        "human_handoff"
+      ],
+      "default": "faq",
+      "description": "Type of knowledge"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to use this in chatbot"
+    },
+    "priority": {
+      "type": "number",
+      "default": 5,
+      "description": "Importance 0-10, higher = more critical for chatbot"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Searchable tags like ['elopement', 'budget', 'peak-season']"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "transcript",
+        "imported"
+      ],
+      "default": "manual",
+      "description": "How this knowledge was created"
+    },
+    "confidence": {
+      "type": "number",
+      "description": "AI extraction confidence 0.0 to 1.0, null for manual entries"
+    },
+    "needs_review": {
+      "type": "boolean",
+      "default": false,
+      "description": "Flagged for venue owner review before going live"
+    }
+  },
+  "required": [
+    "venue_id",
+    "question",
+    "answer"
+  ],
+  "rls": {
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "read": null,
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

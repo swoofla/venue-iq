@@ -1,0 +1,638 @@
+{
+  "name": "WeddingPricingConfiguration",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this pricing configuration belongs to"
+    },
+    "pricing_data": {
+      "type": "object",
+      "description": "Complete pricing structure for all services",
+      "properties": {
+        "venue_base": {
+          "type": "object",
+          "description": "Base venue pricing by guest tier and day",
+          "properties": {
+            "up_to_2": {
+              "type": "object",
+              "properties": {
+                "weekday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "saturday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            },
+            "2_to_20": {
+              "type": "object",
+              "properties": {
+                "saturday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "saturday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            },
+            "20_to_50": {
+              "type": "object",
+              "properties": {
+                "sunday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "saturday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            },
+            "51_to_120": {
+              "type": "object",
+              "properties": {
+                "saturday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "saturday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "friday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sunday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "weekday_non_peak": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "number"
+                    },
+                    "per_person": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "spirits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price_type": {
+                      "type": "string",
+                      "enum": [
+                        "flat",
+                        "per_person"
+                      ]
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "catering": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price_type": {
+                      "type": "string",
+                      "enum": [
+                        "flat",
+                        "per_person"
+                      ]
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "planning": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "photography": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "florals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "decor": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "entertainment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "videography": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "desserts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "linens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tableware": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "guest_tier": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "extras_options": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "venue_id",
+    "pricing_data"
+  ]
+}

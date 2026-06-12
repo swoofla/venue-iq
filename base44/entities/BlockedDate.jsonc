@@ -1,0 +1,23 @@
+{
+  "name": "BlockedDate",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue for this blocked date"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "The blocked date"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why it's blocked"
+    }
+  },
+  "required": [
+    "venue_id",
+    "date"
+  ]
+}

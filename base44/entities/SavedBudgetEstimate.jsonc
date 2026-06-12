@@ -1,0 +1,88 @@
+{
+  "name": "SavedBudgetEstimate",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Link to Venue"
+    },
+    "name": {
+      "type": "string",
+      "description": "First name of contact"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address if they chose email delivery"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number if they chose text delivery"
+    },
+    "delivery_preference": {
+      "type": "string",
+      "enum": [
+        "text",
+        "email"
+      ],
+      "description": "How to deliver the estimate"
+    },
+    "total_budget": {
+      "type": "number",
+      "description": "Total estimate amount"
+    },
+    "guest_count": {
+      "type": "number",
+      "description": "Estimated number of guests"
+    },
+    "guest_tier": {
+      "type": "string",
+      "description": "Tier ID (e.g., '51_to_120')"
+    },
+    "day_of_week": {
+      "type": "string",
+      "description": "Day of week (e.g., 'saturday')"
+    },
+    "season": {
+      "type": "string",
+      "enum": [
+        "peak",
+        "nonpeak"
+      ],
+      "description": "Season preference"
+    },
+    "budget_selections": {
+      "type": "object",
+      "description": "Complete budget selections with all category labels"
+    },
+    "budget_breakdown": {
+      "type": "object",
+      "description": "Itemized breakdown of costs"
+    },
+    "highlevel_contact_id": {
+      "type": "string",
+      "description": "HighLevel contact ID after sync"
+    },
+    "highlevel_sync_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "synced",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Sync status with HighLevel"
+    }
+  },
+  "required": [
+    "venue_id",
+    "name",
+    "delivery_preference",
+    "total_budget",
+    "guest_count",
+    "guest_tier",
+    "day_of_week",
+    "season",
+    "budget_selections",
+    "budget_breakdown"
+  ]
+}

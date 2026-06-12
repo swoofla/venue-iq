@@ -1,0 +1,13 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this user manages"
+    }
+  },
+  "required": [
+    "venue_id"
+  ]
+}

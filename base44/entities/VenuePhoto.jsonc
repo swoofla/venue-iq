@@ -1,0 +1,54 @@
+{
+  "name": "VenuePhoto",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to the Venue this photo belongs to"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "ceremony",
+        "reception",
+        "grounds",
+        "details",
+        "bridal_suite",
+        "exterior"
+      ],
+      "description": "Photo category for organization"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL of the photo (from Base44 file upload or external URL)"
+    },
+    "caption": {
+      "type": "string",
+      "description": "Short caption displayed under the photo"
+    },
+    "alt_text": {
+      "type": "string",
+      "description": "Accessibility text for screen readers"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display order within category (lower = first)"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Featured photos appear as category thumbnails"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Inactive photos are hidden from public view"
+    }
+  },
+  "required": [
+    "venue_id",
+    "category",
+    "image_url"
+  ]
+}

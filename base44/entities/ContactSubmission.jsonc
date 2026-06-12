@@ -1,0 +1,81 @@
+{
+  "name": "ContactSubmission",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this submission is for"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name of the contact"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number"
+    },
+    "wedding_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Planned wedding date"
+    },
+    "guest_count": {
+      "type": "number",
+      "description": "Expected number of guests"
+    },
+    "tour_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Scheduled tour date"
+    },
+    "tour_time": {
+      "type": "string",
+      "description": "Scheduled tour time slot"
+    },
+    "budget": {
+      "type": "number",
+      "description": "Total wedding budget"
+    },
+    "priorities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Top 3 wedding priorities"
+    },
+    "recommended_package": {
+      "type": "string",
+      "description": "Recommended venue package"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "budget_calculator",
+        "tour_scheduler",
+        "availability_check",
+        "chat"
+      ],
+      "description": "How they interacted with the chatbot"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "contacted",
+        "tour_scheduled",
+        "booked",
+        "lost"
+      ],
+      "default": "new"
+    }
+  },
+  "required": [
+    "venue_id",
+    "name",
+    "email"
+  ]
+}

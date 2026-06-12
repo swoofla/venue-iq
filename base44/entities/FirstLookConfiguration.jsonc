@@ -1,0 +1,61 @@
+{
+  "name": "FirstLookConfiguration",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to Venues entity"
+    },
+    "is_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether First Look is enabled for this venue"
+    },
+    "welcome_video_id": {
+      "type": "string",
+      "description": "Wistia video ID for muted autoplay intro (e.g., d0y9vqposd)"
+    },
+    "welcome_video_thumbnail": {
+      "type": "string",
+      "description": "Fallback image URL if video fails"
+    },
+    "host_name": {
+      "type": "string",
+      "description": "Name of the host (e.g., 'Nadine')"
+    },
+    "host_title": {
+      "type": "string",
+      "default": "Owner & Head Planner",
+      "description": "Title of the host"
+    },
+    "welcome_text": {
+      "type": "string",
+      "default": "let me show you around.",
+      "description": "Welcome message text"
+    },
+    "video_options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this video option"
+          },
+          "label": {
+            "type": "string",
+            "description": "Button label shown to users"
+          },
+          "video_id": {
+            "type": "string",
+            "description": "Wistia video ID"
+          }
+        }
+      },
+      "description": "Array of video options users can select"
+    }
+  },
+  "required": [
+    "venue_id"
+  ]
+}
