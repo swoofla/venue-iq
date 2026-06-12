@@ -40,6 +40,11 @@
       "type": "string",
       "default": "Saydee",
       "description": "Name of the head planner for this venue"
+    },
+    "planner_name": {
+      "type": "string",
+      "default": "our planner",
+      "description": "Display name used for human handoffs in the virtual planner chatbot"
     }
   },
   "required": [
