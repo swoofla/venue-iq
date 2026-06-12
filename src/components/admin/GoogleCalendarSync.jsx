@@ -124,8 +124,9 @@ export default function GoogleCalendarSync({ venueId }) {
         setError(data.error);
       } else {
         setSyncResult({
-          count: data.syncedCount || 0,
-          skippedDuplicates: data.skippedDuplicates || 0,
+          eventsFound: data.eventsFound || 0,
+          recordsCreated: data.recordsCreated || 0,
+          skippedExisting: data.skippedExisting || 0,
         });
       }
     } catch (err) {
@@ -207,8 +208,8 @@ export default function GoogleCalendarSync({ venueId }) {
           <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-green-700">
             <p>
-              Synced {syncResult.count} new wedding date{syncResult.count !== 1 ? 's' : ''}.
-              {syncResult.skippedDuplicates > 0 && ` Skipped ${syncResult.skippedDuplicates} already-synced event${syncResult.skippedDuplicates !== 1 ? 's' : ''}.`}
+              Found {syncResult.eventsFound} event{syncResult.eventsFound !== 1 ? 's' : ''} — added {syncResult.recordsCreated} new date{syncResult.recordsCreated !== 1 ? 's' : ''}
+              {syncResult.skippedExisting > 0 && ` (${syncResult.skippedExisting} already existed)`}.
             </p>
           </div>
         </div>

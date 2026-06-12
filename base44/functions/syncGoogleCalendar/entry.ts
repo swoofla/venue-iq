@@ -88,62 +88,88 @@ Deno.serve(async (req) => {
         if (v?.timezone) venueTz = v.timezone;
       } catch (_) { /* fall through with default */ }
 
-      // Fetch events from the selected calendar.
-      const eventsResponse = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=250&singleEvents=true&orderBy=startTime`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (eventsResponse.status === 401 || eventsResponse.status === 403) {
-        return Response.json({ status: 'not_connected' });
-      }
-      if (!eventsResponse.ok) {
-        const text = await eventsResponse.text();
-        return Response.json({ error: `Failed to fetch calendar events: ${eventsResponse.status} ${text}` }, { status: 502 });
-      }
-      const eventsData = await eventsResponse.json();
-      const events = eventsData.items || [];
+      // Window: today through today + 3 years (RFC3339).
+      const now = new Date();
+      const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const timeMaxDate = new Date(now.getFullYear() + 3, now.getMonth(), now.getDate());
+      const timeMax = timeMaxDate.toISOString();
 
-      // Load already-synced google_event_ids for this venue to dedupe.
+      // Page through events until nextPageToken is exhausted.
+      const events = [];
+      let pageToken = null;
+      let pagesFetched = 0;
+      do {
+        const params = new URLSearchParams({
+          maxResults: '2500',
+          singleEvents: 'true',
+          orderBy: 'startTime',
+          timeMin,
+          timeMax,
+        });
+        if (pageToken) params.set('pageToken', pageToken);
+
+        const eventsResponse = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (eventsResponse.status === 401 || eventsResponse.status === 403) {
+          return Response.json({ status: 'not_connected' });
+        }
+        if (!eventsResponse.ok) {
+          const text = await eventsResponse.text();
+          return Response.json({ error: `Failed to fetch calendar events: ${eventsResponse.status} ${text}` }, { status: 502 });
+        }
+        const eventsData = await eventsResponse.json();
+        if (Array.isArray(eventsData.items)) events.push(...eventsData.items);
+        pageToken = eventsData.nextPageToken || null;
+        pagesFetched += 1;
+        if (pagesFetched > 50) break; // hard safety cap
+      } while (pageToken);
+
+      const eventsFound = events.length;
+
+      // Load existing BookedWeddingDates for this venue to dedupe by BOTH
+      // google_event_id AND date (so we don't clobber manually-entered dates).
       const existing = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
-      const alreadySynced = new Set(
-        existing.map(b => b.google_event_id).filter(Boolean)
-      );
+      const existingEventIds = new Set(existing.map(b => b.google_event_id).filter(Boolean));
+      const existingDates = new Set(existing.map(b => b.date).filter(Boolean));
 
       const bookingsToCreate = [];
-      let skippedDuplicates = 0;
+      const usedDatesThisRun = new Set(); // avoid duplicates within the same batch
+      let skippedExisting = 0;
       let skippedNoDate = 0;
 
       for (const event of events) {
         if (!event.id) continue;
-        if (alreadySynced.has(event.id)) {
-          skippedDuplicates += 1;
-          continue;
-        }
         const dateStr = eventDateInTz(event, venueTz);
         if (!dateStr) {
           skippedNoDate += 1;
           continue;
         }
+        if (existingEventIds.has(event.id) || existingDates.has(dateStr) || usedDatesThisRun.has(dateStr)) {
+          skippedExisting += 1;
+          continue;
+        }
+        usedDatesThisRun.add(dateStr);
         bookingsToCreate.push({
           venue_id: venueId,
           date: dateStr,
           couple_name: event.summary || 'Wedding Booking',
-          notes: event.description || '',
           google_event_id: event.id,
         });
       }
 
-      const syncedDates = [];
+      let recordsCreated = 0;
       if (bookingsToCreate.length > 0) {
         try {
           const created = await base44.asServiceRole.entities.BookedWeddingDate.bulkCreate(bookingsToCreate);
-          syncedDates.push(...created.map(c => ({ id: c.id, date: c.date, couple_name: c.couple_name })));
+          recordsCreated = Array.isArray(created) ? created.length : bookingsToCreate.length;
         } catch (error) {
           console.log(`Bulk create error: ${error.message} — falling back to individual creates`);
           for (const booking of bookingsToCreate) {
             try {
-              const created = await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
-              syncedDates.push({ id: created.id, date: created.date, couple_name: created.couple_name });
+              await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
+              recordsCreated += 1;
             } catch (e) {
               console.log(`Skipped ${booking.date}: ${e.message}`);
             }
@@ -154,10 +180,10 @@ Deno.serve(async (req) => {
       return Response.json({
         status: 'connected',
         success: true,
-        syncedCount: syncedDates.length,
-        skippedDuplicates,
+        eventsFound,
+        recordsCreated,
+        skippedExisting,
         skippedNoDate,
-        syncedDates,
         venueId,
         calendarId,
       });
