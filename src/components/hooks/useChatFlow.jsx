@@ -31,6 +31,18 @@ function formatList(items) {
   return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
+// Ordinal suffix for a day-of-month integer: 1 → 'st', 2 → 'nd', 28 → 'th', ...
+function ordinal(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
 export default function useChatFlow({
   venueId,
   venueName,
@@ -73,13 +85,94 @@ export default function useChatFlow({
   const leadBudgetRangeRef = useRef(null);
   const debounceTimerRef = useRef(null);
 
-  // Conversational date context: most recent month/year discussed in a date_inquiry.
-  // Used to resolve bare-day references ("the 28th") and prefer the right year for
-  // month+day references ("May 28" while already discussing May 2027).
-  const activeDateContextRef = useRef(null); // { month: 1-12, year: yyyy } | null
+  // ── Conversational date resolution ──────────────────────────────────────
+  // userFocusDateRef: the ISO date the bride most recently made the SUBJECT of an
+  // inquiry. Updated ONLY when she asks about a single date, drills into one date
+  // from a previous list, or corrects a date. NOT updated from bot-mentioned
+  // alternatives or from multi-date lists until she narrows to one.
+  const userFocusDateRef = useRef(null); // 'YYYY-MM-DD' | null
+  // lastMultiMonthRef: when her most recent multi-date inquiry had a clear majority
+  // month, we remember it as a fallback for resolving a later bare-day reference.
+  const lastMultiMonthRef = useRef(null); // { month: 1-12, year: yyyy } | null
+  // pendingDayAmbiguityRef: set when she gave a bare day-of-month ("the 28th") and
+  // we cannot confidently determine the month. We post a reprompt and resolve from
+  // her next message.
+  const pendingDayAmbiguityRef = useRef(null); // { day: 1-31, candidates: [{month,year},...] } | null
   // Track which dates we've already checked this session so we don't re-prepend the
   // full "Good news —" verdict for a date that's already been discussed.
   const checkedDatesRef = useRef(new Set());
+
+  // Build a { month, year } context for the date parsers from the focus date
+  // (preferred) or the last multi-date inquiry's majority month (fallback).
+  const buildDateContext = () => {
+    if (userFocusDateRef.current) {
+      const p = partsFromIso(userFocusDateRef.current);
+      return { month: p.m, year: p.y };
+    }
+    if (lastMultiMonthRef.current) return lastMultiMonthRef.current;
+    return null;
+  };
+
+  // Detect a bare day-of-month reference like "the 28th", "the 28", or a lone "28".
+  // Returns the day number, or null. Skips messages that already contain a month name
+  // or a slash/dash numeric date — those are not bare-day references.
+  const detectBareDay = (text) => {
+    if (!text) return null;
+    const hasMonth = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\b/i.test(text);
+    if (hasMonth) return null;
+    if (/\b\d{1,2}[/-]\d{1,2}\b/.test(text) || /\b\d{4}-\d{1,2}-\d{1,2}\b/.test(text)) return null;
+    const cleaned = text.replace(/(\d+)(st|nd|rd|th)\b/gi, '$1');
+    const m = cleaned.match(/\bthe\s+(\d{1,2})\b/i) || cleaned.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+    if (!m) return null;
+    const day = parseInt(m[1], 10);
+    if (day < 1 || day > 31) return null;
+    return day;
+  };
+
+  // From a list of ISO dates, return the majority month if a single month accounts
+  // for STRICTLY MORE than half of the dates. Otherwise null (no confident majority).
+  const getMajorityMonth = (isoDates) => {
+    if (!Array.isArray(isoDates) || isoDates.length === 0) return null;
+    const counts = new Map();
+    for (const iso of isoDates) {
+      const p = partsFromIso(iso);
+      const key = `${p.y}-${p.m}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    let bestKey = null, bestN = 0;
+    for (const [k, n] of counts) {
+      if (n > bestN) { bestKey = k; bestN = n; }
+    }
+    if (bestKey && bestN > isoDates.length / 2) {
+      const [y, m] = bestKey.split('-').map(Number);
+      return { month: m, year: y };
+    }
+    return null;
+  };
+
+  // Distinct months represented in a list of ISO dates, preserving first-seen order.
+  const distinctMonths = (isoDates) => {
+    const seen = new Map();
+    for (const iso of isoDates || []) {
+      const p = partsFromIso(iso);
+      const key = `${p.y}-${p.m}`;
+      if (!seen.has(key)) seen.set(key, { month: p.m, year: p.y });
+    }
+    return Array.from(seen.values());
+  };
+
+  // Detect which one of `candidates` the user picked in a free-form reply like
+  // "May", "June please", "the may one". Returns a candidate {month,year} or null.
+  const matchAmbiguityAnswer = (text, candidates) => {
+    if (!text || !candidates?.length) return null;
+    for (const c of candidates) {
+      const name = MONTH_NAMES[c.month - 1];
+      const abbr = name.slice(0, 3);
+      const re = new RegExp(`\\b(${name}|${abbr})\\b`, 'i');
+      if (re.test(text)) return c;
+    }
+    return null;
+  };
 
   const firstLookConfigRef = useRef(firstLookConfig);
   const messagesEndRef = useRef(null);
@@ -351,36 +444,115 @@ ${handoffPendingBlock}`,
       const intent = classifier?.intent || 'general';
       const guestCount = classifier?.guest_count || null;
 
+      // ── Resolve pending day-of-month ambiguity from this message ────────
+      // If we previously asked "The 28th of May or June?" and this message names
+      // one of the candidate months, build the ISO directly and skip the parsers.
+      let ambiguityResolvedIso = null;
+      if (pendingDayAmbiguityRef.current) {
+        const { day, candidates } = pendingDayAmbiguityRef.current;
+        const picked = matchAmbiguityAnswer(text, candidates);
+        if (picked) {
+          const candidate = new Date(picked.year, picked.month - 1, day);
+          if (candidate.getMonth() === picked.month - 1 && candidate.getDate() === day) {
+            const y = candidate.getFullYear();
+            const m = String(candidate.getMonth() + 1).padStart(2, '0');
+            const d = String(candidate.getDate()).padStart(2, '0');
+            ambiguityResolvedIso = `${y}-${m}-${d}`;
+          }
+          pendingDayAmbiguityRef.current = null;
+        }
+        // If she didn't pick a candidate, leave pending in place; the parsers run normally.
+      }
+
       // Deterministic date parsing takes priority over the classifier's wedding_date(s).
       // Multi-date parser runs first; if it returns >1 dates we use them as a list.
       // Otherwise fall back to single-date parser, then classifier.
-      // Both parsers receive the active date context so bare-day references
-      // ("the 28th") and bare month+day ("May 28") resolve against the ongoing thread.
-      const dateContext = activeDateContextRef.current;
+      // Both parsers receive the conversational date context (focus date or last
+      // multi-date majority month) so bare-day references ("the 28th") and bare
+      // month+day ("May 28") resolve correctly against the ongoing thread.
+      const dateContext = buildDateContext();
       const deterministicDates = parseDatesFromText(text, dateContext);
-      const deterministicDate = parseDateFromText(text, dateContext);
+      const deterministicDate = ambiguityResolvedIso || parseDateFromText(text, dateContext);
       const classifierDates = Array.isArray(classifier?.wedding_dates)
         ? classifier.wedding_dates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
         : [];
       let weddingDates = [];
-      if (deterministicDates.length > 1) {
+      if (!ambiguityResolvedIso && deterministicDates.length > 1) {
         weddingDates = deterministicDates;
-      } else if (classifierDates.length > 1) {
+      } else if (!ambiguityResolvedIso && classifierDates.length > 1) {
         weddingDates = classifierDates;
       }
       weddingDates = weddingDates.slice(0, 5); // cap at 5 per spec
       const weddingDate = deterministicDate || classifier?.wedding_date || (weddingDates[0] || null);
-      console.log('[useChatFlow] Date parsing — deterministicDates:', deterministicDates, '| deterministicDate:', deterministicDate, '| classifier:', classifier?.wedding_date, classifier?.wedding_dates, '| final single:', weddingDate, '| final multi:', weddingDates);
+      console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| deterministicDates:', deterministicDates, '| deterministicDate:', deterministicDate, '| classifier:', classifier?.wedding_date, classifier?.wedding_dates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
+
+      // ── Ambiguity guard: bare day with no confident month → reprompt ────
+      // Trigger only when:
+      //  - intent is a date inquiry,
+      //  - we detect a bare day-of-month in the message,
+      //  - no single date was resolved (parsers returned nothing usable),
+      //  - we have NO focus date and NO majority-month fallback,
+      //  - the last multi-date inquiry had 2+ distinct months we can offer as choices.
+      if (
+        intent === 'date_inquiry' &&
+        !weddingDate &&
+        weddingDates.length === 0 &&
+        !dateContext
+      ) {
+        const bareDay = detectBareDay(text);
+        if (bareDay) {
+          // Build candidate months from the last multi inquiry, if any.
+          // Fall back to gracefully asking in prose if we have nothing to offer.
+          const lastMulti = (() => {
+            // Walk back through user messages to find the most recent multi-date inquiry's dates.
+            const userMsgs = [...messagesRef.current].filter(m => !m.isBot);
+            for (let i = userMsgs.length - 1; i >= 0; i--) {
+              const meta = userMsgs[i].metadata;
+              if (meta?.intent === 'date_inquiry' && Array.isArray(meta.wedding_dates) && meta.wedding_dates.length > 1) {
+                return meta.wedding_dates;
+              }
+            }
+            return [];
+          })();
+          const candidates = distinctMonths(lastMulti).slice(0, 2);
+          if (candidates.length >= 2) {
+            pendingDayAmbiguityRef.current = { day: bareDay, candidates };
+            const label = (c) => MONTH_NAMES[c.month - 1];
+            const reprompt = `The ${bareDay}${ordinal(bareDay)} of ${label(candidates[0])} or ${label(candidates[1])}?`;
+            setIsTyping(false);
+            setMessages(prev => [...prev, { id: Date.now(), text: reprompt, isBot: true }]);
+            return;
+          }
+          // No prior multi-month list to draw from → ask freely.
+          setIsTyping(false);
+          setMessages(prev => [...prev, { id: Date.now(), text: `Which month — the ${bareDay}${ordinal(bareDay)} of which month?`, isBot: true }]);
+          return;
+        }
+      }
 
       // Persist intent metadata onto the user message (flows through ChatSession sync)
       setMessages(prev => prev.map(m =>
         m.id === userMsgId
-          ? { ...m, metadata: { intent, wedding_date: weddingDate, guest_count: guestCount } }
+          ? { ...m, metadata: { intent, wedding_date: weddingDate, wedding_dates: weddingDates, guest_count: guestCount } }
           : m
       ));
 
       if (guestCount && !leadGuestCountRef.current) leadGuestCountRef.current = guestCount;
       if (weddingDate && !leadWeddingDateRef.current) leadWeddingDateRef.current = weddingDate;
+
+      // ── Update focus / multi-month state based on what she just did ─────
+      // Focus updates when she lands on ONE date: a single-date inquiry, an
+      // ambiguity resolution, or drilling into one date from a previous list.
+      // It does NOT update from bot-mentioned alternatives or from a list.
+      if (intent === 'date_inquiry') {
+        if (weddingDates.length > 1) {
+          // Multi-date list → do NOT touch focus; refresh majority-month fallback.
+          const majority = getMajorityMonth(weddingDates);
+          if (majority) lastMultiMonthRef.current = majority;
+        } else if (weddingDate) {
+          userFocusDateRef.current = weddingDate;
+        }
+      }
 
       // Detect rapid date-checking: previous USER message was also a date_inquiry
       const previousUserMsg = [...messagesRef.current]
@@ -433,13 +605,9 @@ ${handoffPendingBlock}`,
             return `${label}: ${r.isAvailable ? 'open' : 'already booked'}`;
           });
           const multiReply = `Here's what I found — ${lines.join(' · ')}. Want me to check any others?`;
-          // Record checked dates and update active date context to the latest checked.
+          // Record checked dates. Focus is intentionally NOT updated — she hasn't
+          // narrowed to one date yet. Majority-month fallback was refreshed above.
           results.forEach(r => { if (!r.isPast) checkedDatesRef.current.add(r.date); });
-          const last = weddingDates[weddingDates.length - 1];
-          if (last) {
-            const lp = partsFromIso(last);
-            activeDateContextRef.current = { month: lp.m, year: lp.y };
-          }
           setIsTyping(false);
           setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
           return;
@@ -450,12 +618,6 @@ ${handoffPendingBlock}`,
       }
 
       if (intent === 'date_inquiry' && weddingDate) {
-        // Update active date context for the NEXT message in the thread.
-        {
-          const parts = partsFromIso(weddingDate);
-          activeDateContextRef.current = { month: parts.m, year: parts.y };
-        }
-
         // ── Past-date guard ─────────────────────────────────────────
         // Never run availability or declare "open" for a date that's already past.
         // Compose a heads-up in code; if a same-day-of-week future date is obvious,
@@ -500,8 +662,8 @@ ${handoffPendingBlock}`,
           effectiveDate = `${y}-${m}-${d}`;
           const formattedFuture = formatFullDate(effectiveDate);
           pastHeadsUp = `Just a heads up — ${formattedPast} has already passed! Did you mean ${formattedFuture}? `;
-          // Refresh active context to the future date we're actually checking.
-          activeDateContextRef.current = { month: chosen.getMonth() + 1, year: y };
+          // Advance focus to the future date we're actually checking.
+          userFocusDateRef.current = effectiveDate;
         }
 
         // ── Repeat-date handling ────────────────────────────────────
