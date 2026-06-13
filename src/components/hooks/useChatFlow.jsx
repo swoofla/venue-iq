@@ -746,6 +746,7 @@ ${handoffPendingBlock}`,
 
       const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
       const plannerName = venue?.planner_name || 'our planner';
+      const plannerTitle = venue?.planner_title || 'our planner';
 
       // ── STEP 3: Generate response ───────────────────────────────
       const generator = await base44.integrations.Core.InvokeLLM({
@@ -764,6 +765,8 @@ When the bride corrects you or points out an inconsistency: acknowledge in a few
 Answer the question that was asked with the facts provided. Do NOT invent hypothetical complications (e.g., speculating she might have more guests than a package allows) unless she has stated something that creates the issue.
 If asked the price of a date that's already booked: give the normal price for that day and season anyway (it's useful for comparison), with a gentle note that the date itself is taken.
 Offer the ${plannerName} handoff at most once per topic. If a handoff offer was made in the last two bot messages, do not offer again — just answer as well as you can.
+Never offer to elaborate on something you cannot actually elaborate on. Only offer to 'share more' / 'tell you more about how that works' when the provided knowledge base genuinely contains further detail you'd deliver next. If you've already given all the information available on a topic, do NOT promise more — either end on a warm statement, or open a door toward a DIFFERENT topic you can actually speak to (a related space, the season, packages). A follow-up offer is a promise; only make promises you can keep with the knowledge provided.
+The first time you mention ${plannerName} in a conversation, identify her role so the bride has context — '${plannerName}, ${plannerTitle} at ${venueName}' or similar. After that first introduction, just use her name.
 
 STRICT GUARDRAILS:
 - Answer ONLY from the provided venue knowledge, package data, and availability results below.
