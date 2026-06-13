@@ -46,6 +46,11 @@
       "default": "our planner",
       "description": "Display name used for human handoffs in the virtual planner chatbot"
     },
+    "planner_title": {
+      "type": "string",
+      "default": "our planner",
+      "description": "Role descriptor used the first time the planner is named in conversation (e.g. 'head planner', 'wedding coordinator')"
+    },
     "google_calendar_id": {
       "type": "string",
       "description": "Google Calendar ID selected for this venue's wedding-date sync"
