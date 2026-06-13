@@ -36,6 +36,32 @@
       "default": "faq",
       "description": "Type of knowledge"
     },
+    "topic": {
+      "type": "string",
+      "enum": [
+        "catering",
+        "desserts",
+        "alcohol_bar",
+        "packages_pricing",
+        "ceremony_spaces",
+        "reception_spaces",
+        "lodging",
+        "coordination_planning",
+        "payment_deposits",
+        "decor_rentals",
+        "photography_video",
+        "capacity_guests",
+        "vendors",
+        "rules_policies",
+        "amenities",
+        "availability_dates",
+        "tours",
+        "getting_ready",
+        "general"
+      ],
+      "default": "general",
+      "description": "Subject area used for topic-focused retrieval in the chatbot"
+    },
     "is_active": {
       "type": "boolean",
       "default": true,

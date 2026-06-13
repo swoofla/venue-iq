@@ -414,11 +414,35 @@ When a message fits multiple intents, prefer the action intent (date_inquiry or 
 Extract wedding_date: the specific date the bride is asking about, resolved to YYYY-MM-DD. If she gives a date without a year (e.g. "October 17th"), resolve to the next FUTURE occurrence relative to today. If she only mentions a month or vague timeframe ("next fall", "summer"), return null.
 
 Extract guest_count: number if mentioned anywhere in recent context, otherwise null.
+
+Also classify the PRIMARY topic of the bride's current message from this fixed vocabulary:
+- catering: food, caterers, menu, dietary, tastings, plated vs buffet
+- desserts: cake, cupcakes, cookies, sweets, dessert table
+- alcohol_bar: drinks, bar, alcohol, beer, wine, signature cocktails, bartender
+- packages_pricing: package options, what's included, total cost, price tiers, budget
+- ceremony_spaces: where the ceremony happens, outdoor/indoor ceremony locations, arbor, aisle
+- reception_spaces: reception room/tent/barn, where dinner & dancing happen
+- lodging: on-site stay, cabins, hotels nearby, accommodations
+- coordination_planning: day-of coordinator, planning support, timeline help, vendor management
+- payment_deposits: deposits, payment schedule, refund policy, contracts
+- decor_rentals: tables, chairs, linens, arches, in-house decor, rental items
+- photography_video: photographer, videographer, photo/video vendors
+- capacity_guests: max guest count, minimums, kids policy, plus-ones
+- vendors: outside vendor policy, preferred vendor list, vendor restrictions
+- rules_policies: noise/end times, fireworks, sparklers, pets, smoking, candles
+- amenities: bridal suite, grooms room, parking, AV, wifi, heating/cooling, restrooms
+- availability_dates: open/booked dates, calendar, peak vs off-season
+- tours: visiting the venue, scheduling a walk-through
+- getting_ready: bridal suite use, getting-ready timing, hair & makeup space
+- general: greetings, intros, vibe questions, anything else
+
+When a message spans topics, return the PRIMARY one.
 ${handoffPendingBlock}`,
         response_json_schema: {
           type: 'object',
           properties: {
             intent: { type: 'string', enum: ['general', 'date_inquiry', 'tour_interest', 'package_inquiry', 'visual_request'] },
+            topic: { type: 'string', enum: ['catering','desserts','alcohol_bar','packages_pricing','ceremony_spaces','reception_spaces','lodging','coordination_planning','payment_deposits','decor_rentals','photography_video','capacity_guests','vendors','rules_policies','amenities','availability_dates','tours','getting_ready','general'] },
             wedding_date: { type: ['string', 'null'] },
             wedding_dates: { type: ['array', 'null'], items: { type: 'string' } },
             guest_count: { type: ['number', 'null'] },
@@ -744,7 +768,26 @@ ${handoffPendingBlock}`,
           .join('\n\n');
       }
 
-      const knowledgeContext = venueKnowledge.map(k => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n');
+      // ── Topic-focused knowledge assembly ─────────────────────────
+      const topic = classifier?.topic || 'general';
+      const formatEntry = (k) => `Q: ${k.question}\nA: ${k.answer}`;
+      const primaryEntries = venueKnowledge.filter(k => k.topic === topic && topic !== 'general');
+      const generalBaseline = venueKnowledge.filter(k => k.topic === 'general');
+      const matchCount = primaryEntries.length;
+      console.log('TOPIC:', topic, '| entries matched:', matchCount);
+
+      let knowledgeContext;
+      if (matchCount === 0) {
+        // Migration safety: if no entries are tagged for this topic, fall back to all.
+        knowledgeContext = venueKnowledge.map(formatEntry).join('\n\n');
+      } else {
+        const primaryBlock = `=== EVERYTHING ${venueName.toUpperCase()} KNOWS ABOUT ${topic.toUpperCase().replace(/_/g, ' ')} ===\n${primaryEntries.map(formatEntry).join('\n\n')}`;
+        const generalBlock = generalBaseline.length > 0
+          ? `\n\n=== GENERAL VENUE KNOWLEDGE (baseline) ===\n${generalBaseline.map(formatEntry).join('\n\n')}`
+          : '';
+        knowledgeContext = primaryBlock + generalBlock;
+      }
+
       const plannerName = venue?.planner_name || 'our planner';
       const plannerTitle = venue?.planner_title || 'our planner';
 
@@ -786,6 +829,8 @@ Do NOT push a tour. Put your reply in the "answer" field.
 ` : ''}Intent: ${intent}
 ${availabilityContext ? availabilityContext + '\n' : ''}${monthContext ? monthContext + '\n' : ''}${packageContext ? packageContext + '\n\n' : ''}
 Venue Knowledge Base:
+The primary block below contains everything the venue knows about the topic the bride is asking about. Use ALL relevant facts from it to give a complete, specific answer — do not stop at the first matching fact. Never refer her to ${plannerName} for a topic the primary block already covers.
+
 ${knowledgeContext}
 
 Recent conversation:
