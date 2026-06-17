@@ -22,7 +22,7 @@ function partsFromIso(iso) {
 
 Deno.serve(async (req) => {
   try {
-    const { venueId, date, alternativesCount = 3 } = await req.json();
+    const { venueId, date, alternativesCount = 3, mode = 'single', weekdays, monthOpeningsLimit = 12 } = await req.json();
     if (!venueId || !date) {
       return Response.json({ error: 'venueId and date are required' }, { status: 400 });
     }
@@ -38,6 +38,48 @@ Deno.serve(async (req) => {
       ...booked.map(b => b.date).filter(Boolean),
       ...blocked.map(b => b.date).filter(Boolean),
     ]);
+
+    // ── Month-level openings mode ─────────────────────────────────────────
+    // Enumerate open days in the target month that match a weekday filter.
+    // Does NOT alter the single-date path or its response shape.
+    if (mode === 'monthOpenings') {
+      const repr = partsFromIso(date);
+      const year = repr.getFullYear();
+      const month = repr.getMonth() + 1; // 1-12
+
+      const weekdayFilter = Array.isArray(weekdays) && weekdays.length > 0
+        ? new Set(weekdays.map(n => parseInt(n, 10)).filter(n => n >= 0 && n <= 6))
+        : new Set([repr.getDay()]);
+
+      const now = new Date();
+      const todayFloor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Days in month (month is 1-12 here; new Date(year, month, 0) gives last day of prior month index = last day of target month)
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      const allOpen = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month - 1, day);
+        if (!weekdayFilter.has(d.getDay())) continue;
+        if (d < todayFloor) continue;
+        const iso = toIsoLocal(d);
+        if (unavailable.has(iso)) continue;
+        allOpen.push(iso);
+      }
+
+      const count = allOpen.length;
+      const monthOpenDates = allOpen.slice(0, monthOpeningsLimit);
+
+      return Response.json({
+        venueId,
+        mode: 'monthOpenings',
+        year,
+        month,
+        weekdays: Array.from(weekdayFilter).sort(),
+        monthOpenDates,
+        count,
+      });
+    }
 
     const isAvailable = !unavailable.has(date);
 
