@@ -411,7 +411,14 @@ Classify into one intent:
 
 When a message fits multiple intents, prefer the action intent (date_inquiry or tour_interest) over general.
 
-Extract wedding_date: the specific date the bride is asking about, resolved to YYYY-MM-DD. If she gives a date without a year (e.g. "October 17th"), resolve to the next FUTURE occurrence relative to today. If she only mentions a month or vague timeframe ("next fall", "summer"), return null.
+Extract wedding_date — be careful and precise:
+- Resolve to YYYY-MM-DD when the bride gives an exact day she is asking about.
+- ALWAYS preserve a year she states, regardless of word order or phrasing. "2027 Saturday October 22", "October 22 2027", "10/22/27", "next fall 2027", "fall of 2027 on October 22" all mean the year 2027. NEVER override or "correct" a stated year — even if it conflicts with a weekday she mentions, even if it seems unusual.
+- If she gives a month and day but NO year at all (e.g. "October 17th", "10/17"), do NOT guess and do NOT resolve to the next future occurrence. Return wedding_date as null and set year_missing: true, and return month (1-12) and day (1-31) so we can ask her for the year.
+- If she only mentions a month, season, or vague timeframe with no specific day ("next fall", "summer", "October"), return wedding_date null and year_missing false.
+- Use today's date only to choose the future occurrence when she gives a day-of-month and an explicit year both — never to fill in a missing year.
+
+Extract stated_weekday — the literal weekday word she wrote ("Saturday", "Sunday", "Friday", "Monday", "Tuesday", "Wednesday", "Thursday"), case-normalized. If she did not name a weekday, return null. Do NOT compute it from the date. Just capture the word she used.
 
 Extract guest_count: number if mentioned anywhere in recent context, otherwise null.
 
@@ -445,11 +452,16 @@ ${handoffPendingBlock}`,
             topic: { type: 'string', enum: ['catering','desserts','alcohol_bar','packages_pricing','ceremony_spaces','reception_spaces','lodging','coordination_planning','payment_deposits','decor_rentals','photography_video','capacity_guests','vendors','rules_policies','amenities','availability_dates','tours','getting_ready','general'] },
             wedding_date: { type: ['string', 'null'] },
             wedding_dates: { type: ['array', 'null'], items: { type: 'string' } },
+            year_missing: { type: ['boolean', 'null'] },
+            month: { type: ['number', 'null'] },
+            day: { type: ['number', 'null'] },
+            stated_weekday: { type: ['string', 'null'], enum: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday', null] },
             guest_count: { type: ['number', 'null'] },
             handoff_response: { type: ['string', 'null'], enum: ['accepted', 'declined', 'unrelated', null] },
           },
           required: ['intent']
-        }
+        },
+        model: 'claude_opus_4_8'
       });
 
       console.log('CLASSIFIER:', JSON.stringify(classifier));
@@ -469,46 +481,102 @@ ${handoffPendingBlock}`,
       const guestCount = classifier?.guest_count || null;
 
       // ── Resolve pending day-of-month ambiguity from this message ────────
-      // If we previously asked "The 28th of May or June?" and this message names
-      // one of the candidate months, build the ISO directly and skip the parsers.
+      // pendingDayAmbiguityRef can hold one of three shapes:
+      //   1. { day, candidates: [{month,year}, ...] }     — old "May or June 28th?"
+      //   2. { kind: 'year_missing', month, day }         — "what year?"
+      //   3. { kind: 'weekday_conflict', isoDate,
+      //        statedWeekday, alternateIso }              — "Friday or Saturday?"
       let ambiguityResolvedIso = null;
       if (pendingDayAmbiguityRef.current) {
-        const { day, candidates } = pendingDayAmbiguityRef.current;
-        const picked = matchAmbiguityAnswer(text, candidates);
-        if (picked) {
-          const candidate = new Date(picked.year, picked.month - 1, day);
-          if (candidate.getMonth() === picked.month - 1 && candidate.getDate() === day) {
-            const y = candidate.getFullYear();
-            const m = String(candidate.getMonth() + 1).padStart(2, '0');
-            const d = String(candidate.getDate()).padStart(2, '0');
-            ambiguityResolvedIso = `${y}-${m}-${d}`;
+        const pending = pendingDayAmbiguityRef.current;
+
+        if (pending.kind === 'year_missing') {
+          // Look for a 4-digit year, then a 2-digit year (e.g. "27").
+          const m4 = text.match(/\b(20\d{2})\b/);
+          const m2 = !m4 ? text.match(/\b(\d{2})\b/) : null;
+          const year = m4 ? parseInt(m4[1], 10) : (m2 ? 2000 + parseInt(m2[1], 10) : null);
+          if (year) {
+            const candidate = new Date(year, pending.month - 1, pending.day);
+            if (candidate.getMonth() === pending.month - 1 && candidate.getDate() === pending.day) {
+              const y = candidate.getFullYear();
+              const mm = String(candidate.getMonth() + 1).padStart(2, '0');
+              const dd = String(candidate.getDate()).padStart(2, '0');
+              ambiguityResolvedIso = `${y}-${mm}-${dd}`;
+            }
+            pendingDayAmbiguityRef.current = null;
           }
-          pendingDayAmbiguityRef.current = null;
+          // No year detected → leave pending, let normal flow handle the message.
+        } else if (pending.kind === 'weekday_conflict') {
+          // She picked: either go with the actual weekday of the original date,
+          // or shift to the nearest date matching her stated weekday.
+          const lower = text.toLowerCase();
+          const wantsStated = new RegExp(`\\b${pending.statedWeekday.toLowerCase()}\\b`).test(lower);
+          const acceptsActual = /\b(yes|yep|yeah|sure|ok|okay|that(?:'s| is)? fine|works|sounds good|the )/i.test(lower)
+            && !wantsStated;
+          if (wantsStated) {
+            ambiguityResolvedIso = pending.alternateIso;
+            pendingDayAmbiguityRef.current = null;
+          } else if (acceptsActual) {
+            ambiguityResolvedIso = pending.isoDate;
+            pendingDayAmbiguityRef.current = null;
+          }
+          // Otherwise: leave pending, fall through to normal classification.
+        } else {
+          // Legacy shape: { day, candidates }
+          const { day, candidates } = pending;
+          const picked = matchAmbiguityAnswer(text, candidates);
+          if (picked) {
+            const candidate = new Date(picked.year, picked.month - 1, day);
+            if (candidate.getMonth() === picked.month - 1 && candidate.getDate() === day) {
+              const y = candidate.getFullYear();
+              const mm = String(candidate.getMonth() + 1).padStart(2, '0');
+              const dd = String(candidate.getDate()).padStart(2, '0');
+              ambiguityResolvedIso = `${y}-${mm}-${dd}`;
+            }
+            pendingDayAmbiguityRef.current = null;
+          }
+          // If she didn't pick a candidate, leave pending in place; the parsers run normally.
         }
-        // If she didn't pick a candidate, leave pending in place; the parsers run normally.
       }
 
-      // Deterministic date parsing takes priority over the classifier's wedding_date(s).
-      // Multi-date parser runs first; if it returns >1 dates we use them as a list.
-      // Otherwise fall back to single-date parser, then classifier.
-      // Both parsers receive the conversational date context (focus date or last
-      // multi-date majority month) so bare-day references ("the 28th") and bare
-      // month+day ("May 28") resolve correctly against the ongoing thread.
+      // Date extraction — CLASSIFIER IS AUTHORITATIVE.
+      // The Opus classifier (above) preserves a stated year in any phrasing and
+      // captures stated_weekday. We use its wedding_date / wedding_dates first.
+      // The deterministic regex parser is only a FALLBACK when the classifier
+      // returned nothing — it drops stated years in unsupported word orders and
+      // must not override the classifier when both produce a result.
       const dateContext = buildDateContext();
-      const deterministicDates = parseDatesFromText(text, dateContext);
-      const deterministicDate = ambiguityResolvedIso || parseDateFromText(text, dateContext);
+      const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+      const classifierDateRaw = typeof classifier?.wedding_date === 'string' && isoRe.test(classifier.wedding_date)
+        ? classifier.wedding_date
+        : null;
       const classifierDates = Array.isArray(classifier?.wedding_dates)
-        ? classifier.wedding_dates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        ? classifier.wedding_dates.filter(d => typeof d === 'string' && isoRe.test(d))
         : [];
+      const deterministicDates = parseDatesFromText(text, dateContext);
+      const deterministicDate = parseDateFromText(text, dateContext);
+
       let weddingDates = [];
-      if (!ambiguityResolvedIso && deterministicDates.length > 1) {
-        weddingDates = deterministicDates;
-      } else if (!ambiguityResolvedIso && classifierDates.length > 1) {
-        weddingDates = classifierDates;
+      if (!ambiguityResolvedIso) {
+        if (classifierDates.length > 1) {
+          weddingDates = classifierDates;
+        } else if (deterministicDates.length > 1) {
+          weddingDates = deterministicDates;
+        }
       }
       weddingDates = weddingDates.slice(0, 5); // cap at 5 per spec
-      const weddingDate = deterministicDate || classifier?.wedding_date || (weddingDates[0] || null);
-      console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| deterministicDates:', deterministicDates, '| deterministicDate:', deterministicDate, '| classifier:', classifier?.wedding_date, classifier?.wedding_dates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
+
+      const weddingDate = ambiguityResolvedIso
+        || classifierDateRaw
+        || (weddingDates[0] || null)
+        || deterministicDate;
+      const statedWeekday = typeof classifier?.stated_weekday === 'string' ? classifier.stated_weekday : null;
+      const yearMissing = classifier?.year_missing === true
+        && !weddingDate
+        && weddingDates.length === 0
+        && Number.isInteger(classifier?.month)
+        && Number.isInteger(classifier?.day);
+      console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| classifier:', classifierDateRaw, classifierDates, '| classifier year_missing:', classifier?.year_missing, classifier?.month, classifier?.day, '| classifier weekday:', statedWeekday, '| deterministicDate:', deterministicDate, '| deterministicDates:', deterministicDates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
 
       // ── Ambiguity guard: bare day with no confident month → reprompt ────
       // Trigger only when:
@@ -586,6 +654,66 @@ ${handoffPendingBlock}`,
         intent === 'date_inquiry' &&
         previousUserMsg?.metadata?.intent === 'date_inquiry';
       console.log('[useChatFlow] Rapid date-check mode:', isRapidDateCheck);
+
+      // ── Guard A: missing year ───────────────────────────────────
+      // She gave a month + day but no year. Do NOT call checkDateAvailability
+      // and do NOT guess. Ask which year, stash month/day so her reply resolves.
+      if (intent === 'date_inquiry' && yearMissing) {
+        pendingDayAmbiguityRef.current = {
+          kind: 'year_missing',
+          month: classifier.month,
+          day: classifier.day,
+        };
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          text: "Got it — and what year are you looking at?",
+          isBot: true,
+        }]);
+        return;
+      }
+
+      // ── Guard B: weekday conflict ───────────────────────────────
+      // She named a weekday AND we have a resolved date. If they don't match,
+      // ask one clarity question with the nearest correct-weekday date.
+      // Deterministic: we compute the actual weekday from the resolved ISO date.
+      if (intent === 'date_inquiry' && weddingDate && statedWeekday) {
+        const { jsDate: weddingJs } = partsFromIso(weddingDate);
+        const actualWeekday = DAY_NAMES[weddingJs.getDay()];
+        if (actualWeekday !== statedWeekday) {
+          const statedIdx = DAY_NAMES.indexOf(statedWeekday);
+          // Nearest date to weddingDate whose weekday is statedWeekday.
+          // Day-of-week difference (signed, in -3..+3) — pick the shorter direction.
+          const diff = ((statedIdx - weddingJs.getDay()) + 7) % 7; // 0..6
+          const offset = diff <= 3 ? diff : diff - 7; // -3..+3, never 0 here
+          const alt = new Date(weddingJs);
+          alt.setDate(alt.getDate() + offset);
+          const altY = alt.getFullYear();
+          const altM = String(alt.getMonth() + 1).padStart(2, '0');
+          const altD = String(alt.getDate()).padStart(2, '0');
+          const alternateIso = `${altY}-${altM}-${altD}`;
+
+          pendingDayAmbiguityRef.current = {
+            kind: 'weekday_conflict',
+            isoDate: weddingDate,
+            statedWeekday,
+            alternateIso,
+          };
+
+          // Alternate: drop the duplicated weekday since "{statedWeekday}, ..." already says it.
+          // formatFullDate -> "Saturday, October 23, 2027"; strip the leading weekday + comma.
+          const altFull = formatFullDate(alternateIso);
+          const altWithoutWeekday = altFull.replace(/^[^,]+,\s*/, '');
+          const askedFormatted = formatFullDate(weddingDate);
+          setIsTyping(false);
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            text: `It looks like ${askedFormatted} is actually a ${actualWeekday} — are you okay with a ${actualWeekday}, or did you mean ${statedWeekday}, ${altWithoutWeekday}?`,
+            isBot: true,
+          }]);
+          return;
+        }
+      }
 
       // ── STEP 2: Route by intent ─────────────────────────────────
       let availabilityContext = '';
