@@ -848,6 +848,66 @@ ${handoffPendingBlock}`,
         }
       }
 
+      // ── Month-level availability: "what Saturdays are open in October?" ──
+      // Fires when she asks about availability for a month/timeframe but gave no
+      // specific day. Fully deterministic — never reaches the generator.
+      if (
+        intent === 'date_inquiry' &&
+        !weddingDate &&
+        weddingDates.length === 0 &&
+        !yearMissing &&
+        Number.isInteger(classifier?.month) && classifier.month >= 1 && classifier.month <= 12
+      ) {
+        const month = classifier.month;
+        const targetYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || currentYearRef.current || null;
+
+        let weekdays = null;
+        if (statedWeekday) {
+          weekdays = [DAY_NAMES.indexOf(statedWeekday)];
+        } else if (/\bweekend?s?\b/i.test(text)) {
+          weekdays = [0, 6];
+        }
+
+        // No year yet → fall through (generator will ask for it).
+        // No weekday/"weekend" → month too broad to list → fall through (generator will ask her to narrow).
+        if (targetYear && weekdays) {
+          try {
+            const repDate = `${targetYear}-${String(month).padStart(2, '0')}-01`;
+            const res = await base44.functions.invoke('checkDateAvailability', {
+              venueId, date: repDate, mode: 'monthOpenings', weekdays, monthOpeningsLimit: 12,
+            });
+            const open = Array.isArray(res?.data?.monthOpenDates) ? res.data.monthOpenDates : [];
+            const total = res?.data?.count ?? open.length;
+            const monthName = MONTH_NAMES[month - 1];
+            const dayLabel = statedWeekday ? `${statedWeekday}s` : 'weekend dates';
+
+            let monthReply;
+            if (open.length === 0) {
+              monthReply = `It looks like our ${dayLabel} in ${monthName} ${targetYear} are all booked. Want me to check another month?`;
+            } else {
+              const shown = open.slice(0, 5).map(formatShortDate);
+              const more = total > shown.length ? `, plus a few more` : '';
+              monthReply = `Here are the open ${dayLabel} in ${monthName} ${targetYear} — ${formatList(shown)}${more}. Want me to look at a specific one, or another month?`;
+            }
+
+            lastMultiMonthRef.current = { month, year: targetYear };
+            open.forEach(d => checkedDatesRef.current.add(d));
+
+            setIsTyping(false);
+            setMessages(prev => [...prev, { id: Date.now(), text: monthReply, isBot: true }]);
+            debugTraceRef.current.push({
+              userMessage: text, classifier, retrieval: null,
+              dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: { mode: 'monthOpenings', month, year: targetYear, weekdays, open, total } },
+              responseMode: 'month-openings (JS)', generatorPrompt: null, generatorOutput: null, finalReply: monthReply,
+            });
+            return;
+          } catch (err) {
+            console.error('Month-openings check failed:', err?.message || err);
+            // Fall through to normal handling on error.
+          }
+        }
+      }
+
       if (intent === 'date_inquiry' && weddingDate) {
         // ── Past-date guard ─────────────────────────────────────────
         // Never run availability or declare "open" for a date that's already past.
