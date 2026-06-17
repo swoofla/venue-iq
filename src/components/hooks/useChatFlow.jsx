@@ -84,6 +84,9 @@ export default function useChatFlow({
   const leadGuestCountRef = useRef(null);
   const leadBudgetRangeRef = useRef(null);
   const debounceTimerRef = useRef(null);
+  const currentTopicRef = useRef(null);   // last non-general classifier.topic
+  const pendingActionRef = useRef(null);  // 'awaiting_quote_details' | null
+  const currentYearRef = useRef(null);    // last wedding year she stated/used (number)
 
   // ── Conversational date resolution ──────────────────────────────────────
   // userFocusDateRef: the ISO date the bride most recently made the SUBJECT of an
@@ -396,6 +399,19 @@ export default function useChatFlow({
 A handoff offer (having ${plannerNameForClassifier} text the bride) is currently pending. Additionally return handoff_response: 'accepted' if this message clearly accepts being contacted (e.g. 'yes', 'sure', 'yes please text me'), 'declined' if it declines, or 'unrelated' otherwise. Farewells ('ok bye'), reactions ('wow'), and new questions are 'unrelated' — NEVER 'accepted'.
 ` : '';
 
+      const conversationStateBlock = `
+CONVERSATION STATE (for continuity — use it, do not repeat it back):
+- Current topic: ${currentTopicRef.current || 'none yet'}
+- Pending action: ${pendingActionRef.current || 'none'}
+- Known guest count: ${leadGuestCountRef.current ?? 'unknown'}
+- Known year: ${currentYearRef.current ?? 'unknown'}
+- Known date: ${leadWeddingDateRef.current || 'unknown'}
+
+Continuity rules:
+- If Pending action is "awaiting_quote_details", the previous turn asked her for her date and/or guest count to give a PRICE. If her current message simply supplies a date, month, year, and/or guest count WITHOUT asking a new question (e.g. "October 2027 Saturday", "120 guests", "a Saturday in the fall"), classify intent as package_inquiry — she is completing the pricing request, NOT starting an availability inquiry. If she instead asks a distinct question (including explicitly asking which dates are open/available), classify by that question as normal.
+- If her message is a short continuation ("yes", "that one", "the 23rd") that names no new topic, keep topic = the Current topic above rather than defaulting to general.
+`;
+
       const classifier = await base44.integrations.Core.InvokeLLM({
         prompt: `You classify a bride's message to a wedding venue chatbot.
 
@@ -406,7 +422,7 @@ Recent conversation (last 6 messages):
 ${recentHistory}
 
 Current user message: "${text}"
-
+${conversationStateBlock}
 Classify into one intent:
 - "date_inquiry": asking whether a specific date or timeframe is available
 - "tour_interest": wants to visit, see the venue in person, schedule a tour
@@ -424,6 +440,8 @@ Extract wedding_date — be careful and precise:
 - Use today's date only to choose the future occurrence when she gives a day-of-month and an explicit year both — never to fill in a missing year.
 
 Extract stated_weekday — the literal weekday word she wrote ("Saturday", "Sunday", "Friday", "Monday", "Tuesday", "Wednesday", "Thursday"), case-normalized. If she did not name a weekday, return null. Do NOT compute it from the date. Just capture the word she used.
+
+Extract year: the 4-digit year she states anywhere — including when she gives NO day (e.g. "2027", "fall of 2027", "October 2027 Saturday"). Preserve it exactly; never infer a year she didn't state. Null if she stated no year.
 
 Extract guest_count: number if mentioned anywhere in recent context, otherwise null.
 
@@ -460,6 +478,7 @@ ${handoffPendingBlock}`,
             year_missing: { type: ['boolean', 'null'] },
             month: { type: ['number', 'null'] },
             day: { type: ['number', 'null'] },
+            year: { type: ['number', 'null'] },
             stated_weekday: { type: ['string', 'null'], enum: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday', null] },
             guest_count: { type: ['number', 'null'] },
             handoff_response: { type: ['string', 'null'], enum: ['accepted', 'declined', 'unrelated', null] },
@@ -483,6 +502,7 @@ ${handoffPendingBlock}`,
       if (handoffPending) setHandoffPending(null);
 
       const intent = classifier?.intent || 'general';
+      if (classifier?.topic && classifier.topic !== 'general') currentTopicRef.current = classifier.topic;
       const guestCount = classifier?.guest_count || null;
 
       // ── Resolve pending day-of-month ambiguity from this message ────────
@@ -582,6 +602,8 @@ ${handoffPendingBlock}`,
         && Number.isInteger(classifier?.month)
         && Number.isInteger(classifier?.day);
       console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| classifier:', classifierDateRaw, classifierDates, '| classifier year_missing:', classifier?.year_missing, classifier?.month, classifier?.day, '| classifier weekday:', statedWeekday, '| deterministicDate:', deterministicDate, '| deterministicDates:', deterministicDates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
+      const resolvedYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || (weddingDate ? partsFromIso(weddingDate).y : null);
+      if (resolvedYear) currentYearRef.current = resolvedYear;
 
       // ── Ambiguity guard: bare day with no confident month → reprompt ────
       // Trigger only when:
@@ -1115,6 +1137,10 @@ Before considering a handoff, check whether the knowledge base contains anything
       }
 
       setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
+
+      if (intent === 'package_inquiry') {
+        pendingActionRef.current = leadGuestCountRef.current ? null : 'awaiting_quote_details';
+      }
 
       // ── Debug trace (generator path) ─────────────────────────────
       const truncateAnswer = (s) => (typeof s === 'string' && s.length > 120 ? s.slice(0, 120) + '…' : s);
