@@ -17,6 +17,7 @@ import TourScheduler from '@/components/flows/TourScheduler';
 import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
+import DebugTraceButton from '@/components/chat/DebugTraceButton';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -95,6 +96,7 @@ export default function Home() {
   }
 
   const showEmptyState = chat.messages.length === 0 && !chat.activeFlow && !chat.isTyping;
+  const debugMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
   return (
     <div className="h-[100dvh] bg-stone-50 flex flex-col overflow-hidden">
@@ -278,6 +280,7 @@ export default function Home() {
           </button>
         </div>
       </main>
+      {debugMode && <DebugTraceButton traceRef={chat.debugTraceRef} />}
     </div>
   );
 }

@@ -102,6 +102,11 @@ export default function useChatFlow({
   // full "Good news —" verdict for a date that's already been discussed.
   const checkedDatesRef = useRef(new Set());
 
+  // ── Debug trace (observability only — does NOT affect chatbot behavior) ──
+  // One entry pushed per user turn capturing the full internal decision path.
+  // Exposed via the hook and exported by a ?debug=1-gated button in the UI.
+  const debugTraceRef = useRef([]);
+
   // Build a { month, year } context for the date parsers from the focus date
   // (preferred) or the last multi-date inquiry's majority month (fallback).
   const buildDateContext = () => {
@@ -613,11 +618,32 @@ ${handoffPendingBlock}`,
             const reprompt = `The ${bareDay}${ordinal(bareDay)} of ${label(candidates[0])} or ${label(candidates[1])}?`;
             setIsTyping(false);
             setMessages(prev => [...prev, { id: Date.now(), text: reprompt, isBot: true }]);
+            debugTraceRef.current.push({
+              userMessage: text,
+              classifier,
+              retrieval: null,
+              dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: null },
+              responseMode: 'clarity question',
+              generatorPrompt: null,
+              generatorOutput: null,
+              finalReply: reprompt,
+            });
             return;
           }
           // No prior multi-month list to draw from → ask freely.
+          const reprompt2 = `Which month — the ${bareDay}${ordinal(bareDay)} of which month?`;
           setIsTyping(false);
-          setMessages(prev => [...prev, { id: Date.now(), text: `Which month — the ${bareDay}${ordinal(bareDay)} of which month?`, isBot: true }]);
+          setMessages(prev => [...prev, { id: Date.now(), text: reprompt2, isBot: true }]);
+          debugTraceRef.current.push({
+            userMessage: text,
+            classifier,
+            retrieval: null,
+            dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: null },
+            responseMode: 'clarity question',
+            generatorPrompt: null,
+            generatorOutput: null,
+            finalReply: reprompt2,
+          });
           return;
         }
       }
@@ -664,12 +690,19 @@ ${handoffPendingBlock}`,
           month: classifier.month,
           day: classifier.day,
         };
+        const yearReprompt = "Got it — and what year are you looking at?";
         setIsTyping(false);
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: "Got it — and what year are you looking at?",
-          isBot: true,
-        }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: yearReprompt, isBot: true }]);
+        debugTraceRef.current.push({
+          userMessage: text,
+          classifier,
+          retrieval: null,
+          dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: null },
+          responseMode: 'clarity question',
+          generatorPrompt: null,
+          generatorOutput: null,
+          finalReply: yearReprompt,
+        });
         return;
       }
 
@@ -705,12 +738,19 @@ ${handoffPendingBlock}`,
           const altFull = formatFullDate(alternateIso);
           const altWithoutWeekday = altFull.replace(/^[^,]+,\s*/, '');
           const askedFormatted = formatFullDate(weddingDate);
+          const weekdayReprompt = `It looks like ${askedFormatted} is actually a ${actualWeekday} — are you okay with a ${actualWeekday}, or did you mean ${statedWeekday}, ${altWithoutWeekday}?`;
           setIsTyping(false);
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            text: `It looks like ${askedFormatted} is actually a ${actualWeekday} — are you okay with a ${actualWeekday}, or did you mean ${statedWeekday}, ${altWithoutWeekday}?`,
-            isBot: true,
-          }]);
+          setMessages(prev => [...prev, { id: Date.now(), text: weekdayReprompt, isBot: true }]);
+          debugTraceRef.current.push({
+            userMessage: text,
+            classifier,
+            retrieval: null,
+            dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: null },
+            responseMode: 'clarity question',
+            generatorPrompt: null,
+            generatorOutput: null,
+            finalReply: weekdayReprompt,
+          });
           return;
         }
       }
@@ -721,6 +761,7 @@ ${handoffPendingBlock}`,
       let monthContext = '';
       let verdictSentence = '';
       let compactReply = '';
+      let availResult = null; // debug-trace only: { date, isAvailable, alternatives, error? } | null
       const plannerNameEarly = venue?.planner_name || 'our planner';
 
       // ── Multi-date branch: always compact, no generator call ─────
@@ -760,8 +801,24 @@ ${handoffPendingBlock}`,
           // Record checked dates. Focus is intentionally NOT updated — she hasn't
           // narrowed to one date yet. Majority-month fallback was refreshed above.
           results.forEach(r => { if (!r.isPast) checkedDatesRef.current.add(r.date); });
+          availResult = { dates: results };
           setIsTyping(false);
           setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
+          debugTraceRef.current.push({
+            userMessage: text,
+            classifier,
+            retrieval: null,
+            dateResolution: {
+              parseDateFromText: deterministicDate,
+              ambiguityResolvedIso,
+              weddingDate,
+              availability: availResult,
+            },
+            responseMode: 'multi-date (JS)',
+            generatorPrompt: null,
+            generatorOutput: null,
+            finalReply: multiReply,
+          });
           return;
         } catch (err) {
           console.error('Multi-date availability check failed:', err?.message || err);
@@ -829,6 +886,11 @@ ${handoffPendingBlock}`,
           });
           const availData = availRes?.data || {};
           if (availData.error) throw new Error(availData.error);
+          availResult = {
+            date: effectiveDate,
+            isAvailable: availData.isAvailable !== false,
+            alternatives: Array.isArray(availData.alternatives) ? availData.alternatives : [],
+          };
           const isTaken = availData.isAvailable === false;
           const formattedRequested = formatFullDate(effectiveDate);
 
@@ -872,6 +934,7 @@ ${handoffPendingBlock}`,
           monthContext = `Date month: ${monthName} (apply any seasonal knowledge — e.g. Jan–Mar policy, off-season guest caps).`;
         } catch (err) {
           console.error('Availability check failed:', err?.message || err);
+          availResult = { date: effectiveDate, error: err?.message || String(err) };
           availabilityContext = `AVAILABILITY CHECK FAILED: do not state whether the date is open or booked. Warmly say you want to double-check that date and offer to have the planner confirm it.`;
           verdictSentence = `${pastHeadsUp}I want to double-check that date for you — let me have ${plannerNameEarly} confirm it!`;
           if (isRapidDateCheck) compactReply = verdictSentence;
@@ -885,6 +948,16 @@ ${handoffPendingBlock}`,
       if (compactReply) {
         setIsTyping(false);
         setMessages(prev => [...prev, { id: Date.now(), text: compactReply, isBot: true }]);
+        debugTraceRef.current.push({
+          userMessage: text,
+          classifier,
+          retrieval: null,
+          dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: availResult },
+          responseMode: 'rapid-check (JS)',
+          generatorPrompt: null,
+          generatorOutput: null,
+          finalReply: compactReply,
+        });
         return;
       }
 
@@ -920,8 +993,7 @@ ${handoffPendingBlock}`,
       const plannerTitle = venue?.planner_title || 'our planner';
 
       // ── STEP 3: Generate response ───────────────────────────────
-      const generator = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are the virtual wedding planner for ${venueName}. You speak with brides and couples who are exploring the venue on its website. You are an AI assistant presented as the venue's "virtual planner" — you are not a specific human, and you never claim to be ${plannerName} or any other staff member.
+      const generatorPrompt = `You are the virtual wedding planner for ${venueName}. You speak with brides and couples who are exploring the venue on its website. You are an AI assistant presented as the venue's "virtual planner" — you are not a specific human, and you never claim to be ${plannerName} or any other staff member.
 
 # Your mission
 Help each bride genuinely explore ${venueName} and figure out for herself whether it's the right fit for her wedding. You are a warm, knowledgeable planner guiding her thinking — not a salesperson, and not a funnel. Many brides arrive busy, overwhelmed, or early in planning, so make every answer easy to take in.
@@ -1012,7 +1084,10 @@ ${intent === 'tour_interest' ? 'Give a SHORT warm reply (1-2 sentences) — the 
 ${intent === 'visual_request' ? 'No photo gallery exists yet. Warmly describe the relevant spaces from the knowledge base and offer a tour to see them in person.' : ''}
 ${intent === 'date_inquiry' && !weddingDate ? 'Respond naturally and ask which date or timeframe she\'s considering.' : ''}
 
-Before considering a handoff, check whether the knowledge base contains anything related to the question — including general policies like the outside-vendor policy that may answer it indirectly. If related knowledge exists, answer from it warmly, and at most add a light offer to confirm specifics with ${plannerName}. Set needsHandoff: true ONLY when the knowledge base contains nothing relevant at all, the topic involves contracts/refunds/payment disputes or emotionally sensitive situations, or the bride explicitly asks for a human. A partial answer with a confirm-offer is ALWAYS better than a pure handoff.`,
+Before considering a handoff, check whether the knowledge base contains anything related to the question — including general policies like the outside-vendor policy that may answer it indirectly. If related knowledge exists, answer from it warmly, and at most add a light offer to confirm specifics with ${plannerName}. Set needsHandoff: true ONLY when the knowledge base contains nothing relevant at all, the topic involves contracts/refunds/payment disputes or emotionally sensitive situations, or the bride explicitly asks for a human. A partial answer with a confirm-offer is ALWAYS better than a pure handoff.`;
+
+      const generator = await base44.integrations.Core.InvokeLLM({
+        prompt: generatorPrompt,
         response_json_schema: {
           type: 'object',
           properties: {
@@ -1041,6 +1116,40 @@ Before considering a handoff, check whether the knowledge base contains anything
 
       setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
 
+      // ── Debug trace (generator path) ─────────────────────────────
+      const truncateAnswer = (s) => (typeof s === 'string' && s.length > 120 ? s.slice(0, 120) + '…' : s);
+      const traceEntry = (k, source) => ({
+        question: k.question,
+        topic: k.topic,
+        source,
+        answer: truncateAnswer(k.answer),
+      });
+      const knowledgeUsed = (matchCount === 0)
+        ? venueKnowledge.map(k => traceEntry(k, 'fallback-all'))
+        : [
+            ...primaryEntries.map(k => traceEntry(k, 'primary')),
+            ...generalBaseline.map(k => traceEntry(k, 'general')),
+          ];
+      debugTraceRef.current.push({
+        userMessage: text,
+        classifier,
+        retrieval: {
+          topic,
+          matchCount,
+          entries: knowledgeUsed,
+        },
+        dateResolution: {
+          parseDateFromText: deterministicDate,
+          ambiguityResolvedIso,
+          weddingDate,
+          availability: availResult,
+        },
+        responseMode: 'generator',
+        generatorPrompt,
+        generatorOutput: generator,
+        finalReply: answer,
+      });
+
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
         setHandoffPending({ topicSummary: topic });
@@ -1053,7 +1162,19 @@ Before considering a handoff, check whether the knowledge base contains anything
     } catch (error) {
       console.error('Intent routing error:', error?.message || error);
       setIsTyping(false);
-      setMessages(prev => [...prev, { id: Date.now(), text: "Thanks for reaching out! What would you like to know more about?", isBot: true }]);
+      const errReply = "Thanks for reaching out! What would you like to know more about?";
+      setMessages(prev => [...prev, { id: Date.now(), text: errReply, isBot: true }]);
+      debugTraceRef.current.push({
+        userMessage: text,
+        classifier: null,
+        retrieval: null,
+        dateResolution: null,
+        responseMode: 'error',
+        generatorPrompt: null,
+        generatorOutput: null,
+        finalReply: errReply,
+        error: error?.message || String(error),
+      });
     }
   };
 
@@ -1285,5 +1406,6 @@ Before considering a handoff, check whether the knowledge base contains anything
     setShowTourPrompt,
     setActiveFlow,
     requestPlannerHandoff,
+    debugTraceRef,
   };
 }
