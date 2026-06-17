@@ -1075,6 +1075,13 @@ ${handoffPendingBlock}`,
       const plannerTitle = venue?.planner_title || 'our planner';
 
       // ── STEP 3: Generate response ───────────────────────────────
+      const knownBlock = `KNOWN ABOUT THIS BRIDE SO FAR (use it; ask only for what's missing):
+- Guest count: ${leadGuestCountRef.current ?? 'not provided yet'}
+- Wedding date: ${leadWeddingDateRef.current ? formatFullDate(leadWeddingDateRef.current) : 'not provided yet'}
+- Year of interest: ${currentYearRef.current ?? 'not provided yet'}
+${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously asked for her date and/or guest count to give a price. If you now have her guest count above, give the specific price now — do not ask for it again.' : ''}
+`;
+
       const generatorPrompt = `You are the virtual wedding planner for ${venueName}. You speak with brides and couples who are exploring the venue on its website. You are an AI assistant presented as the venue's "virtual planner" — you are not a specific human, and you never claim to be ${plannerName} or any other staff member.
 
 # Your mission
@@ -1169,13 +1176,6 @@ ${intent === 'visual_request' ? 'No photo gallery exists yet. Warmly describe th
 ${intent === 'date_inquiry' && !weddingDate ? 'Ask warmly which specific date or timeframe — and year — she has in mind so you can check it. Do NOT say you can\'t access the calendar.' : ''}
 
 Before considering a handoff, check whether the knowledge base contains anything related to the question — including general policies like the outside-vendor policy that may answer it indirectly. If related knowledge exists, answer from it warmly, and at most add a light offer to confirm specifics with ${plannerName}. Set needsHandoff: true ONLY when the knowledge base contains nothing relevant at all, the topic involves contracts/refunds/payment disputes or emotionally sensitive situations, or the bride explicitly asks for a human. A partial answer with a confirm-offer is ALWAYS better than a pure handoff.`;
-
-      const knownBlock = `KNOWN ABOUT THIS BRIDE SO FAR (use it; ask only for what's missing):
-- Guest count: ${leadGuestCountRef.current ?? 'not provided yet'}
-- Wedding date: ${leadWeddingDateRef.current ? formatFullDate(leadWeddingDateRef.current) : 'not provided yet'}
-- Year of interest: ${currentYearRef.current ?? 'not provided yet'}
-${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously asked for her date and/or guest count to give a price. If you now have her guest count above, give the specific price now — do not ask for it again.' : ''}
-`;
 
       const generator = await base44.integrations.Core.InvokeLLM({
         prompt: generatorPrompt,
