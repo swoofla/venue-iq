@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     }
 
     const base44 = createClientFromRequest(req);
-    const feedback = await base44.asServiceRole.entities.ChatFeedback.get(feedbackId);
+    const feedback = (await base44.asServiceRole.entities.ChatFeedback.list()).find(r => r.id === feedbackId);
     if (!feedback) {
       return Response.json({ success: false, error: 'Feedback record not found' });
     }
