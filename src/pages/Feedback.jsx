@@ -7,8 +7,24 @@ export default function Feedback() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('down'); // 'down' | 'all'
   const [expanded, setExpanded] = useState({});
+  const [authStatus, setAuthStatus] = useState('checking'); // 'checking' | 'authorized' | 'forbidden'
 
   useEffect(() => {
+    (async () => {
+      try {
+        const isAuth = await base44.auth.isAuthenticated();
+        if (!isAuth) { setAuthStatus('forbidden'); return; }
+        const me = await base44.auth.me();
+        const allowed = me?.role === 'admin' || me?.role === 'venue_owner';
+        setAuthStatus(allowed ? 'authorized' : 'forbidden');
+      } catch {
+        setAuthStatus('forbidden');
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (authStatus !== 'authorized') return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -25,7 +41,14 @@ export default function Feedback() {
       }
     })();
     return () => { cancelled = true; };
-  }, [filter]);
+  }, [filter, authStatus]);
+
+  if (authStatus === 'checking') {
+    return <div className="mx-auto max-w-3xl p-6 text-sm text-gray-500">Loading…</div>;
+  }
+  if (authStatus === 'forbidden') {
+    return <div className="mx-auto max-w-3xl p-6 text-sm text-gray-500">Not found.</div>;
+  }
 
   const fmtDate = (r) => {
     const raw = r.created_date || r.created_at;

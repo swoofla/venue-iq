@@ -54,6 +54,7 @@ import AdminPhotos from './pages/AdminPhotos';
 import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
 import Dashboard from './pages/Dashboard';
+import Feedback from './pages/Feedback';
 import FirstLookEmbed from './pages/FirstLookEmbed';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
@@ -72,6 +73,7 @@ export const PAGES = {
     "AdminVisualizerSettings": AdminVisualizerSettings,
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
+    "Feedback": Feedback,
     "FirstLookEmbed": FirstLookEmbed,
     "Home": Home,
     "Invite": Invite,
