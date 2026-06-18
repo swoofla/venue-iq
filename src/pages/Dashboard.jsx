@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Calendar, Home, Settings, BookOpen, Package, Copy, Check, Mail } from 'lucide-react';
+import { Calendar, Home, Settings, BookOpen, Package, Copy, Check, Mail, MessageSquare } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
@@ -246,6 +246,14 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold mb-1">Chatbot Preview</h3>
             <p className="text-stone-600 text-sm">Test your venue's chatbot</p>
           </Link>
+
+          {(user.role === 'admin' || user.role === 'venue_owner') && (
+            <Link to={createPageUrl('Feedback')} className="bg-white border-2 border-stone-200 rounded-xl p-6 hover:border-stone-400 transition-colors">
+              <MessageSquare className="w-8 h-8 mb-3 text-stone-700" />
+              <h3 className="text-lg font-semibold mb-1">Feedback</h3>
+              <p className="text-stone-600 text-sm">Review chatbot ratings and flagged replies</p>
+            </Link>
+          )}
           </div>
         </div>
 
