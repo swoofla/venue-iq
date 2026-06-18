@@ -294,7 +294,7 @@ export default function useChatFlow({
       const transcript = msgs
         .filter(m => !m.isVideo && typeof m.text === 'string')
         .map(m => ({ role: m.isBot ? 'bot' : 'user', content: m.text }));
-      await base44.entities.ChatFeedback.create({
+      const created = await base44.entities.ChatFeedback.create({
         venue_id: venueId,
         chat_session_id: sid || undefined,
         rating,
@@ -304,6 +304,12 @@ export default function useChatFlow({
         transcript,
         debug_trace: debugTraceRef.current,
       });
+      // On a thumbs-down, auto-create a ClickUp debug task. Fire-and-forget —
+      // a ClickUp failure must never break feedback submission.
+      if (rating === 'down' && created?.id) {
+        base44.functions.invoke('createClickUpTask', { feedbackId: created.id })
+          .catch(err => console.error('ClickUp task creation failed:', err?.message || err));
+      }
       return true;
     } catch (err) {
       console.error('Feedback submit failed:', err?.message || err);
