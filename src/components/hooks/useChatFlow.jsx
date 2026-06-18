@@ -297,6 +297,7 @@ export default function useChatFlow({
       // NOTE: ChatFeedback schema declares transcript and debug_trace as objects (dicts),
       // not arrays — sending arrays directly fails create with a validation error.
       // Wrap each in a small object so they round-trip cleanly through the schema.
+      console.log('[Feedback] Submitting:', { venue_id: venueId, rating, hasSession: !!sid });
       const created = await base44.entities.ChatFeedback.create({
         venue_id: venueId,
         chat_session_id: sid || undefined,
@@ -307,6 +308,7 @@ export default function useChatFlow({
         transcript: { messages: transcript },
         debug_trace: { turns: debugTraceRef.current },
       });
+      console.log('[Feedback] Created record:', created?.id, created);
       // On a thumbs-down, auto-create a ClickUp debug task. Fire-and-forget —
       // a ClickUp failure must never break feedback submission.
       if (rating === 'down' && created?.id) {
