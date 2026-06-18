@@ -87,6 +87,8 @@ export default function useChatFlow({
   const currentTopicRef = useRef(null);   // last non-general classifier.topic
   const pendingActionRef = useRef(null);  // 'awaiting_quote_details' | null
   const currentYearRef = useRef(null);    // last wedding year she stated/used (number)
+  const currentWeekdayRef = useRef(null); // last stated_weekday she gave ('Saturday', etc.)
+  const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
 
   // ── Conversational date resolution ──────────────────────────────────────
   // userFocusDateRef: the ISO date the bride most recently made the SUBJECT of an
@@ -653,6 +655,11 @@ ${handoffPendingBlock}`,
       console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| classifier:', classifierDateRaw, classifierDates, '| classifier year_missing:', classifier?.year_missing, classifier?.month, classifier?.day, '| classifier weekday:', statedWeekday, '| deterministicDate:', deterministicDate, '| deterministicDates:', deterministicDates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
       const resolvedYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || (weddingDate ? partsFromIso(weddingDate).y : null);
       if (resolvedYear) currentYearRef.current = resolvedYear;
+      // Carry-forward continuity: persist weekday and month whenever she states them,
+      // so a bare follow-up like "July" can inherit weekday="Saturday" from earlier.
+      if (statedWeekday) currentWeekdayRef.current = statedWeekday;
+      const resolvedMonth = (Number.isInteger(classifier?.month) ? classifier.month : null) || (weddingDate ? partsFromIso(weddingDate).m : null);
+      if (resolvedMonth) currentMonthRef.current = resolvedMonth;
 
       // ── Ambiguity guard: bare day with no confident month → reprompt ────
       // Trigger only when:
@@ -901,26 +908,41 @@ ${handoffPendingBlock}`,
       // ── Month-level availability: "what Saturdays are open in October?" ──
       // Fires when she asks about availability for a month/timeframe but gave no
       // specific day. Fully deterministic — never reaches the generator.
-      if (
-        intent === 'date_inquiry' &&
-        !weddingDate &&
-        weddingDates.length === 0 &&
-        !yearMissing &&
-        Number.isInteger(classifier?.month) && classifier.month >= 1 && classifier.month <= 12
-      ) {
-        const month = classifier.month;
+      //
+      // Carry-forward: month / year / stated_weekday can all be inherited from
+      // earlier turns via currentMonthRef / currentYearRef / currentWeekdayRef.
+      // A bare "July" turn after "Saturdays in June" + "2027" inherits weekday
+      // = "Saturday" and year = 2027 from those earlier turns.
+      //
+      // The month-openings check ALWAYS runs when intent=date_inquiry and we
+      // know month + year — even with no weekday filter (we pass all 7 days).
+      // This guarantees date-availability questions NEVER fall through to the
+      // generator with availability: null.
+      {
+        const monthFromTurn = Number.isInteger(classifier?.month) ? classifier.month : null;
+        const inheritedMonth = monthFromTurn || currentMonthRef.current || null;
         const targetYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || currentYearRef.current || null;
+        const inheritedWeekday = statedWeekday || currentWeekdayRef.current || null;
 
-        let weekdays = null;
-        if (statedWeekday) {
-          weekdays = [DAY_NAMES.indexOf(statedWeekday)];
-        } else if (/\bweekend?s?\b/i.test(text)) {
-          weekdays = [0, 6];
-        }
+        if (
+          intent === 'date_inquiry' &&
+          !weddingDate &&
+          weddingDates.length === 0 &&
+          !yearMissing &&
+          Number.isInteger(inheritedMonth) && inheritedMonth >= 1 && inheritedMonth <= 12 &&
+          targetYear
+        ) {
+          const month = inheritedMonth;
+          let weekdays;
+          if (inheritedWeekday) {
+            weekdays = [DAY_NAMES.indexOf(inheritedWeekday)];
+          } else if (/\bweekend?s?\b/i.test(text)) {
+            weekdays = [0, 6];
+          } else {
+            // No weekday filter → list ALL openings in the month.
+            weekdays = [0, 1, 2, 3, 4, 5, 6];
+          }
 
-        // No year yet → fall through (generator will ask for it).
-        // No weekday/"weekend" → month too broad to list → fall through (generator will ask her to narrow).
-        if (targetYear && weekdays) {
           try {
             const repDate = `${targetYear}-${String(month).padStart(2, '0')}-01`;
             const res = await base44.functions.invoke('checkDateAvailability', {
@@ -929,7 +951,9 @@ ${handoffPendingBlock}`,
             const open = Array.isArray(res?.data?.monthOpenDates) ? res.data.monthOpenDates : [];
             const total = res?.data?.count ?? open.length;
             const monthName = MONTH_NAMES[month - 1];
-            const dayLabel = statedWeekday ? `${statedWeekday}s` : 'weekend dates';
+            const dayLabel = inheritedWeekday
+              ? `${inheritedWeekday}s`
+              : (weekdays.length === 2 ? 'weekend dates' : 'open dates');
 
             let monthReply;
             if (open.length === 0) {
@@ -947,7 +971,13 @@ ${handoffPendingBlock}`,
             setMessages(prev => [...prev, { id: Date.now(), text: monthReply, isBot: true }]);
             debugTraceRef.current.push({
               userMessage: text, classifier, retrieval: null,
-              dateResolution: { parseDateFromText: deterministicDate, ambiguityResolvedIso, weddingDate, availability: { mode: 'monthOpenings', month, year: targetYear, weekdays, open, total } },
+              dateResolution: {
+                parseDateFromText: deterministicDate,
+                ambiguityResolvedIso,
+                weddingDate,
+                inheritedMonth, inheritedYear: targetYear, inheritedWeekday,
+                availability: { mode: 'monthOpenings', month, year: targetYear, weekdays, open, total },
+              },
               responseMode: 'month-openings (JS)', generatorPrompt: null, generatorOutput: null, finalReply: monthReply,
             });
             return;
