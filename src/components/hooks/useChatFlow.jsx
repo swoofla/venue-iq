@@ -294,6 +294,9 @@ export default function useChatFlow({
       const transcript = msgs
         .filter(m => !m.isVideo && typeof m.text === 'string')
         .map(m => ({ role: m.isBot ? 'bot' : 'user', content: m.text }));
+      // NOTE: ChatFeedback schema declares transcript and debug_trace as objects (dicts),
+      // not arrays — sending arrays directly fails create with a validation error.
+      // Wrap each in a small object so they round-trip cleanly through the schema.
       const created = await base44.entities.ChatFeedback.create({
         venue_id: venueId,
         chat_session_id: sid || undefined,
@@ -301,8 +304,8 @@ export default function useChatFlow({
         comment: comment || undefined,
         flagged_message: flaggedMessage,
         preceding_user_message: precedingUser,
-        transcript,
-        debug_trace: debugTraceRef.current,
+        transcript: { messages: transcript },
+        debug_trace: { turns: debugTraceRef.current },
       });
       // On a thumbs-down, auto-create a ClickUp debug task. Fire-and-forget —
       // a ClickUp failure must never break feedback submission.

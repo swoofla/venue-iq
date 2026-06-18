@@ -93,7 +93,7 @@ export default function Feedback() {
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Transcript</p>
                     <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm">
-                      {(r.transcript || []).map((m, i) => (
+                      {((r.transcript?.messages) || []).map((m, i) => (
                         <p key={i} className={m.role === 'bot' ? 'text-gray-700' : 'text-gray-900'}>
                           <span className="text-gray-400">{m.role === 'bot' ? 'Bot' : 'User'}: </span>{m.content}
                         </p>
@@ -102,7 +102,7 @@ export default function Feedback() {
                   </div>
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase text-gray-400">Debug trace</p>
-                    <pre className="max-h-96 overflow-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100">{JSON.stringify(r.debug_trace, null, 2)}</pre>
+                    <pre className="max-h-96 overflow-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100">{JSON.stringify(r.debug_trace?.turns ?? r.debug_trace, null, 2)}</pre>
                   </div>
                 </div>
               )}
