@@ -1,61 +1,49 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
-
-// Creates a ClickUp task from a ChatFeedback record so thumbs-down feedback
-// shows up in the team's ClickUp list. Mirrors the structure of
-// checkDateAvailability — service-role entity reads, plain Response.json output.
-
 Deno.serve(async (req) => {
   try {
-    const { feedbackId } = await req.json();
-    if (!feedbackId) {
-      return Response.json({ error: 'feedbackId is required' }, { status: 400 });
-    }
+    const body = await req.json().catch(() => ({}));
+    const {
+      comment = '',
+      flagged_message = '',
+      preceding_user_message = '',
+      chat_session_id = '',
+      venue_id = '',
+      feedback_id = '',
+    } = body;
 
     const token = Deno.env.get('CLICKUP_API_TOKEN');
     const listId = Deno.env.get('CLICKUP_FEEDBACK_LIST_ID');
     if (!token || !listId) {
-      return Response.json({ success: false, error: 'ClickUp not configured' });
+      return Response.json({ success: false, error: 'ClickUp not configured (missing CLICKUP_API_TOKEN or CLICKUP_FEEDBACK_LIST_ID)' }, { status: 200 });
     }
 
-    const base44 = createClientFromRequest(req);
-    const feedback = (await base44.asServiceRole.entities.ChatFeedback.list()).find(r => r.id === feedbackId);
-    if (!feedback) {
-      return Response.json({ success: false, error: 'Feedback record not found' });
-    }
-
-    const comment = feedback.comment || '';
-    const trimmed = comment ? ` — ${comment.slice(0, 60)}` : '';
-    const name = `Chatbot 👎${trimmed}`;
-
+    const name = 'Chatbot 👎' + (comment ? ' — ' + comment.slice(0, 60) : '');
     const markdown_content = [
-      `**Comment:** ${comment || '—'}`,
-      `**She said:** ${feedback.preceding_user_message || '—'}`,
-      `**Bot replied:** ${feedback.flagged_message || '—'}`,
-      `**Session:** ${feedback.chat_session_id || '—'}`,
-      `**Logged:** ${feedback.created_date || ''}`,
+      '**Comment:** ' + (comment || '—'),
+      '**She said:** ' + (preceding_user_message || '—'),
+      '**Bot replied:** ' + (flagged_message || '—'),
+      '**Session:** ' + (chat_session_id || '—'),
+      '**Feedback ID:** ' + (feedback_id || '—'),
+      '**Venue:** ' + (venue_id || '—'),
       '',
       'Full transcript + debug trace are in the VenueIQ Feedback page.',
     ].join('\n');
 
-    const res = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
+    const resp = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
-      headers: {
-        // ClickUp personal tokens go in Authorization as-is — NOT "Bearer ..."
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, markdown_content }),
     });
 
-    if (!res.ok) {
-      const error = await res.text();
-      return Response.json({ success: false, error });
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error('ClickUp create task failed:', resp.status, text);
+      return Response.json({ success: false, error: `ClickUp ${resp.status}: ${text}` }, { status: 200 });
     }
 
-    const data = await res.json();
-    return Response.json({ success: true, taskId: data.id });
+    const data = await resp.json();
+    return Response.json({ success: true, taskId: data?.id });
   } catch (error) {
     console.error('createClickUpTask error:', error?.message || error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: error?.message || String(error) }, { status: 200 });
   }
 });
