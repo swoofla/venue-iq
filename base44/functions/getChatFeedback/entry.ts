@@ -1,32 +1,25 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Internal feedback log reader for the chatbot.
-// Reads with SERVICE ROLE so it bypasses the entity's venue_id read rule.
-
 Deno.serve(async (req) => {
   try {
-    const { rating, venueId, limit } = await req.json().catch(() => ({}));
-
+    const { rating, venue_id, limit } = await req.json().catch(() => ({}));
     const base44 = createClientFromRequest(req);
 
-    const filter = {};
-    if (rating) filter.rating = rating;
-    if (venueId) filter.venue_id = venueId;
+    // Service role bypasses the venue-scoped read policy so a super-admin
+    // (no venue_id) can review feedback across all venues.
+    let records = await base44.asServiceRole.entities.ChatFeedback.list();
 
-    const all = await base44.asServiceRole.entities.ChatFeedback.filter(filter);
+    records.sort((a, b) =>
+      new Date(b.created_date || b.created_at || 0) - new Date(a.created_date || a.created_at || 0)
+    );
 
-    const sorted = [...all].sort((a, b) => {
-      const aT = a.created_date || a.created_at || '';
-      const bT = b.created_date || b.created_at || '';
-      if (aT === bT) return 0;
-      return aT < bT ? 1 : -1;
-    });
+    if (rating) records = records.filter(r => r.rating === rating);
+    if (venue_id) records = records.filter(r => r.venue_id === venue_id);
+    if (limit) records = records.slice(0, limit);
 
-    const records = Number.isFinite(limit) ? sorted.slice(0, limit) : sorted;
-
-    return Response.json({ success: true, records });
+    return Response.json({ records });
   } catch (error) {
     console.error('getChatFeedback error:', error?.message || error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ records: [], error: error?.message || String(error) }, { status: 200 });
   }
 });
