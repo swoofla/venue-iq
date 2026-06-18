@@ -279,6 +279,38 @@ export default function useChatFlow({
     offerHandoff('general inquiry');
   };
 
+  // Store tester feedback on a specific bot message. Bundles the full debug trace and
+  // transcript so a thumbs-down is fully diagnosable from a single record.
+  const submitMessageFeedback = async ({ messageId, rating, comment }) => {
+    try {
+      const sid = chatSessionIdRef.current || (await ensureChatSession());
+      const msgs = messagesRef.current;
+      const idx = msgs.findIndex(m => m.id === messageId);
+      const flaggedMessage = idx >= 0 ? (msgs[idx].text || '') : '';
+      let precedingUser = '';
+      for (let i = idx - 1; i >= 0; i--) {
+        if (!msgs[i].isBot && typeof msgs[i].text === 'string') { precedingUser = msgs[i].text; break; }
+      }
+      const transcript = msgs
+        .filter(m => !m.isVideo && typeof m.text === 'string')
+        .map(m => ({ role: m.isBot ? 'bot' : 'user', content: m.text }));
+      await base44.entities.ChatFeedback.create({
+        venue_id: venueId,
+        chat_session_id: sid || undefined,
+        rating,
+        comment: comment || undefined,
+        flagged_message: flaggedMessage,
+        preceding_user_message: precedingUser,
+        transcript,
+        debug_trace: debugTraceRef.current,
+      });
+      return true;
+    } catch (err) {
+      console.error('Feedback submit failed:', err?.message || err);
+      return false;
+    }
+  };
+
   // Append an inline contact-card message and the warm "drop your info" lead-in.
   const appendHandoffCard = (topicSummary) => {
     const plannerName = venue?.planner_name || 'our planner';
@@ -1527,6 +1559,7 @@ Before considering a handoff, check whether the knowledge base contains anything
     setShowTourPrompt,
     setActiveFlow,
     requestPlannerHandoff,
+    submitMessageFeedback,
     debugTraceRef,
   };
 }
