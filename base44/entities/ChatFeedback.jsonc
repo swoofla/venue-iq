@@ -1,0 +1,50 @@
+{
+  "name": "ChatFeedback",
+  "type": "object",
+  "properties": {
+    "rating": {
+      "type": "string",
+      "description": "Thumbs up/down rating, values: 'up' or 'down'"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Optional free-form comment from the user"
+    },
+    "flagged_message": {
+      "type": "string",
+      "description": "The bot message that was flagged"
+    },
+    "preceding_user_message": {
+      "type": "string",
+      "description": "The user message that came right before the flagged bot reply"
+    },
+    "transcript": {
+      "type": "object",
+      "description": "Full chat transcript snapshot at time of feedback"
+    },
+    "debug_trace": {
+      "type": "object",
+      "description": "Internal debug trace snapshot at time of feedback"
+    },
+    "chat_session_id": {
+      "type": "string",
+      "description": "Reference to the ChatSession this feedback belongs to"
+    },
+    "venue_id": {
+      "type": "string",
+      "description": "Reference to the Venue this feedback belongs to"
+    }
+  },
+  "rls": {
+    "create": null,
+    "read": {
+      "data.venue_id": "{{user.venue_id}}"
+    },
+    "update": {
+      "data.venue_id": "{{user.venue_id}}"
+    },
+    "delete": {
+      "data.venue_id": "{{user.venue_id}}"
+    }
+  }
+}
