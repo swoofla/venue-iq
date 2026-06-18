@@ -783,6 +783,7 @@ ${handoffPendingBlock}`,
       let monthContext = '';
       let verdictSentence = '';
       let compactReply = '';
+      let priceAfterAvailability = false; // she confirmed an open date mid price-request → price it this turn
       let availResult = null; // debug-trace only: { date, isAvailable, alternatives, error? } | null
       const plannerNameEarly = venue?.planner_name || 'our planner';
 
@@ -996,12 +997,16 @@ ${handoffPendingBlock}`,
             }
           } else {
             availabilityContext = `AVAILABILITY CHECK RESULT: ${effectiveDate} is AVAILABLE`;
+            // If an earlier turn asked her for a date/guest to quote and we haven't delivered the
+            // price yet, she picked this date to GET that price — so confirm it's open AND price it
+            // in the same reply, instead of dead-ending on a bare "still open".
+            priceAfterAvailability = pendingActionRef.current === 'awaiting_quote_details';
             if (alreadyChecked) {
               verdictSentence = `Right — ${formattedRequested}, and it's open.`;
             } else {
               verdictSentence = `${pastHeadsUp}Good news — ${formattedRequested} is open!`;
             }
-            if (isRapidDateCheck) {
+            if (isRapidDateCheck && !priceAfterAvailability) {
               compactReply = alreadyChecked
                 ? `Right — ${formattedRequested}, still open.`
                 : `${pastHeadsUp}Yes — ${formattedRequested} is open! Any other dates you'd like to check?`;
@@ -1043,7 +1048,7 @@ ${handoffPendingBlock}`,
         return;
       }
 
-      if (intent === 'package_inquiry' && venueId) {
+      if ((intent === 'package_inquiry' || priceAfterAvailability) && venueId) {
         const pkgs = await base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true });
         packageContext = 'ACTIVE PACKAGES:\n' + pkgs
           .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
@@ -1052,7 +1057,7 @@ ${handoffPendingBlock}`,
       }
 
       // ── Topic-focused knowledge assembly ─────────────────────────
-      const topic = classifier?.topic || 'general';
+      const topic = priceAfterAvailability ? 'packages_pricing' : (classifier?.topic || 'general');
       const formatEntry = (k) => `Q: ${k.question}\nA: ${k.answer}`;
       const primaryEntries = venueKnowledge.filter(k => k.topic === topic && topic !== 'general');
       const generalBaseline = venueKnowledge.filter(k => k.topic === 'general');
@@ -1168,13 +1173,18 @@ Match the venue's brand voice exactly as given in the provided knowledge — its
 - You CAN check whether specific dates are open and list the open dates for a month — the system does this for you. NEVER tell her you lack access to the calendar, can't see availability, or that only a human can check dates. If you need a date or timeframe to help, just ask for it.
 - When needsHandoff is true, your "answer" field must itself be the complete warm reply shown to the bride (acknowledgment + offer to have ${plannerName} reach out). Do not leave "answer" empty — it will be rendered as-is.
 
-${verdictSentence ? `DATE INQUIRY FOLLOW-UP (CRITICAL):
+${verdictSentence ? (priceAfterAvailability ? `DATE CONFIRMED — NOW GIVE THE PRICE (CRITICAL):
+The bride has already been told her date is open: "${verdictSentence}"
+She has been trying to get a price — picking a date was how she got here. In THIS reply, immediately give the price for HER date, using her day-of-week and year, following the Pricing rules above (lead with the option that fits her guest count). Write it to read naturally AFTER the line above.
+Do NOT restate or contradict the availability verdict, and do NOT mention availability again — it has already been said. Put your reply in the "answer" field.
+
+` : `DATE INQUIRY FOLLOW-UP (CRITICAL):
 The bride has already been told: "${verdictSentence}"
 Write ONLY 1–2 warm follow-up sentences to come AFTER it — a seasonal note from the knowledge base or one soft question about her vision or guest count.
 Do NOT restate the date, repeat the verdict, contradict it, or mention availability again.
 Do NOT push a tour. Put your reply in the "answer" field.
 
-` : ''}Intent: ${intent}
+`) : ''}Intent: ${intent}
 ${availabilityContext ? availabilityContext + '\n' : ''}${monthContext ? monthContext + '\n' : ''}${packageContext ? packageContext + '\n\n' : ''}
 Venue Knowledge Base:
 The primary block below contains everything the venue knows about the topic the bride is asking about. Use ALL relevant facts from it to give a complete, specific answer — do not stop at the first matching fact. Never refer her to ${plannerName} for a topic the primary block already covers.
@@ -1223,7 +1233,7 @@ Before considering a handoff, check whether the knowledge base contains anything
 
       setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
 
-      if (intent === 'package_inquiry') {
+      if (intent === 'package_inquiry' || priceAfterAvailability) {
         pendingActionRef.current = leadGuestCountRef.current ? null : 'awaiting_quote_details';
       }
 
