@@ -1056,6 +1056,10 @@ ${handoffPendingBlock}`,
       const formatEntry = (k) => `Q: ${k.question}\nA: ${k.answer}`;
       const primaryEntries = venueKnowledge.filter(k => k.topic === topic && topic !== 'general');
       const generalBaseline = venueKnowledge.filter(k => k.topic === 'general');
+      const capacityRelevantTopics = ['packages_pricing', 'availability_dates'];
+      const capacityEntries = (capacityRelevantTopics.includes(topic) && topic !== 'capacity_guests')
+        ? venueKnowledge.filter(k => k.topic === 'capacity_guests')
+        : [];
       const matchCount = primaryEntries.length;
       console.log('TOPIC:', topic, '| entries matched:', matchCount);
 
@@ -1065,10 +1069,13 @@ ${handoffPendingBlock}`,
         knowledgeContext = venueKnowledge.map(formatEntry).join('\n\n');
       } else {
         const primaryBlock = `=== EVERYTHING ${venueName.toUpperCase()} KNOWS ABOUT ${topic.toUpperCase().replace(/_/g, ' ')} ===\n${primaryEntries.map(formatEntry).join('\n\n')}`;
+        const capacityBlock = capacityEntries.length > 0
+          ? `\n\n=== CAPACITY & GUEST LIMITS (always applies) ===\n${capacityEntries.map(formatEntry).join('\n\n')}`
+          : '';
         const generalBlock = generalBaseline.length > 0
           ? `\n\n=== GENERAL VENUE KNOWLEDGE (baseline) ===\n${generalBaseline.map(formatEntry).join('\n\n')}`
           : '';
-        knowledgeContext = primaryBlock + generalBlock;
+        knowledgeContext = primaryBlock + capacityBlock + generalBlock;
       }
 
       const plannerName = venue?.planner_name || 'our planner';
