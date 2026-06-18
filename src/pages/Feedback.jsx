@@ -32,7 +32,7 @@ export default function Feedback() {
         const res = await base44.functions.invoke('getChatFeedback', {
           rating: filter === 'down' ? 'down' : undefined,
         });
-        if (!cancelled) setRecords(res?.data?.records || []);
+        if (!cancelled) setRecords(res?.data?.records ?? res?.records ?? []);
       } catch (err) {
         console.error('Failed to load feedback:', err?.message || err);
         if (!cancelled) setRecords([]);
