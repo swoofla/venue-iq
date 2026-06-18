@@ -311,9 +311,15 @@ export default function useChatFlow({
       console.log('[Feedback] Created record:', created?.id, created);
       // On a thumbs-down, auto-create a ClickUp debug task. Fire-and-forget —
       // a ClickUp failure must never break feedback submission.
-      if (rating === 'down' && created?.id) {
-        base44.functions.invoke('createClickUpTask', { feedbackId: created.id })
-          .catch(err => console.error('ClickUp task creation failed:', err?.message || err));
+      if (rating === 'down') {
+        base44.functions.invoke('createClickUpTask', {
+          comment: comment || '',
+          flagged_message: flaggedMessage || '',
+          preceding_user_message: precedingUser || '',
+          chat_session_id: sid || '',
+          venue_id: venueId || '',
+          feedback_id: created?.id || '',
+        }).catch(err => console.error('ClickUp task creation failed:', err?.message || err));
       }
       return true;
     } catch (err) {
