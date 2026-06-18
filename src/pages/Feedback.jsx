@@ -29,10 +29,13 @@ export default function Feedback() {
     (async () => {
       setLoading(true);
       try {
-        const res = await base44.functions.invoke('getChatFeedback', {
-          rating: filter === 'down' ? 'down' : undefined,
-        });
-        if (!cancelled) setRecords(res?.data?.records ?? res?.records ?? []);
+        const all = await base44.entities.ChatFeedback.list();
+        const arr = Array.isArray(all) ? all : (all?.records ?? all?.data ?? []);
+        arr.sort((a, b) =>
+          new Date(b.created_date || b.created_at || 0) - new Date(a.created_date || a.created_at || 0)
+        );
+        const filtered = filter === 'down' ? arr.filter(r => r.rating === 'down') : arr;
+        if (!cancelled) setRecords(filtered);
       } catch (err) {
         console.error('Failed to load feedback:', err?.message || err);
         if (!cancelled) setRecords([]);
