@@ -38,13 +38,41 @@
   "rls": {
     "create": null,
     "read": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        }
+      ]
     },
     "update": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        }
+      ]
     },
     "delete": {
-      "data.venue_id": "{{user.venue_id}}"
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        }
+      ]
     }
-  }
+  },
+  "required": []
 }
