@@ -18,6 +18,7 @@ import PackagesView from '@/components/flows/PackagesView';
 import VenueGallery from '@/components/flows/VenueGallery';
 import VenueVisualizer from '@/components/flows/VenueVisualizer';
 import DebugTraceButton from '@/components/chat/DebugTraceButton';
+import MessageFeedback from '@/components/chat/MessageFeedback';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -156,10 +157,15 @@ export default function Home() {
                       chatSessionId={chat.chatSessionId}
                     />
                   ) : (
-                    <ChatMessage
-                      message={message.text}
-                      isBot={message.isBot}
-                    />
+                    <>
+                      <ChatMessage
+                        message={message.text}
+                        isBot={message.isBot}
+                      />
+                      {message.isBot && message.text && !message.isHandoffCard && !message.isVideo && (
+                        <MessageFeedback onSubmit={(args) => chat.submitMessageFeedback({ ...args, messageId: message.id })} />
+                      )}
+                    </>
                   )}
                 </React.Fragment>
               ))}
