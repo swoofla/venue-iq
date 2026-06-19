@@ -1395,7 +1395,7 @@ Before considering a handoff, check whether the knowledge base contains anything
         break;
       case 'tour':
         setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to schedule a tour", isBot: false }]);
-        addBotMessage("Wonderful! We'd love to welcome you to Sugar Lake and show you around in person. Let's find a time that works best for you.");
+        addBotMessage(`Wonderful! We'd love to welcome you to ${venueName} and show you around in person. Let's find a time that works best for you.`);
         setTimeout(() => setActiveFlow('tour'), 1500);
         break;
       case 'packages':
@@ -1494,9 +1494,6 @@ Before considering a handoff, check whether the knowledge base contains anything
       tour_scheduler: { tour_date: data.tourDate, tour_time: data.tourTime }
     };
 
-    const venues = await base44.entities.Venue.list();
-    const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-
     const submissionData = {
       name: data.name,
       email: data.email,
@@ -1506,7 +1503,7 @@ Before considering a handoff, check whether the knowledge base contains anything
       tour_date: data.tourDate,
       tour_time: data.tourTime,
       source: 'tour_scheduler',
-      venue_id: sugarLakeVenue?.id,
+      venue_id: venueId,
     };
 
     await base44.entities.ContactSubmission.create(submissionData);
