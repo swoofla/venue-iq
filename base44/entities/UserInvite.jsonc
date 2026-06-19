@@ -60,10 +60,14 @@
       }
     },
     "read": {
-      "data.token": "{{request.query.token}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "update": {
-      "data.token": "{{request.query.token}}"
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
       "user_condition": {
