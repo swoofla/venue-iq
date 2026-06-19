@@ -25,32 +25,14 @@ export default function InvitePage() {
       }
 
       try {
-        const invites = await base44.entities.UserInvite.filter({ token });
-        
-        if (invites.length === 0) {
-          setError('Invalid invitation link');
+        const result = await base44.functions.invoke('validateUserInvite', { token });
+        if (!result.data?.success) {
+          setError(result.data?.error || 'Invalid invitation link');
           setLoading(false);
           return;
         }
-
-        const foundInvite = invites[0];
-
-        if (new Date(foundInvite.expires_at) < new Date()) {
-          setError('This invitation has expired. Please contact the administrator for a new invite.');
-          setLoading(false);
-          return;
-        }
-
-        if (foundInvite.status === 'accepted') {
-          setError('This invitation has already been used. Please log in instead.');
-          setLoading(false);
-          return;
-        }
-
-        const venueData = await base44.entities.Venue.get(foundInvite.venue_id);
-        
-        setInvite(foundInvite);
-        setVenue(venueData);
+        setInvite(result.data.invite);
+        setVenue({ name: result.data.invite.venue_name });
       } catch (err) {
         console.error('Invite validation error:', err);
         setError('Failed to validate invitation');

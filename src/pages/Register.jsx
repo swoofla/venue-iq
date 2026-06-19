@@ -35,26 +35,14 @@ export default function RegisterPage() {
       }
 
       try {
-        const invites = await base44.entities.UserInvite.filter({ token });
-        if (invites.length === 0) {
-          setError('This invitation link is invalid');
-          setLoading(false);
+        const result = await base44.functions.invoke('validateUserInvite', { token });
+        if (!result.data?.success) {
+          navigate(createPageUrl('Login'));
           return;
         }
-        
-        if (invites[0].status !== 'pending') {
-          setError('This invitation has already been used or has expired');
-          setLoading(false);
-          return;
-        }
-
-        const foundInvite = invites[0];
+        const foundInvite = result.data.invite;
         setInvite(foundInvite);
-        setFormData(prev => ({
-          ...prev,
-          email: foundInvite.email,
-          name: foundInvite.name || ''
-        }));
+        setFormData(prev => ({ ...prev, email: foundInvite.email, name: foundInvite.name || '' }));
       } catch (err) {
         console.error('Load invite error:', err);
         setError('Failed to load invitation details');
