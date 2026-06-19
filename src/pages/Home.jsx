@@ -40,12 +40,18 @@ export default function Home() {
       if (isAuth) {
         base44.auth.me().then(u => {
           setUser(u);
+          // Users with venue assignments go to Dashboard
           if (u.venue_id) {
             window.location.href = createPageUrl('Dashboard');
             return;
-          } else {
-            setLoading(false);
           }
+          // Super admins go straight to Super Admin
+          if (u.role === 'admin') {
+            window.location.href = createPageUrl('SuperAdmin');
+            return;
+          }
+          // Anyone else can see the chatbot
+          setLoading(false);
         });
       } else {
         setLoading(false);
