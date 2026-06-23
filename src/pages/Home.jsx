@@ -26,14 +26,22 @@ export default function Home() {
   const [venueId, setVenueId] = useState(null);
   const [venueName, setVenueName] = useState('Sugar Lake Weddings');
   const [loading, setLoading] = useState(true);
+  const [venueNotFound, setVenueNotFound] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const venueSlug = params.get('venue');
+    const isEmbedded = window.self !== window.top || params.get('embed') === '1';
+
     base44.entities.Venue.list().then(venues => {
-      const sugarLakeVenue = venues.find(v => v.name.toLowerCase().includes('sugar lake')) || venues[0];
-      if (sugarLakeVenue) {
-        setVenueId(sugarLakeVenue.id);
-        setVenueName(sugarLakeVenue.name);
+      const matched = venueSlug ? venues.find(v => v.slug === venueSlug) : null;
+      if (matched) {
+        setVenueId(matched.id);
+        setVenueName(matched.name);
+      } else {
+        setVenueNotFound(true);
       }
+      setLoading(false);
     });
 
     base44.auth.isAuthenticated().then(isAuth => {
@@ -42,8 +50,12 @@ export default function Home() {
           setUser(u);
           // Admins and users with venue assignments go to Dashboard
           if (u.role === 'admin' || u.venue_id) {
-            window.location.href = createPageUrl('Dashboard');
-            return;
+            if (!isEmbedded) {
+              window.location.href = createPageUrl('Dashboard');
+              return;
+            } else {
+              setLoading(false);
+            }
           }
           // Anyone else can see the chatbot
           setLoading(false);
@@ -96,6 +108,14 @@ export default function Home() {
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (venueNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center text-stone-600">
+        We couldn't load this venue's planner. Please check the link and try again.
+      </div>
+    );
   }
 
   const showEmptyState = chat.messages.length === 0 && !chat.activeFlow && !chat.isTyping;
