@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Venue name"
     },
+    "slug": {
+      "type": "string",
+      "description": "URL-friendly unique identifier for public/embed URLs (e.g., sugar-lake-weddings). Set manually per venue at onboarding."
+    },
     "description": {
       "type": "string",
       "description": "Venue description"
