@@ -34,7 +34,8 @@ export default function Home() {
     const isEmbedded = window.self !== window.top || params.get('embed') === '1';
 
     base44.entities.Venue.list().then(venues => {
-      const matched = venueSlug ? venues.find(v => v.slug === venueSlug) : null;
+      // ALPHA ONLY — single-venue default. Remove `|| 'sugar-lake-weddings'` at venue #2 to restore strict slug-required behavior.
+      const matched = venues.find(v => v.slug === (venueSlug || 'sugar-lake-weddings')) || null;
       if (matched) {
         setVenueId(matched.id);
         setVenueName(matched.name);
