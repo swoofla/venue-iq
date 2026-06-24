@@ -1384,9 +1384,10 @@ Before considering a handoff, check whether the knowledge base contains anything
 
     switch (action) {
       case 'budget':
-        setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to use the budget calculator", isBot: false }]);
-        addBotMessage("Perfect! Let's find the ideal package for your budget. I'll guide you through a few questions to understand your vision.");
-        setTimeout(() => setActiveFlow('budget'), 1500);
+        // Budget calculator temporarily disabled pending rebuild (vendor pricing changed).
+        // Re-enable: restore the two commented lines below and the "Calculate my budget" CTA.
+        // setMessages(prev => [...prev, { id: Date.now(), text: "I'd like to use the budget calculator", isBot: false }]);
+        // setTimeout(() => setActiveFlow('budget'), 1500);
         break;
       case 'availability':
         setMessages(prev => [...prev, { id: Date.now(), text: "I want to check date availability", isBot: false }]);
@@ -1565,11 +1566,9 @@ Before considering a handoff, check whether the knowledge base contains anything
     addBotMessage("Perfect! Use the buttons below or just type what you're looking for.");
   };
 
-  const handleBudgetFromVideo = () => {
-    setMessages(prev => [...prev, { id: Date.now(), text: "Calculate my budget", isBot: false }]);
-    addBotMessage("Let's build your custom budget estimate!");
-    setTimeout(() => setActiveFlow('budget'), 1500);
-  };
+  // Budget calculator temporarily disabled pending rebuild (vendor pricing changed).
+  // Re-enable: restore the body below and re-add the "Calculate my budget" CTA in the First Look video component.
+  const handleBudgetFromVideo = () => {};
 
   const handleMiniTourFromVideo = () => {
     setMessages(prev => [...prev, { id: Date.now(), text: "Watch mini tour", isBot: false }]);
