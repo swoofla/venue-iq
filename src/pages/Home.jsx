@@ -21,23 +21,30 @@ import DebugTraceButton from '@/components/chat/DebugTraceButton';
 import MessageFeedback from '@/components/chat/MessageFeedback';
 import { Toaster } from 'sonner';
 
+// How long a closed chat transcript is kept on this device before we discard it
+// and start fresh. Change here to adjust the persistence window.
+const CHAT_TTL_MS = 24 * 60 * 60 * 1000;
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [venueId, setVenueId] = useState(null);
+  const [venueSlug, setVenueSlug] = useState(null); // resolved slug used for the per-tenant storage key
   const [venueName, setVenueName] = useState('Sugar Lake Weddings');
   const [loading, setLoading] = useState(true);
   const [venueNotFound, setVenueNotFound] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const venueSlug = params.get('venue');
+    const slugFromUrl = params.get('venue');
     const isEmbedded = window.self !== window.top || params.get('embed') === '1';
 
     base44.entities.Venue.list().then(venues => {
       // ALPHA ONLY — single-venue default. Remove `|| 'sugar-lake-weddings'` at venue #2 to restore strict slug-required behavior.
-      const matched = venues.find(v => v.slug === (venueSlug || 'sugar-lake-weddings')) || null;
+      const effectiveSlug = slugFromUrl || 'sugar-lake-weddings';
+      const matched = venues.find(v => v.slug === effectiveSlug) || null;
       if (matched) {
         setVenueId(matched.id);
+        setVenueSlug(matched.slug || effectiveSlug);
         setVenueName(matched.name);
       } else {
         setVenueNotFound(true);
@@ -106,6 +113,69 @@ export default function Home() {
   const handleTalkToPlanner = () => {
     chat.requestPlannerHandoff();
   };
+
+  // ── Client-side chat persistence ──────────────────────────────────────
+  // Persist the transcript across closing/reopening the embedded widget so the
+  // bride doesn't lose context. Pure localStorage; no server-side state added.
+  // Per-venue key so tenants never collide. activeFlow is intentionally NOT
+  // persisted — flow components hold their own internal state, so a restored
+  // half-finished flow would be broken.
+  const chatStorageKey = (venueSlug || venueId) ? `viq_chat_v1_${venueSlug || venueId}` : null;
+  const restoreAttemptedRef = React.useRef(false);
+
+  // RESTORE on load — runs once, after the venue is resolved and the key is known.
+  useEffect(() => {
+    if (loading || !chatStorageKey || restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(chatStorageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      const fresh =
+        saved &&
+        typeof saved.savedAt === 'number' &&
+        Array.isArray(saved.messages) &&
+        (Date.now() - saved.savedAt) < CHAT_TTL_MS;
+      if (!fresh) {
+        try { window.localStorage.removeItem(chatStorageKey); } catch { /* ignore */ }
+        return;
+      }
+      if (saved.messages.length > 0) {
+        chat.setMessages(saved.messages);
+        // Suppress the opening sequence — user is mid-conversation, not new.
+        chat.setShowGreeting(false);
+      }
+      if (saved.lead && typeof saved.lead === 'object') {
+        if (typeof saved.lead.name === 'string') chat.setLeadName(saved.lead.name);
+        if (typeof saved.lead.email === 'string') chat.setLeadEmail(saved.lead.email);
+        if (typeof saved.lead.phone === 'string') chat.setLeadPhone(saved.lead.phone);
+      }
+    } catch {
+      // Storage unavailable / malformed JSON — fall through to fresh start.
+      try { window.localStorage.removeItem(chatStorageKey); } catch { /* ignore */ }
+    }
+  }, [loading, chatStorageKey, chat]);
+
+  // SAVE on change — write the transcript whenever it changes (and when lead
+  // info changes). Never overwrites a saved chat with an empty array during load.
+  useEffect(() => {
+    if (loading || !chatStorageKey) return;
+    if (!chat.messages || chat.messages.length === 0) return;
+    try {
+      const payload = {
+        savedAt: Date.now(),
+        messages: chat.messages,
+        lead: {
+          name: chat.leadName || '',
+          email: chat.leadEmail || '',
+          phone: chat.leadPhone || '',
+        },
+      };
+      window.localStorage.setItem(chatStorageKey, JSON.stringify(payload));
+    } catch {
+      // Storage full / unavailable — chat continues working, just won't persist.
+    }
+  }, [loading, chatStorageKey, chat.messages, chat.leadName, chat.leadEmail, chat.leadPhone]);
 
   // Pre-load an initial message from ?message= once the chatbot is ready.
   // Runs exactly once per page load — guarded so navigations or re-renders don't resend it.
