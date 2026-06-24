@@ -107,6 +107,19 @@ export default function Home() {
     chat.requestPlannerHandoff();
   };
 
+  // Pre-load an initial message from ?message= once the chatbot is ready.
+  // Runs exactly once per page load — guarded so navigations or re-renders don't resend it.
+  const initialMessageSentRef = React.useRef(false);
+  useEffect(() => {
+    if (loading || !venueId || initialMessageSentRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const initialMessage = params.get('message');
+    if (initialMessage && initialMessage.trim()) {
+      initialMessageSentRef.current = true;
+      chat.handleUserMessage(initialMessage.trim());
+    }
+  }, [loading, venueId, chat]);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
