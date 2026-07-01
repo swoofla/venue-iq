@@ -11,7 +11,10 @@ Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
 
   try {
-    const { venueId, chatSessionId, leadName, leadPhone, leadEmail, topicSummary, originalQuestion } = await req.json();
+    let { venueId, chatSessionId, leadName, leadPhone, leadEmail, topicSummary, originalQuestion } = await req.json();
+
+    // Entry sanitizer: strip any invisible/control chars from phone before validation or downstream use.
+    leadPhone = String(leadPhone ?? '').replace(/[^\d+]/g, '');
 
     if (!venueId || !chatSessionId || !leadName || !leadPhone || !topicSummary || !originalQuestion) {
       return Response.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -130,6 +133,7 @@ Deno.serve(async (req) => {
     // STEP F: Send intro iMessage to the LEAD
     let messageId = null;
     let introStatus = 'intro_sent';
+    let smsErrorMessage = null;
     try {
       const firstName = leadName.split(' ')[0];
       const plannerFirst = headPlannerName.split(' ')[0];
@@ -158,10 +162,16 @@ Deno.serve(async (req) => {
         messageId = smsData.messageId || smsData.id || null;
       } else {
         introStatus = 'intro_failed';
+        try {
+          smsErrorMessage = `SMS send ${smsRes.status}: ${smsText}`.slice(0, 500);
+        } catch (_) { /* ignore */ }
         console.error('Intro SMS failed:', smsText);
       }
     } catch (smsError) {
       introStatus = 'intro_failed';
+      try {
+        smsErrorMessage = `SMS send exception: ${smsError.message}`.slice(0, 500);
+      } catch (_) { /* ignore */ }
       console.error('Intro SMS error:', smsError.message);
     }
 
@@ -189,7 +199,8 @@ Deno.serve(async (req) => {
       ghl_intro_message_id: messageId || undefined,
       ghl_note_id: noteId || undefined,
       transcript_url: transcriptUrl,
-      status: introStatus
+      status: introStatus,
+      error_message: smsErrorMessage || undefined
     });
 
     return Response.json({
