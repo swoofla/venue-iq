@@ -137,8 +137,11 @@ Deno.serve(async (req) => {
     try {
       const firstName = leadName.split(' ')[0];
       const plannerFirst = headPlannerName.split(' ')[0];
+      const topicPhrase = (topicSummary && topicSummary !== 'general inquiry')
+        ? `your question about ${topicSummary}`
+        : 'your inquiry';
       const smsBody =
-        `Hi ${firstName}! 👋 The virtual planner at ${venueName} here. I just passed your ${topicSummary} question over to ${plannerFirst}, our head planner. She'll text you back from this number shortly. Feel free to reply with anything else in the meantime!\n\nReply STOP to opt out.`;
+        `Hi ${firstName}! 👋 The virtual planner at ${venueName} here. I just passed ${topicPhrase} along to ${plannerFirst}, our head planner. She'll text you back from this number shortly. Feel free to reply with anything else in the meantime!\n\nReply STOP to opt out.`;
 
       const smsRes = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
         method: 'POST',
