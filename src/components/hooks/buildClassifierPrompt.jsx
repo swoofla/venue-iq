@@ -88,7 +88,7 @@ Also classify the PRIMARY topic of the bride's current message from this fixed v
 - catering: food, caterers, menu, dietary, tastings, plated vs buffet
 - desserts: cake, cupcakes, cookies, sweets, dessert table
 - alcohol_bar: drinks, bar, alcohol, beer, wine, signature cocktails, bartender
-- packages_pricing: package options, what's included, total cost, price tiers, budget
+- packages_pricing: package options, what's included, total cost, price tiers, budget, fees, hidden fees, extra charges, what costs extra, gratuity, taxes, deposits vs total
 - ceremony_spaces: where the ceremony happens, outdoor/indoor ceremony locations, arbor, aisle
 - reception_spaces: reception room/tent/barn, where dinner & dancing happen
 - lodging: on-site stay, cabins, hotels nearby, accommodations
@@ -103,7 +103,7 @@ Also classify the PRIMARY topic of the bride's current message from this fixed v
 - availability_dates: open/booked dates, calendar, peak vs off-season
 - tours: visiting the venue, scheduling a walk-through
 - getting_ready: bridal suite use, getting-ready timing, hair & makeup space
-- general: greetings, intros, vibe questions, anything else
+- general: greetings, intros, vibe questions, inclusivity, LGBTQ, diversity, whether all couples are welcome, values questions, anything else
 
 When a message spans topics, return the PRIMARY one.
 ${handoffPendingBlock}`;
