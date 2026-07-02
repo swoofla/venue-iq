@@ -171,9 +171,9 @@ export default function useChatFlow({
   };
 
   // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
-  const offerHandoff = (topicSummary) => {
+  const offerHandoff = (topicSummary, originalQuestion) => {
     const plannerName = venue?.planner_name || 'our planner';
-    setHandoffPending({ topicSummary: topicSummary || 'general inquiry' });
+    setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
     addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
   };
 
@@ -233,12 +233,12 @@ export default function useChatFlow({
   };
 
   // Append an inline contact-card message and the warm "drop your info" lead-in.
-  const appendHandoffCard = (topicSummary) => {
+  const appendHandoffCard = (topicSummary, originalQuestion) => {
     const plannerName = venue?.planner_name || 'our planner';
     setMessages(prev => [
       ...prev,
       { id: Date.now(), text: `Perfect — drop your name and number below and ${plannerName} will text you!`, isBot: true },
-      { id: Date.now() + 1, isBot: true, isHandoffCard: true, topicSummary: topicSummary || 'general inquiry' },
+      { id: Date.now() + 1, isBot: true, isHandoffCard: true, topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || topicSummary || 'general inquiry' },
     ]);
   };
 
@@ -304,9 +304,10 @@ export default function useChatFlow({
       // Handoff acceptance: append inline card, clear pending, stop here.
       if (handoffPending && classifier?.handoff_response === 'accepted') {
         const topic = handoffPending.topicSummary;
+        const originalQuestion = handoffPending.originalQuestion;
         setHandoffPending(null);
         setIsTyping(false);
-        appendHandoffCard(topic);
+        appendHandoffCard(topic, originalQuestion);
         return;
       }
       // Any non-accepted message clears the pending offer; conversation continues normally.
@@ -1020,7 +1021,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
 
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
-        setHandoffPending({ topicSummary: topic });
+        setHandoffPending({ topicSummary: topic, originalQuestion: text });
       }
 
       // Trigger tour scheduler after the warm reply for tour_interest

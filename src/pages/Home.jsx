@@ -259,6 +259,7 @@ export default function Home() {
                     <HandoffContactCard
                       plannerName={venue?.planner_name || 'our planner'}
                       topicSummary={message.topicSummary}
+                      originalQuestion={message.originalQuestion}
                       venueId={venueId}
                       chatSessionId={chat.chatSessionId}
                     />
