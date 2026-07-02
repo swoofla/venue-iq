@@ -403,16 +403,38 @@ export default function useChatFlow({
       }
       weddingDates = weddingDates.slice(0, 5); // cap at 5 per spec
 
-      const weddingDate = ambiguityResolvedIso
+      let weddingDate = ambiguityResolvedIso
         || classifierDateRaw
         || (weddingDates[0] || null)
         || deterministicDate;
       const statedWeekday = typeof classifier?.stated_weekday === 'string' ? classifier.stated_weekday : null;
-      const yearMissing = classifier?.year_missing === true
+      let yearMissing = classifier?.year_missing === true
         && !weddingDate
         && weddingDates.length === 0
         && Number.isInteger(classifier?.month)
         && Number.isInteger(classifier?.day);
+
+      // ── Year-guess guard ────────────────────────────────────────
+      // Neither the classifier nor the deterministic parser may invent a year
+      // the bride never typed. If the raw text has no 4-digit year and no context
+      // year is established, discard any resolved date and force the "what year?" path.
+      const rawTextHasYear = /\b(20\d{2})\b/.test(text);
+      const hasContextYear = Number.isInteger(currentYearRef.current);
+      let weddingDateGuarded = weddingDate;
+      let yearMissingGuarded = yearMissing;
+      if (
+        intent === 'date_inquiry' &&
+        !ambiguityResolvedIso &&
+        !rawTextHasYear &&
+        !hasContextYear &&
+        Number.isInteger(classifier?.month) &&
+        Number.isInteger(classifier?.day)
+      ) {
+        weddingDateGuarded = null;
+        yearMissingGuarded = true;
+      }
+      weddingDate = weddingDateGuarded;
+      yearMissing = yearMissingGuarded;
       console.log('[useChatFlow] Date parsing — ambiguityResolved:', ambiguityResolvedIso, '| classifier:', classifierDateRaw, classifierDates, '| classifier year_missing:', classifier?.year_missing, classifier?.month, classifier?.day, '| classifier weekday:', statedWeekday, '| deterministicDate:', deterministicDate, '| deterministicDates:', deterministicDates, '| final single:', weddingDate, '| final multi:', weddingDates, '| focus:', userFocusDateRef.current, '| multiMonth:', lastMultiMonthRef.current);
       const resolvedYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || (weddingDate ? partsFromIso(weddingDate).y : null);
       if (resolvedYear) currentYearRef.current = resolvedYear;
