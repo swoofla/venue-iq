@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
           tags: [
             'Virtual Planner Lead',
             'Planner_Contact_Requested',
-            `topic_${topicSummary.toLowerCase().replace(/\s+/g, '_')}`
+            `topic_${(String(topicSummary || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30)) || 'general'}`
           ],
           customFields: [
             { key: 'wedding_date', field_value: chatSession?.lead_wedding_date || '' },

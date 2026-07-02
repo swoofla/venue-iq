@@ -957,7 +957,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
           type: 'object',
           properties: {
             needsHandoff: { type: 'boolean' },
-            topicSummary: { type: 'string' },
+            topicSummary: { type: 'string', maxLength: 40, description: "A SHORT noun phrase (2-4 words) naming the subject of the handoff — e.g. 'preferred vendors', 'pricing questions', 'refund policy', 'speaking with a planner'. Never a full sentence. No trailing punctuation. Lowercase unless a proper noun." },
             acknowledgment: { type: 'string' },
             answer: { type: 'string' }
           },
