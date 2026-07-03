@@ -296,7 +296,7 @@ export default function useChatFlow({
           knownDate: leadWeddingDateRef.current,
         }),
         response_json_schema: CLASSIFIER_SCHEMA,
-        model: 'claude_opus_4_8'
+        model: 'gemini_3_flash'
       });
 
       console.log('CLASSIFIER:', JSON.stringify(classifier));
