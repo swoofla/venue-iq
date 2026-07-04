@@ -220,7 +220,7 @@ export default function Home() {
                 marginTop: '2px',
               }}
             >
-              PLAN YOUR WEDDING
+              VIRTUAL PLANNER
             </p>
           </div>
           <button
