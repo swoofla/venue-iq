@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp } from 'lucide-react';
 
 export default function ChatInput({ onSend, disabled, placeholder = "Type your message..." }) {
   const [message, setMessage] = useState('');
+  const inputRef = useRef(null);
+
+  // Keep the cursor in the input across sends — re-focus whenever the input
+  // becomes enabled again (after the bot finishes typing / a flow closes).
+  useEffect(() => {
+    if (!disabled) inputRef.current?.focus();
+  }, [disabled]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
       onSend(message.trim());
       setMessage('');
+      inputRef.current?.focus();
     }
   };
 
@@ -21,6 +29,7 @@ export default function ChatInput({ onSend, disabled, placeholder = "Type your m
         style={{ padding: '10px 14px', borderWidth: '0.5px' }}
       >
         <input
+          ref={inputRef}
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
