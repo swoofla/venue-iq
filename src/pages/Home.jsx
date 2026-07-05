@@ -238,9 +238,10 @@ export default function Home() {
       </header>
 
       <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto bg-white shadow-sm min-h-0">
-        {/* Messages - scrollable area */}
+        {/* Messages - scrollable area (self-contained; never scrolls the host page) */}
         <div
-          className="flex-1 overflow-y-auto p-6 pb-4 min-h-0 flex flex-col"
+          ref={chat.messagesContainerRef}
+          className="flex-1 overflow-y-auto p-6 pb-4 min-h-0 flex flex-col overscroll-contain"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {showEmptyState ? (
@@ -363,7 +364,6 @@ export default function Home() {
                 />
               )}
 
-              <div ref={chat.messagesEndRef} />
             </>
           )}
         </div>

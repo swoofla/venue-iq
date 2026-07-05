@@ -87,16 +87,20 @@ export default function useChatFlow({
   };
 
   const firstLookConfigRef = useRef(firstLookConfig);
-  const messagesEndRef = useRef(null);
+  // Ref for the chat's own scrollable message-list container. We scroll THIS
+  // element only (never scrollIntoView / window / document), so when the app is
+  // embedded in an iframe on a host site, new messages don't drag the host page.
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
     firstLookConfigRef.current = firstLookConfig;
   }, [firstLookConfig]);
 
-  // Auto-scroll
+  // Auto-scroll — contained to the chat's scroll container only.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, activeFlow]);
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, activeFlow, isTyping]);
 
   // Mirror messages into a ref so the debounce callback always has latest
   useEffect(() => {
@@ -1279,7 +1283,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
     setLeadEmail,
     leadPhone,
     setLeadPhone,
-    messagesEndRef,
+    messagesContainerRef,
     chatSessionId,
     handleUserMessage,
     handleQuickAction,
