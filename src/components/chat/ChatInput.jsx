@@ -4,20 +4,36 @@ import { ArrowUp } from 'lucide-react';
 export default function ChatInput({ onSend, disabled, placeholder = "Type your message..." }) {
   const [message, setMessage] = useState('');
   const inputRef = useRef(null);
+  // Track whether the user has interacted at all. We must NOT autofocus on
+  // initial mount, because the app runs inside an iframe on venue websites —
+  // focusing an input triggers the browser to scroll the host page to bring
+  // it into view, yanking the visitor down to the planner. Only refocus AFTER
+  // the user has already engaged (typed or sent a message).
+  const hasInteractedRef = useRef(false);
 
   // Keep the cursor in the input across sends — re-focus whenever the input
-  // becomes enabled again (after the bot finishes typing / a flow closes).
+  // becomes enabled again (after the bot finishes typing / a flow closes),
+  // but only once the user has interacted. Always use preventScroll so no
+  // focus call can ever scroll the host page.
   useEffect(() => {
-    if (!disabled) inputRef.current?.focus();
+    if (!disabled && hasInteractedRef.current) {
+      inputRef.current?.focus({ preventScroll: true });
+    }
   }, [disabled]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
+      hasInteractedRef.current = true;
       onSend(message.trim());
       setMessage('');
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
+  };
+
+  const handleChange = (e) => {
+    hasInteractedRef.current = true;
+    setMessage(e.target.value);
   };
 
   const hasText = message.trim().length > 0;
@@ -32,7 +48,7 @@ export default function ChatInput({ onSend, disabled, placeholder = "Type your m
           ref={inputRef}
           type="text"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleChange}
           placeholder={placeholder}
           disabled={disabled}
           className="flex-1 bg-transparent border-0 outline-none text-stone-900 placeholder:text-stone-400 disabled:opacity-50"
