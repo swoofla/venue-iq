@@ -9,6 +9,8 @@ import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
 import VenueAnalytics from '@/components/dashboard/VenueAnalytics';
 import IndustryBenchmarks from '@/components/dashboard/IndustryBenchmarks';
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown';
+import ChatSessionAnalytics from '@/components/dashboard/ChatSessionAnalytics';
+import DateRangeFilter, { computePresetRange } from '@/components/dashboard/DateRangeFilter';
 import VenueSelector from '@/components/admin/VenueSelector';
 import OnboardingReadiness from '@/components/dashboard/OnboardingReadiness';
 import VenueOnboardingWizard from '@/components/admin/VenueOnboardingWizard';
@@ -21,6 +23,8 @@ export default function Dashboard() {
   const [searchParams] = useSearchParams();
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [datePreset, setDatePreset] = useState('30');
+  const [dateRange, setDateRange] = useState(() => computePresetRange('30'));
 
   React.useEffect(() => {
     base44.auth.me().then(u => {
@@ -207,6 +211,16 @@ export default function Dashboard() {
             <div className="text-stone-500 text-sm">Weddings Scheduled</div>
           </div>
         </div>
+
+        {/* Date range filter */}
+        <DateRangeFilter
+          preset={datePreset}
+          range={dateRange}
+          onChange={({ preset, range }) => { setDatePreset(preset); setDateRange(range); }}
+        />
+
+        {/* Chat Session Analytics */}
+        <ChatSessionAnalytics venueId={venueId} dateRange={dateRange} />
 
         {/* Venue Analytics */}
         <VenueAnalytics weddings={weddings} submissions={submissions} packages={packages} />

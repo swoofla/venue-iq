@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Sparkles, CheckCircle2, Copy, Check } from 'lucide-react';
+import { Sparkles, CheckCircle2, Copy, Check, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { createPageUrl } from '../utils';
 
 function formatDuration(start, end) {
   try {
@@ -54,11 +55,13 @@ function flowResultText(flowName, result) {
 
 export default function ChatTranscript() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const id = searchParams.get('id');
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [siblingIds, setSiblingIds] = useState([]); // ordered newest-first, for prev/next nav
 
   useEffect(() => {
     if (!id) {
@@ -66,6 +69,7 @@ export default function ChatTranscript() {
       setLoading(false);
       return;
     }
+    setLoading(true);
     base44.functions.invoke('getChatSessionPublic', { id })
       .then((res) => {
         if (res?.data?.session) {
@@ -77,6 +81,24 @@ export default function ChatTranscript() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Load sibling session IDs once the current session is known, scoped to the same venue.
+  useEffect(() => {
+    if (!session?.id) return;
+    // We don't have direct venue_id back from getChatSessionPublic — but admin RLS
+    // now allows reading ChatSession, so pull the newest 200 ordered by created_date.
+    base44.entities.ChatSession.list('-created_date', 200)
+      .then(list => setSiblingIds(list.map(s => s.id)))
+      .catch(() => setSiblingIds([]));
+  }, [session?.id]);
+
+  const currentIdx = siblingIds.indexOf(id);
+  const prevId = currentIdx > 0 ? siblingIds[currentIdx - 1] : null; // newer
+  const nextId = currentIdx >= 0 && currentIdx < siblingIds.length - 1 ? siblingIds[currentIdx + 1] : null; // older
+  const goTo = (targetId) => {
+    if (!targetId) return;
+    navigate(`${createPageUrl('ChatTranscript')}?id=${targetId}`);
+  };
 
   if (loading) {
     return (
@@ -131,17 +153,39 @@ export default function ChatTranscript() {
     <div className="min-h-screen bg-stone-50">
       {/* Top bar */}
       <header className="bg-black text-white px-6 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <h1 style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
-          <span
-            style={{
-              fontSize: '10px',
-              letterSpacing: '0.15em',
-              color: 'rgba(255,255,255,0.55)',
-            }}
-          >
-            TRANSCRIPT
-          </span>
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              to={createPageUrl('AdminChatSessions')}
+              className="text-white/70 hover:text-white flex items-center gap-1"
+              style={{ fontSize: '12px' }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              All sessions
+            </Link>
+            <span className="text-white/30">·</span>
+            <h1 className="truncate" style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => goTo(prevId)}
+              disabled={!prevId}
+              className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Newer session"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo(nextId)}
+              disabled={!nextId}
+              className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Older session"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
