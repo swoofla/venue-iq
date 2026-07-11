@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, Copy, Check } from 'lucide-react';
 
 function formatDuration(start, end) {
   try {
@@ -58,6 +58,7 @@ export default function ChatTranscript() {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -99,6 +100,33 @@ export default function ChatTranscript() {
   const flowResults = session.flow_results || {};
   const duration = formatDuration(session.created_date, session.updated_date);
 
+  const buildTranscriptText = () => {
+    const header = [
+      `${venueName} — Chat transcript`,
+      `Lead: ${session.lead_name || 'Anonymous'}`,
+      [session.lead_phone, session.lead_email].filter(Boolean).join(' · ') || null,
+      `Wedding date: ${session.lead_wedding_date || 'not shared'}`,
+      `Guest count: ${session.lead_guest_count || 'not shared'}`,
+      `Budget feel: ${session.lead_budget_range || 'not shared'}`,
+      `Duration: ${duration}`,
+    ].filter(Boolean).join('\n');
+    const body = messages
+      .map(m => `${m.role === 'bot' ? 'Bot' : 'Bride'}: ${m.content || ''}`)
+      .join('\n\n');
+    return `${header}\n\n---\n\n${body}`;
+  };
+
+  const handleCopy = async () => {
+    const text = buildTranscriptText();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt('Copy transcript:', text);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-50">
       {/* Top bar */}
@@ -123,9 +151,20 @@ export default function ChatTranscript() {
           <p style={{ fontSize: '19px', fontWeight: 500 }} className="text-stone-900">
             {session.lead_name || 'Anonymous lead'}
           </p>
-          <p className="text-stone-600 mt-1" style={{ fontSize: '12px' }}>
-            {[session.lead_phone, session.lead_email, duration].filter(Boolean).join(' · ')}
-          </p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <p className="text-stone-600" style={{ fontSize: '12px' }}>
+              {[session.lead_phone, session.lead_email, duration].filter(Boolean).join(' · ')}
+            </p>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-full hover:border-stone-400 transition-colors text-stone-700"
+              style={{ fontSize: '12px' }}
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied' : 'Copy transcript'}
+            </button>
+          </div>
         </div>
 
         {/* What she shared */}
