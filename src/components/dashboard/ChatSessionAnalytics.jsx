@@ -23,7 +23,7 @@ export default function ChatSessionAnalytics({ venueId, dateRange }) {
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['chatSessions', venueId],
     queryFn: () => venueId
-      ? base44.asServiceRole.entities.ChatSession.filter({ venue_id: venueId }, '-created_date', 500)
+      ? base44.entities.ChatSession.filter({ venue_id: venueId }, '-created_date', 500)
       : [],
     enabled: !!venueId,
   });
