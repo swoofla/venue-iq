@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { MessageSquare, ArrowLeft, Search } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Search, UserRoundCheck } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 function formatWhen(iso) {
@@ -24,6 +24,7 @@ export default function AdminChatSessions() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all'); // 'all' | 'handoff' | 'conversation'
 
   useEffect(() => {
     base44.entities.ChatSession.list('-created_date', 200)
@@ -31,10 +32,18 @@ export default function AdminChatSessions() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handoffCount = useMemo(
+    () => sessions.filter(s => s.handoff_triggered).length,
+    [sessions]
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return sessions;
-    return sessions.filter(s => {
+    let list = sessions;
+    if (category === 'handoff') list = list.filter(s => s.handoff_triggered);
+    else if (category === 'conversation') list = list.filter(s => !s.handoff_triggered);
+    if (!q) return list;
+    return list.filter(s => {
       const hay = [
         s.lead_name, s.lead_email, s.lead_phone,
         s.handoff_topic, s.lead_wedding_date,
@@ -42,7 +51,7 @@ export default function AdminChatSessions() {
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
-  }, [sessions, query]);
+  }, [sessions, query, category]);
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -70,6 +79,30 @@ export default function AdminChatSessions() {
             placeholder="Search name, email, phone, topic, or first message…"
             className="w-full pl-9 pr-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400"
           />
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {[
+            { id: 'all', label: 'All', count: sessions.length },
+            { id: 'handoff', label: 'Handoffs', count: handoffCount },
+            { id: 'conversation', label: 'Conversations', count: sessions.length - handoffCount },
+          ].map((tab) => {
+            const active = category === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setCategory(tab.id)}
+                className={`px-3 py-1.5 rounded-full border transition-colors ${
+                  active
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-stone-700 border-stone-200 hover:border-stone-400'
+                }`}
+                style={{ fontSize: '12px', fontWeight: 500 }}
+              >
+                {tab.label} <span className={active ? 'text-white/60' : 'text-stone-400'}>({tab.count})</span>
+              </button>
+            );
+          })}
         </div>
 
         {loading ? (
@@ -113,8 +146,14 @@ export default function AdminChatSessions() {
                       "{preview}"
                     </p>
                   )}
-                  {(s.handoff_topic || s.lead_wedding_date || s.lead_guest_count) && (
+                  {(s.handoff_triggered || s.handoff_topic || s.lead_wedding_date || s.lead_guest_count) && (
                     <div className="flex flex-wrap gap-2 mt-2">
+                      {s.handoff_triggered && (
+                        <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" style={{ fontSize: '11px', fontWeight: 500 }}>
+                          <UserRoundCheck className="w-3 h-3" />
+                          Handoff
+                        </span>
+                      )}
                       {s.handoff_topic && (
                         <span className="text-stone-600 bg-stone-100 rounded-full px-2 py-0.5" style={{ fontSize: '11px' }}>
                           {s.handoff_topic}
