@@ -1201,6 +1201,11 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
 
     await base44.entities.ContactSubmission.create(submissionData);
 
+    // Attempt the HighLevel sync. If the appointment fails, we must NOT tell the
+    // bride her tour is scheduled — HL is the source of truth for the planner's
+    // calendar. Fall back to a "planner will confirm shortly" message instead.
+    let appointmentBooked = false;
+    let appointmentError = null;
     try {
       const contactRes = await base44.functions.invoke('createHighLevelContact', {
         email: data.email,
@@ -1219,14 +1224,40 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         tour_date: data.tourDate,
         tour_time: data.tourTime,
         wedding_date: data.weddingDate,
-        guest_count: data.guestCount
+        guest_count: data.guestCount,
+        timezone: data.timezone,
       });
       console.log('Appointment created:', appointmentRes.data);
+
+      // The function returns { success: true, appointmentId } on the happy path
+      // and { error: '...' } (with HTTP 500) on failure. base44.functions.invoke
+      // still resolves on non-2xx, so we must check the payload explicitly.
+      if (appointmentRes?.data?.success && appointmentRes?.data?.appointmentId) {
+        appointmentBooked = true;
+      } else {
+        appointmentError = appointmentRes?.data?.error || 'unknown_error';
+      }
     } catch (error) {
-      console.error('HighLevel sync error:', error?.response?.data || error?.message || error);
+      appointmentError = error?.response?.data?.error || error?.message || String(error);
+      console.error('HighLevel sync error:', appointmentError);
     }
 
-    addBotMessage(`Wonderful! Your tour is scheduled for ${data.tourDate} at ${data.tourTime}. We'll send you a confirmation shortly. Looking forward to meeting you! 🎉`);
+    // Record the outcome on the ContactSubmission notes so venue staff can see
+    // failures without digging into logs.
+    if (!appointmentBooked) {
+      try {
+        await base44.entities.ContactSubmission.updateMany(
+          { venue_id: venueId, email: data.email, tour_date: data.tourDate, tour_time: data.tourTime },
+          { $set: { notes: `Tour request captured but HighLevel appointment sync failed: ${String(appointmentError).slice(0, 400)}` } }
+        );
+      } catch (_) { /* non-blocking */ }
+    }
+
+    if (appointmentBooked) {
+      addBotMessage(`Wonderful! Your tour is scheduled for ${data.tourDate} at ${data.tourTime}. We'll send you a confirmation shortly. Looking forward to meeting you! 🎉`);
+    } else {
+      addBotMessage(`Thanks so much, ${data.name.split(' ')[0]}! I've passed your tour request along to our team — someone will reach out shortly to confirm your ${data.tourDate} at ${data.tourTime} visit. If you don't hear back within a business day, just reply here and I'll follow up.`);
+    }
   };
 
   const handlePackageTour = (packageName) => {
