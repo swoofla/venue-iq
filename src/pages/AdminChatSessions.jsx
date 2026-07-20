@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { MessageSquare, ArrowLeft, Search, UserRoundCheck } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Search, UserRoundCheck, CalendarCheck } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 function formatWhen(iso) {
@@ -24,7 +24,7 @@ export default function AdminChatSessions() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('all'); // 'all' | 'handoff' | 'conversation'
+  const [category, setCategory] = useState('all'); // 'all' | 'handoff' | 'tour' | 'conversation'
 
   useEffect(() => {
     base44.entities.ChatSession.list('-created_date', 200)
@@ -37,11 +37,17 @@ export default function AdminChatSessions() {
     [sessions]
   );
 
+  const tourCount = useMemo(
+    () => sessions.filter(s => s.flow_results?.tour_scheduler).length,
+    [sessions]
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = sessions;
     if (category === 'handoff') list = list.filter(s => s.handoff_triggered);
-    else if (category === 'conversation') list = list.filter(s => !s.handoff_triggered);
+    else if (category === 'tour') list = list.filter(s => s.flow_results?.tour_scheduler);
+    else if (category === 'conversation') list = list.filter(s => !s.handoff_triggered && !s.flow_results?.tour_scheduler);
     if (!q) return list;
     return list.filter(s => {
       const hay = [
@@ -85,7 +91,8 @@ export default function AdminChatSessions() {
           {[
             { id: 'all', label: 'All', count: sessions.length },
             { id: 'handoff', label: 'Handoffs', count: handoffCount },
-            { id: 'conversation', label: 'Conversations', count: sessions.length - handoffCount },
+            { id: 'tour', label: 'Booked tours', count: tourCount },
+            { id: 'conversation', label: 'Conversations', count: sessions.filter(s => !s.handoff_triggered && !s.flow_results?.tour_scheduler).length },
           ].map((tab) => {
             const active = category === tab.id;
             return (
@@ -146,8 +153,14 @@ export default function AdminChatSessions() {
                       "{preview}"
                     </p>
                   )}
-                  {(s.handoff_triggered || s.handoff_topic || s.lead_wedding_date || s.lead_guest_count) && (
+                  {(s.handoff_triggered || s.flow_results?.tour_scheduler || s.handoff_topic || s.lead_wedding_date || s.lead_guest_count) && (
                     <div className="flex flex-wrap gap-2 mt-2">
+                      {s.flow_results?.tour_scheduler && (
+                        <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 rounded-full px-2 py-0.5" style={{ fontSize: '11px', fontWeight: 500 }}>
+                          <CalendarCheck className="w-3 h-3" />
+                          Tour booked
+                        </span>
+                      )}
                       {s.handoff_triggered && (
                         <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" style={{ fontSize: '11px', fontWeight: 500 }}>
                           <UserRoundCheck className="w-3 h-3" />

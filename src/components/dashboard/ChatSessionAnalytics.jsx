@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import { MessageSquare, ArrowRight, CalendarCheck } from 'lucide-react';
 import { createPageUrl } from '../../utils';
 import { format, eachDayOfInterval } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -79,7 +79,7 @@ export default function ChatSessionAnalytics({ venueId, dateRange }) {
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-stone-900">Virtual Planner Usage</h2>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         {/* Session count with view link */}
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-start justify-between">
@@ -99,6 +99,22 @@ export default function ChatSessionAnalytics({ venueId, dateRange }) {
           >
             View sessions <ArrowRight className="w-3.5 h-3.5" />
           </Link>
+        </div>
+
+        {/* Booked Tours — sessions where the tour scheduler completed */}
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-stone-600 mb-1">Booked Tours</p>
+              <p className="text-2xl font-bold text-stone-900">
+                {filteredSessions.filter(s => s.flow_results?.tour_scheduler).length}
+              </p>
+            </div>
+            <div className="bg-emerald-50 p-2 rounded-lg">
+              <CalendarCheck className="w-5 h-5 text-emerald-600" />
+            </div>
+          </div>
+          <p className="text-xs text-stone-500 mt-3">Booked through the virtual planner</p>
         </div>
 
         {/* Handoffs */}
