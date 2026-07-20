@@ -15,21 +15,30 @@ Deno.serve(async (req) => {
 
     const timezone = data.timezone || 'America/New_York';
 
-    const getTimezoneOffset = (tz) => {
-      const offsets = {
-        'America/New_York': '-05:00',
-        'America/Chicago': '-06:00',
-        'America/Denver': '-07:00',
-        'America/Phoenix': '-07:00',
-        'America/Los_Angeles': '-08:00',
-        'America/Anchorage': '-09:00',
-        'Pacific/Honolulu': '-10:00',
-        'America/Puerto_Rico': '-04:00'
-      };
-      return offsets[tz] || '-05:00';
+    // Compute the correct UTC offset for the venue timezone on the exact tour date,
+    // so daylight-saving transitions (EST vs EDT) are handled automatically.
+    // Uses Intl to get the tz-aware offset — no hardcoded assumptions.
+    const getTimezoneOffsetForDate = (tz, dateStr) => {
+      try {
+        const probe = new Date(`${dateStr}T12:00:00Z`);
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          timeZoneName: 'longOffset',
+        }).formatToParts(probe);
+        const raw = parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT-05:00';
+        // Normalizes "GMT-4", "GMT-04:00", "UTC-04:00" → "-04:00"
+        const m = raw.match(/([+-])(\d{1,2})(?::?(\d{2}))?/);
+        if (!m) return '-05:00';
+        const sign = m[1];
+        const hh = String(parseInt(m[2], 10)).padStart(2, '0');
+        const mm = m[3] || '00';
+        return `${sign}${hh}:${mm}`;
+      } catch (_) {
+        return '-05:00';
+      }
     };
 
-    const tzOffset = getTimezoneOffset(timezone);
+    const tzOffset = getTimezoneOffsetForDate(timezone, data.tour_date);
 
     // First, create or get the contact using V2 API
     const contactResponse = await fetch('https://services.leadconnectorhq.com/contacts/upsert', {
