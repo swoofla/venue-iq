@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       const firstName = leadName.split(' ')[0];
       const plannerFirst = headPlannerName.split(' ')[0];
       const smsBody =
-        `Hi ${firstName}! 👋 This is the virtual planner at ${venueName}. I've let ${plannerFirst}, our head planner, know you'd like to connect — she'll text you back from this number shortly. Feel free to reply here with anything else in the meantime!\n\nReply STOP to opt out.`;
+        `Hi ${firstName}! 👋 This is the virtual planner at ${venueName}. I've let ${plannerFirst}, our head planner, know you'd like to connect — she'll text you back from this number shortly. Feel free to reply here with anything else in the meantime!`;
 
       const smsRes = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
         method: 'POST',
