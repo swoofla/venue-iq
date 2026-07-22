@@ -52,6 +52,7 @@ export default function useChatFlow({
   const pendingActionRef = useRef(null);  // 'awaiting_quote_details' | null
   const currentYearRef = useRef(null);    // last wedding year she stated/used (number)
   const currentWeekdayRef = useRef(null); // last stated_weekday she gave ('Saturday', etc.)
+  const currentWeekdaysRef = useRef(null);
   const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
 
   // ── Conversational date resolution ──────────────────────────────────────
@@ -63,6 +64,7 @@ export default function useChatFlow({
   // lastMultiMonthRef: when her most recent multi-date inquiry had a clear majority
   // month, we remember it as a fallback for resolving a later bare-day reference.
   const lastMultiMonthRef = useRef(null); // { month: 1-12, year: yyyy } | null
+  const monthPageRef = useRef({ key: null, offset: 0 });
   // pendingDayAmbiguityRef: set when she gave a bare day-of-month ("the 28th") and
   // we cannot confidently determine the month. We post a reprompt and resolve from
   // her next message.
@@ -413,6 +415,9 @@ export default function useChatFlow({
         || (weddingDates[0] || null)
         || deterministicDate;
       const statedWeekday = typeof classifier?.stated_weekday === 'string' ? classifier.stated_weekday : null;
+      const statedWeekdays = (Array.isArray(classifier?.stated_weekdays) && classifier.stated_weekdays.length > 0)
+        ? classifier.stated_weekdays
+        : (statedWeekday ? [statedWeekday] : null);
       let yearMissing = classifier?.year_missing === true
         && !weddingDate
         && weddingDates.length === 0
@@ -446,6 +451,7 @@ export default function useChatFlow({
       // Carry-forward continuity: persist weekday and month whenever she states them,
       // so a bare follow-up like "July" can inherit weekday="Saturday" from earlier.
       if (statedWeekday) currentWeekdayRef.current = statedWeekday;
+      if (statedWeekdays) currentWeekdaysRef.current = statedWeekdays;
       const resolvedMonth = (Number.isInteger(classifier?.month) ? classifier.month : null) || (weddingDate ? partsFromIso(weddingDate).m : null);
       if (resolvedMonth) currentMonthRef.current = resolvedMonth;
 
@@ -711,6 +717,7 @@ export default function useChatFlow({
         const inheritedMonth = monthFromTurn || currentMonthRef.current || null;
         const targetYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || currentYearRef.current || null;
         const inheritedWeekday = statedWeekday || currentWeekdayRef.current || null;
+        const inheritedWeekdays = statedWeekdays || currentWeekdaysRef.current || (inheritedWeekday ? [inheritedWeekday] : null);
 
         if (
           intent === 'date_inquiry' &&
@@ -722,8 +729,8 @@ export default function useChatFlow({
         ) {
           const month = inheritedMonth;
           let weekdays;
-          if (inheritedWeekday) {
-            weekdays = [DAY_NAMES.indexOf(inheritedWeekday)];
+          if (inheritedWeekdays && inheritedWeekdays.length > 0) {
+            weekdays = inheritedWeekdays.map(d => DAY_NAMES.indexOf(d)).filter(i => i >= 0);
           } else if (/\bweekend?s?\b/i.test(text)) {
             weekdays = [0, 6];
           } else {
@@ -734,22 +741,32 @@ export default function useChatFlow({
           try {
             const repDate = `${targetYear}-${String(month).padStart(2, '0')}-01`;
             const res = await base44.functions.invoke('checkDateAvailability', {
-              venueId, date: repDate, mode: 'monthOpenings', weekdays, monthOpeningsLimit: 12,
+              venueId, date: repDate, mode: 'monthOpenings', weekdays, monthOpeningsLimit: 31,
             });
             const open = Array.isArray(res?.data?.monthOpenDates) ? res.data.monthOpenDates : [];
             const total = res?.data?.count ?? open.length;
             const monthName = MONTH_NAMES[month - 1];
-            const dayLabel = inheritedWeekday
-              ? `${inheritedWeekday}s`
-              : (weekdays.length === 2 ? 'weekend dates' : 'open dates');
+            const dayLabel = (inheritedWeekdays && inheritedWeekdays.length > 0)
+              ? formatList(inheritedWeekdays.map(d => `${d}s`))
+              : (/\bweekend?s?\b/i.test(text) ? 'weekend dates' : 'dates');
 
             let monthReply;
             if (open.length === 0) {
               monthReply = `It looks like our ${dayLabel} in ${monthName} ${targetYear} are all booked. Want me to check another month?`;
             } else {
-              const shown = open.slice(0, 5).map(formatShortDate);
-              const more = total > shown.length ? `, plus a few more` : '';
-              monthReply = `Here are the open ${dayLabel} in ${monthName} ${targetYear} — ${formatList(shown)}${more}. Want me to look at a specific one, or another month?`;
+              const pageKey = `${month}-${targetYear}-${weekdays.join(',')}`;
+              if (monthPageRef.current.key === pageKey) {
+                monthPageRef.current.offset += 5;
+                if (monthPageRef.current.offset >= open.length) monthPageRef.current.offset = 0;
+              } else {
+                monthPageRef.current = { key: pageKey, offset: 0 };
+              }
+              const start = monthPageRef.current.offset;
+              const shown = open.slice(start, start + 5).map(formatShortDate);
+              const remaining = open.length - (start + shown.length);
+              const more = remaining > 0 ? `, plus ${remaining} more` : '';
+              const allShownNote = (start > 0 && remaining <= 0) ? ` That covers all ${open.length} open ${dayLabel} in ${monthName}.` : '';
+              monthReply = `Here are the open ${dayLabel} in ${monthName} ${targetYear} — ${formatList(shown)}${more}.${allShownNote} Want me to look at a specific one, or another month?`;
             }
 
             lastMultiMonthRef.current = { month, year: targetYear };
@@ -764,7 +781,7 @@ export default function useChatFlow({
                 ambiguityResolvedIso,
                 weddingDate,
                 inheritedMonth, inheritedYear: targetYear, inheritedWeekday,
-                availability: { mode: 'monthOpenings', month, year: targetYear, weekdays, open, total },
+                availability: { mode: 'monthOpenings', month, year: targetYear, weekdays, open, total, pageOffset: monthPageRef.current.offset, pageKey: monthPageRef.current.key },
               },
               responseMode: 'month-openings (JS)', generatorPrompt: null, generatorOutput: null, finalReply: monthReply,
             });
