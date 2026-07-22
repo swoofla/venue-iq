@@ -16,6 +16,7 @@ export const CLASSIFIER_SCHEMA = {
     day: { type: ['number', 'null'] },
     year: { type: ['number', 'null'] },
     stated_weekday: { type: ['string', 'null'], enum: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday', null] },
+    stated_weekdays: { type: ['array', 'null'], items: { type: 'string', enum: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] } },
     guest_count: { type: ['number', 'null'] },
     handoff_response: { type: ['string', 'null'], enum: ['accepted', 'declined', 'unrelated', null] },
   },
@@ -79,6 +80,8 @@ Extract wedding_date — be careful and precise:
 - Use today's date only to choose the future occurrence when she gives a day-of-month and an explicit year both — never to fill in a missing year.
 
 Extract stated_weekday — the literal weekday word she wrote ("Saturday", "Sunday", "Friday", "Monday", "Tuesday", "Wednesday", "Thursday"), case-normalized. If she did not name a weekday, return null. Do NOT compute it from the date. Just capture the word she used.
+
+Extract stated_weekdays — an array of ALL weekday words she named in this message, case-normalized, in the order stated. "Fridays and Saturdays" → ["Friday","Saturday"]. "Saturday or Sunday" → ["Saturday","Sunday"]. If she named exactly one weekday, return an array with that one word (and still set stated_weekday to it). If she named none, return null. Do NOT compute weekdays from dates. Do NOT include "weekend" — that is not a weekday word.
 
 Extract year: the 4-digit year she states anywhere — including when she gives NO day (e.g. "2027", "fall of 2027", "October 2027 Saturday"). Preserve it exactly; never infer a year she didn't state. Null if she stated no year.
 
