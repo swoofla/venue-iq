@@ -175,12 +175,16 @@ Deno.serve(async (req) => {
       console.error('Intro SMS error:', smsError.message);
     }
 
-    // STEP G: Update ChatSession
+    // STEP G: Update ChatSession — persist lead contact info so the session no
+    // longer shows as "Anonymous lead" in the admin UI after handoff submission.
     try {
       await base44.asServiceRole.entities.ChatSession.update(chatSessionId, {
         handoff_triggered: true,
         handoff_topic: topicSummary,
-        status: 'handed_off'
+        status: 'handed_off',
+        lead_name: leadName,
+        lead_phone: cleanPhone,
+        lead_email: leadEmail || undefined,
       });
     } catch (updateError) {
       console.error('ChatSession update failed:', updateError.message);
