@@ -1,8 +1,59 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { MessageSquare, ArrowLeft, Search, UserRoundCheck, CalendarCheck } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Search, UserRoundCheck, CalendarCheck, Download } from 'lucide-react';
 import { createPageUrl } from '../utils';
+
+function csvEscape(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function transcriptToText(messages) {
+  if (!Array.isArray(messages)) return '';
+  return messages
+    .filter(m => m && typeof m.content === 'string')
+    .map(m => `[${m.role === 'bot' ? 'Bot' : 'User'}] ${m.content}`)
+    .join('\n');
+}
+
+function downloadSessionsCsv(sessions) {
+  const headers = [
+    'session_id', 'created_date', 'lead_name', 'lead_email', 'lead_phone',
+    'lead_wedding_date', 'lead_guest_count', 'lead_budget_range',
+    'handoff_triggered', 'handoff_topic', 'tour_booked', 'status',
+    'message_count', 'transcript',
+  ];
+  const rows = sessions.map(s => [
+    s.id,
+    s.created_date || '',
+    s.lead_name || '',
+    s.lead_email || '',
+    s.lead_phone || '',
+    s.lead_wedding_date || '',
+    s.lead_guest_count ?? '',
+    s.lead_budget_range || '',
+    s.handoff_triggered ? 'yes' : 'no',
+    s.handoff_topic || '',
+    s.flow_results?.tour_scheduler ? 'yes' : 'no',
+    s.status || '',
+    Array.isArray(s.messages) ? s.messages.length : 0,
+    transcriptToText(s.messages),
+  ].map(csvEscape).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 10);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chat-sessions-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 function formatWhen(iso) {
   try {
@@ -25,6 +76,7 @@ export default function AdminChatSessions() {
   const [sessions, setSessions] = useState([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all'); // 'all' | 'handoff' | 'tour' | 'conversation'
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   useEffect(() => {
     base44.entities.ChatSession.list('-created_date', 200)
@@ -59,6 +111,38 @@ export default function AdminChatSessions() {
     });
   }, [sessions, query, category]);
 
+  const toggleOne = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(s => selectedIds.has(s.id));
+  const toggleAllFiltered = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach(s => next.delete(s.id));
+      } else {
+        filtered.forEach(s => next.add(s.id));
+      }
+      return next;
+    });
+  };
+
+  const exportSelected = () => {
+    const chosen = sessions.filter(s => selectedIds.has(s.id));
+    if (chosen.length === 0) return;
+    downloadSessionsCsv(chosen);
+  };
+
+  const exportAll = () => {
+    if (sessions.length === 0) return;
+    downloadSessionsCsv(sessions);
+  };
+
   return (
     <div className="min-h-screen bg-stone-50">
       <header className="bg-black text-white px-6 py-3">
@@ -76,7 +160,7 @@ export default function AdminChatSessions() {
       </header>
 
       <main className="max-w-4xl mx-auto px-5 py-6">
-        <div className="relative mb-5">
+        <div className="relative mb-4">
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -85,6 +169,41 @@ export default function AdminChatSessions() {
             placeholder="Search name, email, phone, topic, or first message…"
             className="w-full pl-9 pr-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400"
           />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <label className="flex items-center gap-2 text-stone-700 cursor-pointer select-none" style={{ fontSize: '12px' }}>
+            <input
+              type="checkbox"
+              checked={allFilteredSelected}
+              onChange={toggleAllFiltered}
+              className="w-4 h-4 accent-black"
+            />
+            Select all shown
+            {selectedIds.size > 0 && (
+              <span className="text-stone-500 ml-1">({selectedIds.size} selected)</span>
+            )}
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={exportSelected}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-stone-700 hover:border-stone-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ fontSize: '12px', fontWeight: 500 }}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export selected
+            </button>
+            <button
+              onClick={exportAll}
+              disabled={sessions.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black text-white border border-black hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ fontSize: '12px', fontWeight: 500 }}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export all
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-5">
@@ -123,12 +242,24 @@ export default function AdminChatSessions() {
             {filtered.map((s) => {
               const preview = firstUserMessage(s.messages);
               const msgCount = Array.isArray(s.messages) ? s.messages.length : 0;
+              const checked = selectedIds.has(s.id);
               return (
-                <Link
+                <div
                   key={s.id}
-                  to={`${createPageUrl('ChatTranscript')}?id=${s.id}`}
-                  className="block bg-white border border-stone-200 rounded-xl p-4 hover:border-stone-400 transition-colors"
+                  className={`flex items-start gap-3 bg-white border rounded-xl p-4 transition-colors ${checked ? 'border-stone-900' : 'border-stone-200 hover:border-stone-400'}`}
                 >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => { e.stopPropagation(); toggleOne(s.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 w-4 h-4 accent-black flex-shrink-0 cursor-pointer"
+                    aria-label={`Select session from ${s.lead_name || 'anonymous lead'}`}
+                  />
+                  <Link
+                    to={`${createPageUrl('ChatTranscript')}?id=${s.id}`}
+                    className="flex-1 min-w-0 block"
+                  >
                   <div className="flex items-start justify-between gap-3 mb-1.5">
                     <div className="min-w-0">
                       <p className="text-stone-900 font-medium truncate" style={{ fontSize: '14px' }}>
@@ -184,7 +315,8 @@ export default function AdminChatSessions() {
                       )}
                     </div>
                   )}
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
