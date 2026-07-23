@@ -1016,7 +1016,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         weddingDate,
       });
 
-      const generator = await base44.integrations.Core.InvokeLLM({
+      const generatorRaw = await base44.integrations.Core.InvokeLLM({
         prompt: generatorPrompt,
         response_json_schema: {
           type: 'object',
@@ -1031,6 +1031,21 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         model: 'claude_opus_4_8'
       });
 
+      // Shape tolerance: the model occasionally wraps its JSON in an extra
+      // { response: {...} } envelope even though the schema declares no such
+      // property. Unwrap it rather than silently losing the reply.
+      let generator = generatorRaw;
+      if (generator && typeof generator === 'object' && generator.answer === undefined) {
+        const wrapper = generator.response || generator.result || generator.output;
+        if (wrapper && typeof wrapper === 'object') {
+          console.warn('Generator returned a wrapped payload; unwrapping. Keys:', Object.keys(generator));
+          generator = wrapper;
+        }
+      }
+      if (!generator || typeof generator !== 'object' || typeof generator.answer !== 'string' || !generator.answer.trim()) {
+        console.error('GENERATOR PARSE FAILURE — no usable answer. Raw payload:', JSON.stringify(generatorRaw));
+      }
+
       setIsTyping(false);
 
       const generatorFollowUp = (generator?.answer || '').trim();
@@ -1041,6 +1056,9 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
           ? `${verdictSentence} ${generatorFollowUp}`
           : verdictSentence;
       } else {
+        if (!generatorFollowUp) {
+          console.error('Falling back to generic reply — generator produced no answer text. Raw payload:', JSON.stringify(generatorRaw));
+        }
         answer = generatorFollowUp || "Thanks for reaching out! What would you like to know more about?";
       }
 
@@ -1080,7 +1098,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         },
         responseMode: 'generator',
         generatorPrompt,
-        generatorOutput: generator,
+        generatorOutput: generator, generatorRawOutput: generatorRaw,
         finalReply: answer,
       });
 
