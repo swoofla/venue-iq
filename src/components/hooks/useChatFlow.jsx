@@ -53,6 +53,7 @@ export default function useChatFlow({
   const currentYearRef = useRef(null);    // last wedding year she stated/used (number)
   const currentWeekdayRef = useRef(null); // last stated_weekday she gave ('Saturday', etc.)
   const currentWeekdaysRef = useRef(null);
+  const lastSubstantiveQuestionRef = useRef(null);
   const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
 
   // ── Conversational date resolution ──────────────────────────────────────
@@ -319,10 +320,18 @@ export default function useChatFlow({
 
       console.log('CLASSIFIER:', JSON.stringify(classifier));
 
+      // Remember the last real question so a handoff note never reads "Yes".
+      // Short affirmations/negations carry no context for the planner.
+      {
+        const trimmed = (text || '').trim();
+        const isBareReply = trimmed.length < 25 && /^(yes|yeah|yep|sure|ok(ay)?|please|no|nope|thanks?|thank you|got it|sounds good|perfect)\b[.!?]*$/i.test(trimmed);
+        if (!isBareReply && trimmed.length > 0) lastSubstantiveQuestionRef.current = trimmed;
+      }
+
       // Handoff acceptance: append inline card, clear pending, stop here.
       if (handoffPending && classifier?.handoff_response === 'accepted') {
         const topic = handoffPending.topicSummary;
-        const originalQuestion = handoffPending.originalQuestion;
+        const originalQuestion = handoffPending.originalQuestion || lastSubstantiveQuestionRef.current || text;
         setHandoffPending(null);
         setIsTyping(false);
         (async () => {
@@ -1105,7 +1114,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
       let offerStaged = false;
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
-        setHandoffPending({ topicSummary: topic, originalQuestion: text });
+        setHandoffPending({ topicSummary: topic, originalQuestion: lastSubstantiveQuestionRef.current || text });
         markHandoffOffered();
         offerStaged = true;
       }
@@ -1123,10 +1132,10 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
           markHandoffOffered();
           if (COMMITMENT.test(answer)) {
             console.warn('Generator committed to a planner follow-up without needsHandoff — showing contact card. Answer:', answer);
-            appendHandoffCard(topic, text);
+            appendHandoffCard(topic, lastSubstantiveQuestionRef.current || text);
           } else {
             console.warn('Generator offered a planner follow-up without needsHandoff — staging pending offer. Answer:', answer);
-            setHandoffPending({ topicSummary: topic, originalQuestion: text });
+            setHandoffPending({ topicSummary: topic, originalQuestion: lastSubstantiveQuestionRef.current || text });
           }
         }
       }
