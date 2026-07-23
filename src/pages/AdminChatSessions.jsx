@@ -57,7 +57,13 @@ function downloadSessionsCsv(sessions) {
 
 function formatWhen(iso) {
   try {
-    const d = new Date(iso);
+    // DB timestamps come back as ISO strings without a trailing 'Z' but ARE UTC.
+    // Without the Z, `new Date()` parses them as local time, which shifts the
+    // display by the viewer's UTC offset. Force UTC parsing by appending Z.
+    const normalized = typeof iso === 'string' && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso)
+      ? iso + 'Z'
+      : iso;
+    const d = new Date(normalized);
     return d.toLocaleString(undefined, {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: 'numeric', minute: '2-digit',
@@ -79,7 +85,7 @@ export default function AdminChatSessions() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   useEffect(() => {
-    base44.entities.ChatSession.list('-created_date', 200)
+    base44.entities.ChatSession.list('-created_date', 1000)
       .then(setSessions)
       .finally(() => setLoading(false));
   }, []);
