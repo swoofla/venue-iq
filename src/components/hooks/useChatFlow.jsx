@@ -181,6 +181,12 @@ export default function useChatFlow({
   const offerHandoff = (topicSummary, originalQuestion) => {
     const plannerName = venue?.planner_name || 'our planner';
     setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
+    (async () => {
+      try {
+        const sid = chatSessionIdRef.current || await ensureChatSession();
+        if (sid) await base44.entities.ChatSession.update(sid, { handoff_offered: true });
+      } catch (err) { console.error('handoff_offered write failed:', err?.message || err); }
+    })();
     addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
   };
 
@@ -314,6 +320,12 @@ export default function useChatFlow({
         const originalQuestion = handoffPending.originalQuestion;
         setHandoffPending(null);
         setIsTyping(false);
+        (async () => {
+          try {
+            const sid = chatSessionIdRef.current || await ensureChatSession();
+            if (sid) await base44.entities.ChatSession.update(sid, { handoff_accepted: true, handoff_topic: topic });
+          } catch (err) { console.error('handoff_accepted write failed:', err?.message || err); }
+        })();
         appendHandoffCard(topic, originalQuestion);
         return;
       }

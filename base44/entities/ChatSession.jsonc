@@ -66,6 +66,16 @@
       "default": {},
       "description": "Structured results from completed flows"
     },
+    "handoff_offered": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the bot offered to connect the lead with a human planner"
+    },
+    "handoff_accepted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the lead accepted the offer (contact card shown). Capture may still not complete \u2014 see handoff_triggered."
+    },
     "handoff_triggered": {
       "type": "boolean",
       "default": false,
