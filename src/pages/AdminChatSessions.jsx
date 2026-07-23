@@ -83,12 +83,17 @@ export default function AdminChatSessions() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all'); // 'all' | 'handoff' | 'tour' | 'conversation'
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   useEffect(() => {
     base44.entities.ChatSession.list('-created_date', 1000)
       .then(setSessions)
       .finally(() => setLoading(false));
   }, []);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [query, category]);
 
   const handoffCount = useMemo(
     () => sessions.filter(s => s.handoff_triggered).length,
@@ -125,14 +130,19 @@ export default function AdminChatSessions() {
     });
   };
 
-  const allFilteredSelected = filtered.length > 0 && filtered.every(s => selectedIds.has(s.id));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const allFilteredSelected = paginated.length > 0 && paginated.every(s => selectedIds.has(s.id));
   const toggleAllFiltered = () => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (allFilteredSelected) {
-        filtered.forEach(s => next.delete(s.id));
+        paginated.forEach(s => next.delete(s.id));
       } else {
-        filtered.forEach(s => next.add(s.id));
+        paginated.forEach(s => next.add(s.id));
       }
       return next;
     });
@@ -245,7 +255,7 @@ export default function AdminChatSessions() {
           </p>
         ) : (
           <div className="space-y-2">
-            {filtered.map((s) => {
+            {paginated.map((s) => {
               const preview = firstUserMessage(s.messages);
               const msgCount = Array.isArray(s.messages) ? s.messages.length : 0;
               const checked = selectedIds.has(s.id);
@@ -325,6 +335,35 @@ export default function AdminChatSessions() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {filtered.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-stone-200">
+            <span className="text-stone-500" style={{ fontSize: '12px' }}>
+              Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-full border border-stone-200 bg-white text-stone-700 hover:border-stone-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ fontSize: '12px', fontWeight: 500 }}
+              >
+                Previous
+              </button>
+              <span className="text-stone-600" style={{ fontSize: '12px' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-full border border-stone-200 bg-white text-stone-700 hover:border-stone-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ fontSize: '12px', fontWeight: 500 }}
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </main>
