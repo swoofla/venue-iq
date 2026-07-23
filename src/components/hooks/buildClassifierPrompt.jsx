@@ -109,5 +109,6 @@ Also classify the PRIMARY topic of the bride's current message from this fixed v
 - general: greetings, intros, vibe questions, inclusivity, LGBTQ, diversity, whether all couples are welcome, values questions, anything else
 
 When a message spans topics, return the PRIMARY one.
+Tie-breaker — alcohol_bar vs packages_pricing: if the message asks about drinks, bar, alcohol, or bartenders in ANY way, return alcohol_bar — INCLUDING when she is asking whether they are included in a price or package ("is the bar included?", "does the rental include alcohol?", "does the price cover drinks?", "does it include a bar and food?"). Use packages_pricing only for cost or inclusion questions that do NOT mention drinks, bar, alcohol, or bartenders.
 ${handoffPendingBlock}`;
 }
