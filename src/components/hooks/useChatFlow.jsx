@@ -1102,10 +1102,33 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         finalReply: answer,
       });
 
+      let offerStaged = false;
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
         setHandoffPending({ topicSummary: topic, originalQuestion: text });
         markHandoffOffered();
+        offerStaged = true;
+      }
+
+      // Safety net. The generator repeatedly writes an offer (or an outright
+      // commitment) to have the planner reach out while leaving needsHandoff
+      // false. Read the answer text so her "yes" always has something to act on.
+      // NOTE: offerStaged is a local flag, not the handoffPending state — state
+      // set above is not readable in this same render.
+      if (!offerStaged && !handoffPending && !verdictSentence && typeof answer === 'string') {
+        const CONTACT_ACTION = /(reach out|text you|call you|follow up with you|get in touch|be in touch|connect you|put you in touch)/i;
+        const COMMITMENT = /(i'll have|i will have|i'll get|i'm going to have|let me have|i'll connect|i will connect|i'll pass)/i;
+        if (CONTACT_ACTION.test(answer)) {
+          const topic = generator?.topicSummary || 'your question';
+          markHandoffOffered();
+          if (COMMITMENT.test(answer)) {
+            console.warn('Generator committed to a planner follow-up without needsHandoff — showing contact card. Answer:', answer);
+            appendHandoffCard(topic, text);
+          } else {
+            console.warn('Generator offered a planner follow-up without needsHandoff — staging pending offer. Answer:', answer);
+            setHandoffPending({ topicSummary: topic, originalQuestion: text });
+          }
+        }
       }
 
       // Trigger tour scheduler after the warm reply for tour_interest
