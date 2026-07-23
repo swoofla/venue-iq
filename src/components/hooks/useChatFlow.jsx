@@ -177,16 +177,21 @@ export default function useChatFlow({
     setMessages(prev => [...prev, { id: Date.now() + Math.random(), text, isBot: true }]);
   };
 
-  // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
-  const offerHandoff = (topicSummary, originalQuestion) => {
-    const plannerName = venue?.planner_name || 'our planner';
-    setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
+  // Records that an offer was made, from any path that stages handoffPending.
+  const markHandoffOffered = () => {
     (async () => {
       try {
         const sid = chatSessionIdRef.current || await ensureChatSession();
         if (sid) await base44.entities.ChatSession.update(sid, { handoff_offered: true });
       } catch (err) { console.error('handoff_offered write failed:', err?.message || err); }
     })();
+  };
+
+  // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
+  const offerHandoff = (topicSummary, originalQuestion) => {
+    const plannerName = venue?.planner_name || 'our planner';
+    setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
+    markHandoffOffered();
     addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
   };
 
@@ -1082,6 +1087,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
         setHandoffPending({ topicSummary: topic, originalQuestion: text });
+        markHandoffOffered();
       }
 
       // Trigger tour scheduler after the warm reply for tour_interest
