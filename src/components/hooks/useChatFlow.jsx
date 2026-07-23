@@ -755,7 +755,8 @@ export default function useChatFlow({
               monthReply = `It looks like our ${dayLabel} in ${monthName} ${targetYear} are all booked. Want me to check another month?`;
             } else {
               const pageKey = `${month}-${targetYear}-${weekdays.join(',')}`;
-              if (monthPageRef.current.key === pageKey) {
+              const isRepeat = monthPageRef.current.key === pageKey;
+              if (isRepeat) {
                 monthPageRef.current.offset += 5;
                 if (monthPageRef.current.offset >= open.length) monthPageRef.current.offset = 0;
               } else {
@@ -765,8 +766,14 @@ export default function useChatFlow({
               const shown = open.slice(start, start + 5).map(formatShortDate);
               const remaining = open.length - (start + shown.length);
               const more = remaining > 0 ? `, plus ${remaining} more` : '';
-              const allShownNote = (start > 0 && remaining <= 0) ? ` That covers all ${open.length} open ${dayLabel} in ${monthName}.` : '';
-              monthReply = `Here are the open ${dayLabel} in ${monthName} ${targetYear} — ${formatList(shown)}${more}.${allShownNote} Want me to look at a specific one, or another month?`;
+              if (isRepeat && start === 0 && remaining <= 0) {
+                monthReply = open.length === 1
+                  ? `That's the only one — ${formatList(shown)} is the single open date in ${monthName} ${targetYear}. Want me to check another month?`
+                  : `That's the complete list — ${formatList(shown)} are all ${open.length} open ${dayLabel} in ${monthName} ${targetYear}. Want me to check another month?`;
+              } else {
+                const allShownNote = (start > 0 && remaining <= 0) ? ` That covers all ${open.length} open ${dayLabel} in ${monthName}.` : '';
+                monthReply = `Here are the open ${dayLabel} in ${monthName} ${targetYear} — ${formatList(shown)}${more}.${allShownNote} Want me to look at a specific one, or another month?`;
+              }
             }
 
             lastMultiMonthRef.current = { month, year: targetYear };
