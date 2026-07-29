@@ -14,6 +14,7 @@ import DateRangeFilter, { computePresetRange } from '@/components/dashboard/Date
 import VenueSelector from '@/components/admin/VenueSelector';
 import OnboardingReadiness from '@/components/dashboard/OnboardingReadiness';
 import VenueOnboardingWizard from '@/components/admin/VenueOnboardingWizard';
+import CalendarConnectionHealth from '@/components/dashboard/CalendarConnectionHealth';
 
 const APP_VERSION = '1.2.0';
 
@@ -218,6 +219,9 @@ export default function Dashboard() {
           range={dateRange}
           onChange={({ preset, range }) => { setDatePreset(preset); setDateRange(range); }}
         />
+
+        {/* Calendar Connection Health */}
+        <CalendarConnectionHealth venueId={venueId} />
 
         {/* Chat Session Analytics */}
         <ChatSessionAnalytics venueId={venueId} dateRange={dateRange} />

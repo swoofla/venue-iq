@@ -1,0 +1,64 @@
+{
+  "name": "CalendarSyncEvent",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue this sync attempt was for (may be blank for list_calendars)"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "list_calendars",
+        "sync_calendar"
+      ],
+      "description": "Which action was invoked on syncGoogleCalendar"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "not_connected",
+        "error"
+      ],
+      "description": "Outcome of the attempt. 'not_connected' = OAuth token missing/expired (connection dropped)."
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Non-empty when status='error' \u2014 the underlying error message"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "The app user id whose connection was checked"
+    }
+  },
+  "required": [
+    "action",
+    "status"
+  ],
+  "rls": {
+    "create": null,
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.venue_id": "{{user.venue_id}}"
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

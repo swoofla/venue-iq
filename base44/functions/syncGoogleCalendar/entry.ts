@@ -36,6 +36,21 @@ Deno.serve(async (req) => {
 
     const { action, calendarId, venueId } = await req.json();
 
+    // Fire-and-forget audit log — never let a logging failure break the sync.
+    const logSyncEvent = (status, errorMessage) => {
+      try {
+        base44.asServiceRole.entities.CalendarSyncEvent.create({
+          venue_id: venueId || undefined,
+          action: action || 'sync_calendar',
+          status,
+          error_message: errorMessage || undefined,
+          user_id: user?.id || undefined,
+        }).catch((e) => console.log(`CalendarSyncEvent log failed: ${e.message}`));
+      } catch (e) {
+        console.log(`CalendarSyncEvent log threw: ${e.message}`);
+      }
+    };
+
     // Get the current app user's Google Calendar connection.
     // If absent, return a clear not_connected status (NOT a 500).
     let accessToken;
@@ -43,9 +58,11 @@ Deno.serve(async (req) => {
       const conn = await base44.asServiceRole.connectors.getCurrentAppUserConnection(GOOGLE_CALENDAR_CONNECTOR_ID);
       accessToken = conn?.accessToken;
       if (!accessToken) {
+        logSyncEvent('not_connected');
         return Response.json({ status: 'not_connected' });
       }
     } catch (_) {
+      logSyncEvent('not_connected');
       return Response.json({ status: 'not_connected' });
     }
 
@@ -54,10 +71,12 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (response.status === 401 || response.status === 403) {
+        logSyncEvent('not_connected');
         return Response.json({ status: 'not_connected' });
       }
       if (!response.ok) {
         const text = await response.text();
+        logSyncEvent('error', `Google API error: ${response.status} ${text}`);
         return Response.json({ error: `Google API error: ${response.status} ${text}` }, { status: 502 });
       }
       const data = await response.json();
@@ -66,6 +85,7 @@ Deno.serve(async (req) => {
         name: cal.summary,
         description: cal.description || ''
       }));
+      logSyncEvent('connected');
       return Response.json({ status: 'connected', calendars });
     }
 
@@ -113,10 +133,12 @@ Deno.serve(async (req) => {
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         if (eventsResponse.status === 401 || eventsResponse.status === 403) {
+          logSyncEvent('not_connected');
           return Response.json({ status: 'not_connected' });
         }
         if (!eventsResponse.ok) {
           const text = await eventsResponse.text();
+          logSyncEvent('error', `Failed to fetch calendar events: ${eventsResponse.status} ${text}`);
           return Response.json({ error: `Failed to fetch calendar events: ${eventsResponse.status} ${text}` }, { status: 502 });
         }
         const eventsData = await eventsResponse.json();
@@ -177,6 +199,7 @@ Deno.serve(async (req) => {
         }
       }
 
+      logSyncEvent('connected');
       return Response.json({
         status: 'connected',
         success: true,
