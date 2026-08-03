@@ -1,0 +1,103 @@
+{
+  "name": "VenueOperatingRules",
+  "type": "object",
+  "properties": {
+    "venue_id": {
+      "type": "string",
+      "description": "The venue these operating rules belong to"
+    },
+    "months": {
+      "type": "array",
+      "description": "Per-month operating rules, one entry per calendar month (1-12)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "number",
+            "description": "Calendar month 1-12"
+          },
+          "pricing_season": {
+            "type": "string",
+            "description": "'peak' or 'off'"
+          },
+          "full_weddings": {
+            "type": "boolean",
+            "description": "Whether full weddings are hosted this month"
+          },
+          "full_wedding_max_guests": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Standard max guests for a full wedding this month; null when full weddings are not offered"
+          },
+          "micro": {
+            "type": "string",
+            "description": "'yes', 'no', or 'case_by_case'"
+          },
+          "micro_days": {
+            "type": "string",
+            "description": "Allowed days for micro weddings, e.g. 'any' or 'sun_thu'"
+          },
+          "elopements": {
+            "type": "boolean",
+            "description": "Whether elopements are hosted this month"
+          },
+          "elopement_days": {
+            "type": "string",
+            "description": "Allowed days for elopements, e.g. 'any' or 'mon_thu'"
+          }
+        }
+      }
+    },
+    "blocked_holidays": {
+      "type": "array",
+      "description": "Dates the venue does not host events",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string",
+            "description": "'fixed' for a set month/day; other rule types may be computed"
+          },
+          "month": {
+            "type": "number",
+            "description": "Calendar month 1-12"
+          },
+          "day": {
+            "type": "number",
+            "description": "Day of month"
+          },
+          "label": {
+            "type": "string",
+            "description": "Holiday name"
+          },
+          "note": {
+            "type": "string",
+            "description": "Any caveat about this entry"
+          }
+        }
+      }
+    },
+    "tent_months": {
+      "type": "array",
+      "description": "Months (1-12) when the tent is available",
+      "items": {
+        "type": "number"
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form operating notes, caveats, and unconfirmed policies"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rule set is currently in effect"
+    }
+  },
+  "required": [
+    "venue_id",
+    "months"
+  ]
+}
