@@ -57,6 +57,7 @@ export default function useChatFlow({
   const lastSubstantiveQuestionRef = useRef(null);
   const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
   const currentMonthsRef = useRef(null);
+  const multiMonthKeyRef = useRef(null);
 
   // ── Conversational date resolution ──────────────────────────────────────
   // userFocusDateRef: the ISO date the bride most recently made the SUBJECT of an
@@ -805,6 +806,20 @@ export default function useChatFlow({
             return;
           }
 
+          const multiKey = `${effectiveMonths.join(',')}-${targetYear}-${weekdays.join(',')}`;
+          if (multiMonthKeyRef.current === multiKey && turnMonths.length === 0) {
+            // Identical multi-month question served last turn and she named no new
+            // month — acknowledge rather than repeating the same list verbatim.
+            const repeatNames = formatList(effectiveMonths.map(mm => MONTH_NAMES[mm - 1]));
+            setIsTyping(false);
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              text: `Those are all the open ${dayLabel} I have across ${repeatNames} ${targetYear}. Want me to check a different month or year, or pull up a specific date for you?`,
+              isBot: true
+            }]);
+            return;
+          }
+
           try {
             const groups = [];
             for (const mo of effectiveMonths) {
@@ -836,9 +851,21 @@ export default function useChatFlow({
             monthPageRef.current = { key: null, offset: 0 };
             currentMonthsRef.current = effectiveMonths;
             currentMonthRef.current = null;
+            multiMonthKeyRef.current = multiKey;
 
             setIsTyping(false);
             setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
+            debugTraceRef.current.push({
+              userMessage: text, classifier, retrieval: null,
+              dateResolution: {
+                parseDateFromText: deterministicDate,
+                ambiguityResolvedIso,
+                weddingDate,
+                turnMonths, effectiveMonths, inheritedYear: targetYear, inheritedWeekdays,
+                availability: { mode: 'monthOpenings-multi', months: effectiveMonths, year: targetYear, weekdays, groups, multiKey },
+              },
+              responseMode: 'multi-month-openings (JS)', generatorPrompt: null, generatorOutput: null, finalReply: multiReply,
+            });
             return;
           } catch (err) {
             console.error('Multi-month openings check failed:', err?.message || err);
@@ -882,9 +909,7 @@ export default function useChatFlow({
               monthReply = `It looks like our ${dayLabel} in ${monthName} ${targetYear} are all booked. Want me to check another month?`;
             } else {
               const pageKey = `${month}-${targetYear}-${weekdays.join(',')}`;
-              // An explicitly named month always resets pagination — it is a new
-              // question, not a request for more of the same list.
-              const isRepeat = monthPageRef.current.key === pageKey && !turnNamedMonth;
+              const isRepeat = monthPageRef.current.key === pageKey;
               if (isRepeat) {
                 monthPageRef.current.offset += 5;
                 if (monthPageRef.current.offset >= open.length) monthPageRef.current.offset = 0;
@@ -906,6 +931,7 @@ export default function useChatFlow({
             }
 
             lastMultiMonthRef.current = { month, year: targetYear };
+            multiMonthKeyRef.current = null;
             open.forEach(d => checkedDatesRef.current.add(d));
 
             setIsTyping(false);
