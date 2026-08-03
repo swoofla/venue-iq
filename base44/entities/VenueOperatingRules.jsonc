@@ -58,7 +58,7 @@
         "properties": {
           "rule": {
             "type": "string",
-            "description": "'fixed' for a set month/day; other rule types may be computed"
+            "description": "'fixed' for a set month/day, or 'nth_weekday' for a floating date computed from weekday + nth"
           },
           "month": {
             "type": "number",
@@ -66,7 +66,15 @@
           },
           "day": {
             "type": "number",
-            "description": "Day of month"
+            "description": "Day of month (rule='fixed' only)"
+          },
+          "weekday": {
+            "type": "number",
+            "description": "Day of week 0-6, 0=Sunday (rule='nth_weekday' only)"
+          },
+          "nth": {
+            "type": "number",
+            "description": "Which occurrence of that weekday in the month, e.g. 4 = fourth (rule='nth_weekday' only)"
           },
           "label": {
             "type": "string",
@@ -85,6 +93,17 @@
       "items": {
         "type": "number"
       }
+    },
+    "tent_alternative_months": {
+      "type": "array",
+      "description": "Months (1-12) when the tent is unavailable and the alternative space is used instead",
+      "items": {
+        "type": "number"
+      }
+    },
+    "tent_alternative_space": {
+      "type": "string",
+      "description": "The space couples use during the tent-unavailable months"
     },
     "notes": {
       "type": "string",
