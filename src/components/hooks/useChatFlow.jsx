@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import parseDateFromText from './parseDateFromText';
 import parseDatesFromText from './parseDatesFromText';
 import { partsFromIso, formatFullDate, formatShortDate, formatList, ordinal, detectBareDay, getMajorityMonth, distinctMonths, matchAmbiguityAnswer, DAY_NAMES, MONTH_NAMES } from './dateHelpers';
+import { parseMonthsFromText } from './parseMonthsFromText';
 import { buildClassifierPrompt, CLASSIFIER_SCHEMA } from './buildClassifierPrompt';
 import { buildGeneratorPrompt } from './buildGeneratorPrompt';
 import { createFlowCompletionHandlers } from './flowCompletionHandlers';
@@ -55,6 +56,7 @@ export default function useChatFlow({
   const currentWeekdaysRef = useRef(null);
   const lastSubstantiveQuestionRef = useRef(null);
   const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
+  const currentMonthsRef = useRef(null);
 
   // ── Conversational date resolution ──────────────────────────────────────
   // userFocusDateRef: the ISO date the bride most recently made the SUBJECT of an
@@ -444,6 +446,11 @@ export default function useChatFlow({
       const statedWeekdays = (Array.isArray(classifier?.stated_weekdays) && classifier.stated_weekdays.length > 0)
         ? classifier.stated_weekdays
         : (statedWeekday ? [statedWeekday] : null);
+
+      // Deterministic month extraction from the raw turn. Authoritative over the
+      // classifier, which cannot express more than one month.
+      const turnMonths = parseMonthsFromText(text);
+      const turnNamedMonth = turnMonths.length > 0 || Number.isInteger(classifier?.month);
       let yearMissing = classifier?.year_missing === true
         && !weddingDate
         && weddingDates.length === 0
@@ -479,7 +486,17 @@ export default function useChatFlow({
       if (statedWeekday) currentWeekdayRef.current = statedWeekday;
       if (statedWeekdays) currentWeekdaysRef.current = statedWeekdays;
       const resolvedMonth = (Number.isInteger(classifier?.month) ? classifier.month : null) || (weddingDate ? partsFromIso(weddingDate).m : null);
-      if (resolvedMonth) currentMonthRef.current = resolvedMonth;
+      if (turnMonths.length > 1) {
+        // She named several months this turn — do not let a single stale month persist.
+        currentMonthsRef.current = turnMonths;
+        currentMonthRef.current = null;
+      } else if (turnMonths.length === 1) {
+        currentMonthRef.current = turnMonths[0];
+        currentMonthsRef.current = null;
+      } else if (resolvedMonth) {
+        currentMonthRef.current = resolvedMonth;
+        currentMonthsRef.current = null;
+      }
 
       // ── Ambiguity guard: bare day with no confident month → reprompt ────
       // Trigger only when:
@@ -739,11 +756,95 @@ export default function useChatFlow({
       // This guarantees date-availability questions NEVER fall through to the
       // generator with availability: null.
       {
-        const monthFromTurn = Number.isInteger(classifier?.month) ? classifier.month : null;
-        const inheritedMonth = monthFromTurn || currentMonthRef.current || null;
+        // Deterministic text parse wins; classifier.month is a fallback only when
+        // the turn named no month word at all.
+        const monthFromTurn = turnMonths.length === 1
+          ? turnMonths[0]
+          : (turnMonths.length === 0 && Number.isInteger(classifier?.month) ? classifier.month : null);
+        // STALE-INHERITANCE GUARD: only inherit the previous month when this turn
+        // named no month whatsoever. Never answer month A when she asked about B.
+        const inheritedMonth = monthFromTurn || (turnNamedMonth ? null : currentMonthRef.current) || null;
         const targetYear = (Number.isInteger(classifier?.year) ? classifier.year : null) || currentYearRef.current || null;
         const inheritedWeekday = statedWeekday || currentWeekdayRef.current || null;
         const inheritedWeekdays = statedWeekdays || currentWeekdaysRef.current || (inheritedWeekday ? [inheritedWeekday] : null);
+
+        // ── MULTI-MONTH PATH ────────────────────────────────────────────────
+        const effectiveMonths = turnMonths.length > 1
+          ? turnMonths
+          : (!turnNamedMonth && Array.isArray(currentMonthsRef.current) ? currentMonthsRef.current : []);
+
+        if (
+          intent === 'date_inquiry' &&
+          !weddingDate &&
+          weddingDates.length === 0 &&
+          !yearMissing &&
+          targetYear &&
+          effectiveMonths.length > 1
+        ) {
+          let weekdays;
+          if (inheritedWeekdays && inheritedWeekdays.length > 0) {
+            weekdays = inheritedWeekdays.map(d => DAY_NAMES.indexOf(d)).filter(i => i >= 0);
+          } else if (/\bweekend?s?\b/i.test(text)) {
+            weekdays = [0, 6];
+          } else {
+            weekdays = [0, 1, 2, 3, 4, 5, 6];
+          }
+
+          const dayLabel = (inheritedWeekdays && inheritedWeekdays.length > 0)
+            ? formatList(inheritedWeekdays.map(d => `${d}s`))
+            : (/\bweekend?s?\b/i.test(text) ? 'weekend dates' : 'dates');
+
+          if (effectiveMonths.length > 4) {
+            const names = formatList(effectiveMonths.map(m => MONTH_NAMES[m - 1]));
+            setIsTyping(false);
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              text: `That's a lot of ground to cover at once — ${names} ${targetYear}. Let me pull them a few at a time so nothing gets lost. Which two or three months should I start with?`,
+              isBot: true
+            }]);
+            return;
+          }
+
+          try {
+            const groups = [];
+            for (const mo of effectiveMonths) {
+              const repDate = `${targetYear}-${String(mo).padStart(2, '0')}-01`;
+              const res = await base44.functions.invoke('checkDateAvailability', {
+                venueId, date: repDate, mode: 'monthOpenings', weekdays, monthOpeningsLimit: 31,
+              });
+              const open = Array.isArray(res?.data?.monthOpenDates) ? res.data.monthOpenDates : [];
+              open.forEach(d => checkedDatesRef.current.add(d));
+              groups.push({ month: mo, open });
+            }
+
+            const lines = groups.map(g => {
+              const name = MONTH_NAMES[g.month - 1];
+              if (g.open.length === 0) return `- **${name}** — fully booked`;
+              const shown = g.open.slice(0, 4).map(formatShortDate);
+              const rest = g.open.length - shown.length;
+              return `- **${name}** — ${formatList(shown)}${rest > 0 ? `, plus ${rest} more` : ''}`;
+            });
+
+            const anyOpen = groups.some(g => g.open.length > 0);
+            const monthList = formatList(groups.map(g => MONTH_NAMES[g.month - 1]));
+            const multiReply = anyOpen
+              ? `Here are the open ${dayLabel} across ${monthList} ${targetYear}:\n\n${lines.join('\n')}\n\nWant me to look at a specific date, or check another month?`
+              : `It looks like our ${dayLabel} in ${monthList} ${targetYear} are all booked. Want me to check other months?`;
+
+            // Multi-month answers do not paginate — reset the pager so a later
+            // single-month question starts clean.
+            monthPageRef.current = { key: null, offset: 0 };
+            currentMonthsRef.current = effectiveMonths;
+            currentMonthRef.current = null;
+
+            setIsTyping(false);
+            setMessages(prev => [...prev, { id: Date.now(), text: multiReply, isBot: true }]);
+            return;
+          } catch (err) {
+            console.error('Multi-month openings check failed:', err?.message || err);
+            // Fall through to normal handling on error.
+          }
+        }
 
         if (
           intent === 'date_inquiry' &&
@@ -781,7 +882,9 @@ export default function useChatFlow({
               monthReply = `It looks like our ${dayLabel} in ${monthName} ${targetYear} are all booked. Want me to check another month?`;
             } else {
               const pageKey = `${month}-${targetYear}-${weekdays.join(',')}`;
-              const isRepeat = monthPageRef.current.key === pageKey;
+              // An explicitly named month always resets pagination — it is a new
+              // question, not a request for more of the same list.
+              const isRepeat = monthPageRef.current.key === pageKey && !turnNamedMonth;
               if (isRepeat) {
                 monthPageRef.current.offset += 5;
                 if (monthPageRef.current.offset >= open.length) monthPageRef.current.offset = 0;
