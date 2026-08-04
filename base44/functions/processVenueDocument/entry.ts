@@ -70,19 +70,25 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing required fields: venue_id, file_url' }, { status: 400 });
     }
 
-    const extraction = await base44.integrations.Core.ExtractDataFromUploadedFile({
-      file_url,
-      json_schema: EXTRACTION_SCHEMA
-    });
-
-    if (extraction?.status === 'error') {
+    // ExtractDataFromUploadedFile accepts no prompt, so the anti-invention and
+    // exclusion-capture rules in EXTRACTION_PROMPT would never reach the model.
+    // Route through InvokeLLM instead so the document is read under those rules.
+    let extraction;
+    try {
+      extraction = await base44.integrations.Core.InvokeLLM({
+        prompt: EXTRACTION_PROMPT,
+        file_urls: [file_url],
+        response_json_schema: EXTRACTION_SCHEMA
+      });
+    } catch (err) {
+      console.error('Document extraction failed:', err?.message || err);
       return Response.json({
         error: 'Could not read that document',
-        detail: extraction.details || 'The file could not be parsed.'
+        detail: err?.message || 'The file could not be parsed. PDFs work best — if this is a Word or Google Doc, export it as a PDF and try again.'
       }, { status: 422 });
     }
 
-    const raw = extraction?.output?.entries || extraction?.entries || [];
+    const raw = extraction?.entries || extraction?.output?.entries || [];
     if (!Array.isArray(raw)) {
       return Response.json({ error: 'Unexpected extraction shape', detail: JSON.stringify(extraction).slice(0, 500) }, { status: 500 });
     }
