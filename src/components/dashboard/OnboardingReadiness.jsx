@@ -51,7 +51,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
   });
 
   const { data: knowledge = [] } = useQuery({
-    queryKey: ['knowledge', venueId],
+    queryKey: ['knowledge-active', venueId],
     queryFn: () => base44.entities.VenueKnowledge.filter({ venue_id: venueId, is_active: true }),
     enabled: !!venueId
   });

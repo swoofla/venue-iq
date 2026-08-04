@@ -449,16 +449,23 @@ function ChatbotTraining({ knowledge, venueId }) {
   const [showForm, setShowForm] = useState(false);
   const [editingKnowledge, setEditingKnowledge] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [reviewFilter, setReviewFilter] = useState('all');
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.VenueKnowledge.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
+    }
   });
 
   const approveMutation = useMutation({
     mutationFn: (id) => base44.entities.VenueKnowledge.update(id, { needs_review: false, is_active: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
+    }
   });
 
   const approveAllMutation = useMutation({
@@ -467,13 +474,21 @@ function ChatbotTraining({ knowledge, venueId }) {
         await base44.entities.VenueKnowledge.update(item.id, { needs_review: false, is_active: true });
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
+    }
   });
 
   const needsReviewCount = knowledge.filter(k => k.needs_review).length;
-  const filteredKnowledge = categoryFilter === 'all' 
-    ? knowledge 
+  const byCategory = categoryFilter === 'all'
+    ? knowledge
     : knowledge.filter(k => k.category === categoryFilter);
+  const filteredKnowledge = reviewFilter === 'all'
+    ? byCategory
+    : reviewFilter === 'needs_review'
+      ? byCategory.filter(k => k.needs_review)
+      : byCategory.filter(k => !k.needs_review);
   const filteredNeedsReview = filteredKnowledge.filter(k => k.needs_review);
 
   const handleApproveAll = () => {
@@ -523,7 +538,17 @@ function ChatbotTraining({ knowledge, venueId }) {
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col sm:flex-row gap-2">
+        <Select value={reviewFilter} onValueChange={setReviewFilter}>
+          <SelectTrigger className="w-full sm:w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All entries</SelectItem>
+            <SelectItem value="needs_review">Awaiting review</SelectItem>
+            <SelectItem value="approved">Live in chatbot</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-full sm:w-64">
             <SelectValue />
@@ -574,6 +599,16 @@ function ChatbotTraining({ knowledge, venueId }) {
                   <span className="text-xs px-2 py-1 bg-stone-100 text-stone-700 rounded">
                     {item.category}
                   </span>
+                  {item.topic && item.topic !== 'general' && (
+                    <span className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded">
+                      {item.topic}
+                    </span>
+                  )}
+                  {(!item.topic || item.topic === 'general') && (
+                    <span className="text-xs px-2 py-1 bg-stone-50 text-stone-500 rounded" title="Rows without a specific topic are sent to the chatbot on every message rather than only when relevant.">
+                      no topic
+                    </span>
+                  )}
                   {item.needs_review && (
                     <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded font-medium">
                       Awaiting Review
@@ -669,6 +704,7 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
+      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
       onClose();
     }
   });
