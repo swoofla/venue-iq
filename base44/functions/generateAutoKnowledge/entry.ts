@@ -30,33 +30,37 @@ Deno.serve(async (req) => {
     }
 
     let created = 0;
-    let updated = 0;
+    let skipped = 0;
     const processedSources = [];
 
-    // Helper to create or update knowledge entry
+    // Helper: create a knowledge entry as an INACTIVE draft awaiting review.
+    // This function must never write into the live knowledge base and must never
+    // overwrite a curated row: if a matching question already exists for this
+    // venue, we skip it entirely.
     async function createOrUpdateKnowledge(question, answer, category) {
       const existing = await base44.asServiceRole.entities.VenueKnowledge.filter({
         venue_id,
         question
       });
 
-      const data = {
+      if (existing.length > 0) {
+        console.log(`Skipping existing VenueKnowledge question (no update performed): "${question}"`);
+        skipped++;
+        return;
+      }
+
+      await base44.asServiceRole.entities.VenueKnowledge.create({
         venue_id,
         question,
         answer,
         category,
-        is_active: true,
-        source: 'manual',
+        topic: 'packages_pricing',
+        is_active: false,
+        needs_review: true,
+        source: 'imported',
         priority: 5
-      };
-
-      if (existing.length > 0) {
-        await base44.asServiceRole.entities.VenueKnowledge.update(existing[0].id, data);
-        updated++;
-      } else {
-        await base44.asServiceRole.entities.VenueKnowledge.create(data);
-        created++;
-      }
+      });
+      created++;
     }
 
     // Process venue_basics
@@ -225,8 +229,8 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       created,
-      updated,
-      skipped: 0
+      updated: 0,
+      skipped
     });
 
   } catch (error) {
