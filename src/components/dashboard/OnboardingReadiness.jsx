@@ -18,7 +18,7 @@ import {
   Upload,
   Settings
 } from 'lucide-react';
-import { calculateReadinessScore } from '@/components/admin/onboardingQuestions';
+import { calculateReadinessScore, REQUIRED_TOPICS } from '@/components/admin/onboardingQuestions';
 
 const sectionIcons = {
   venue_basics: Settings,
@@ -38,15 +38,9 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
     enabled: !!venueId
   });
 
-  const { data: packages = [] } = useQuery({
-    queryKey: ['packages', venueId],
-    queryFn: () => base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true }),
-    enabled: !!venueId
-  });
-
-  const { data: pricingConfigs = [] } = useQuery({
-    queryKey: ['pricing', venueId],
-    queryFn: () => base44.entities.WeddingPricingConfiguration.filter({ venue_id: venueId }),
+  const { data: operatingRules = [] } = useQuery({
+    queryKey: ['operating-rules', venueId],
+    queryFn: () => base44.entities.VenueOperatingRules.filter({ venue_id: venueId }),
     enabled: !!venueId
   });
 
@@ -65,78 +59,34 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
   if (!venueId) return null;
 
   const progress = progressRecords?.[0];
-  const hasVenueBasics = venue?.name && venue?.location;
-  const hasPackages = packages.length > 0;
-  const hasPricing = pricingConfigs.length > 0;
 
-  const score = calculateReadinessScore(progress, hasPackages, hasPricing, hasVenueBasics);
+  const readiness = calculateReadinessScore(knowledge, venue, operatingRules.length > 0);
+  const score = readiness.score;
 
   // Don't render if fully ready
   if (score === 100) return null;
 
   const sections = [
-    {
-      id: 'venue_basics',
-      label: 'Venue Settings',
-      status: hasVenueBasics ? 'complete' : 'not_started',
-      isAuto: true,
-      subtext: 'Auto-detected from your settings'
-    },
-    {
-      id: 'packages',
-      label: 'Packages',
-      status: hasPackages ? 'complete' : 'not_started',
-      isAuto: true,
-      subtext: 'Auto-detected from your settings'
-    },
-    {
-      id: 'pricing',
-      label: 'Budget Calculator Pricing',
-      status: hasPricing ? 'complete' : 'not_started',
-      isAuto: true,
-      subtext: 'Auto-detected from your settings'
-    },
-    {
-      id: 'spaces',
-      label: 'Spaces & Amenities',
-      status: progress?.section_spaces || 'not_started',
-      isAuto: false
-    },
-    {
-      id: 'policies',
-      label: 'Policies & Logistics',
-      status: progress?.section_policies || 'not_started',
-      isAuto: false
-    },
-    {
-      id: 'faq',
-      label: 'Common Questions',
-      status: progress?.section_faq || 'not_started',
-      isAuto: false
-    },
-    {
-      id: 'personality',
-      label: "Venue Personality",
-      status: progress?.section_personality || 'not_started',
-      isAuto: false
-    },
-    {
-      id: 'transcripts',
-      label: 'Conversation Transcripts',
-      status: progress?.section_transcripts || 'not_started',
-      isAuto: false,
-      isOptional: true,
-      subtext: 'Optional — bonus points!'
-    }
+    { id: 'basics',   label: 'Venue Basics',       status: readiness.basics ? 'complete' : 'not_started',   subtext: 'Name, timezone, and who brides get handed off to' },
+    { id: 'calendar', label: 'Operating Calendar', status: readiness.calendar ? 'complete' : 'not_started', subtext: 'What you host each month, guest caps, blocked dates' },
+    ...REQUIRED_TOPICS.map(t => ({
+      id: t.topic,
+      label: t.label,
+      status: readiness.coveredTopics.has(t.topic) ? 'complete' : 'not_started',
+      subtext: readiness.coveredTopics.has(t.topic) ? null : 'Your bot cannot answer questions on this yet'
+    }))
   ];
 
   const completedSections = sections.filter(s => s.status === 'complete' || s.status === 'auto_complete').length;
   const totalSections = sections.length;
 
   const getSubtitle = () => {
-    if (score < 40) return "Your chatbot needs more info to help brides effectively.";
-    if (score < 80) return "Getting there! A few more sections will make your chatbot great.";
-    return "Almost ready! Just a few finishing touches.";
+    if (readiness.requiredCovered === 0) return "Your bot cannot answer bride questions yet.";
+    if (readiness.requiredCovered < readiness.requiredTotal) {
+      const next = readiness.missingRequired[0];
+      return `Nearly there — ${next.label.toLowerCase()} is the biggest gap right now.`;
+    }
+    return "Your bot can answer everything brides ask most.";
   };
 
   const getRingColor = () => {
@@ -185,7 +135,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
             <h3 className="text-lg font-semibold text-stone-900 mb-1">Chatbot Readiness</h3>
             <p className="text-sm text-stone-600">{getSubtitle()}</p>
             <p className="text-xs text-stone-500 mt-1">
-              {knowledge.length} knowledge entries • {completedSections}/{totalSections} sections complete
+              {knowledge.length} knowledge entries • your bot can answer {readiness.requiredCovered} of {readiness.requiredTotal} things brides ask most
             </p>
           </div>
         </div>
@@ -224,7 +174,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
       {/* Section Checklist */}
       <div className="space-y-0 mb-6">
         {sections.map((section, index) => {
-          const Icon = sectionIcons[section.id];
+          const Icon = sectionIcons[section.id] || HelpCircle;
           const isComplete = section.status === 'complete' || section.status === 'auto_complete';
           const isClickable = !section.isAuto && !isComplete;
 

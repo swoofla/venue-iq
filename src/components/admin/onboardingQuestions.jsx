@@ -241,37 +241,70 @@ const ONBOARDING_SECTIONS = [
   }
 ];
 
-export function calculateReadinessScore(onboardingProgress, hasPackages, hasPricing, hasVenueBasics) {
+// Topics a bride actually asks about, ranked from 200 live chat sessions.
+// A venue is ready when the bot can answer these — not when forms are filled in.
+// A venue that does not offer something still needs a row saying so; an
+// unanswered topic is what makes the bot hedge or hand off unnecessarily.
+export const REQUIRED_TOPICS = [
+  { topic: 'packages_pricing',  label: 'Packages & pricing' },
+  { topic: 'capacity_guests',   label: 'Guest capacity & limits' },
+  { topic: 'alcohol_bar',       label: 'Bar & alcohol' },
+  { topic: 'catering',          label: 'Catering & food' },
+  { topic: 'ceremony_spaces',   label: 'Ceremony spaces' },
+  { topic: 'reception_spaces',  label: 'Reception spaces' },
+  { topic: 'rules_policies',    label: 'Rules & restrictions' },
+  { topic: 'payment_deposits',  label: 'Deposits & payment' },
+  { topic: 'vendors',           label: 'Outside vendors' },
+  { topic: 'lodging',           label: 'Lodging & overnight stays' },
+  { topic: 'amenities',         label: "What's included" },
+  { topic: 'availability_dates',label: 'Dates & seasons' }
+];
+
+export const BONUS_TOPICS = [
+  { topic: 'coordination_planning', label: 'Coordination & planning' },
+  { topic: 'getting_ready',         label: 'Getting-ready spaces' },
+  { topic: 'decor_rentals',         label: 'Decor & rentals' },
+  { topic: 'desserts',              label: 'Desserts & cake' },
+  { topic: 'photography_video',     label: 'Photography & video' },
+  { topic: 'tours',                 label: 'Tours & visits' }
+];
+
+/**
+ * Coverage-based readiness.
+ *   activeKnowledge  — VenueKnowledge rows where is_active is true
+ *   venue            — the Venue record
+ *   hasOperatingRules— boolean, whether a VenueOperatingRules record exists
+ *
+ * Returns { score, basics, calendar, requiredCovered, requiredTotal,
+ *           bonusCovered, coveredTopics, missingRequired }
+ */
+export function calculateReadinessScore(activeKnowledge = [], venue = null, hasOperatingRules = false) {
+  const covered = new Set(
+    (activeKnowledge || [])
+      .filter(k => k && k.topic && k.topic !== 'general')
+      .map(k => k.topic)
+  );
+
+  const basics = !!(venue && venue.name && venue.timezone && venue.planner_name);
+  const requiredCovered = REQUIRED_TOPICS.filter(t => covered.has(t.topic)).length;
+  const bonusCovered = BONUS_TOPICS.filter(t => covered.has(t.topic)).length;
+
   let score = 0;
+  if (basics) score += 8;
+  if (hasOperatingRules) score += 12;
+  score += Math.round((requiredCovered / REQUIRED_TOPICS.length) * 60);
+  score += Math.round((bonusCovered / BONUS_TOPICS.length) * 20);
 
-  // Auto-detected (40%)
-  if (hasVenueBasics) score += 10;
-  if (hasPackages) score += 15;
-  if (hasPricing) score += 15;
-
-  // Questionnaire sections (55%)
-  const sectionWeights = {
-    section_spaces: 15,
-    section_policies: 15,
-    section_faq: 15,
-    section_personality: 10
+  return {
+    score: Math.min(score, 100),
+    basics,
+    calendar: hasOperatingRules,
+    requiredCovered,
+    requiredTotal: REQUIRED_TOPICS.length,
+    bonusCovered,
+    coveredTopics: covered,
+    missingRequired: REQUIRED_TOPICS.filter(t => !covered.has(t.topic))
   };
-
-  if (onboardingProgress) {
-    for (const [section, weight] of Object.entries(sectionWeights)) {
-      if (onboardingProgress[section] === 'complete' || onboardingProgress[section] === 'auto_complete') {
-        score += weight;
-      } else if (onboardingProgress[section] === 'in_progress') {
-        score += Math.round(weight * 0.3);
-      }
-    }
-    // Bonus: Transcript upload (5%)
-    if (onboardingProgress.section_transcripts === 'complete') {
-      score += 5;
-    }
-  }
-
-  return Math.min(score, 100);
 }
 
 export { ONBOARDING_SECTIONS };
