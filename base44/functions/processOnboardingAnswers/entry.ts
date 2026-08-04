@@ -42,17 +42,22 @@ Deno.serve(async (req) => {
     };
     const category = categoryMap[section_id];
 
-    // If regenerate, delete existing knowledge for this category
-    if (regenerate) {
-      const existingKnowledge = await base44.asServiceRole.entities.VenueKnowledge.filter({
-        venue_id,
-        category
-      });
-      
-      for (const entry of existingKnowledge) {
-        await base44.asServiceRole.entities.VenueKnowledge.delete(entry.id);
-      }
-    }
+    // Retrieval in useChatFlow keys off `topic`, not `category`. Rows created
+    // without a topic default to 'general' and enter the always-on baseline
+    // block on every turn, regardless of subject.
+    const topicMap = {
+      'spaces': 'amenities',
+      'policies': 'rules_policies',
+      'faq': 'general',
+      'personality': 'general'
+    };
+    const sectionTopic = topicMap[section_id] || 'general';
+
+    // Deliberately NON-DESTRUCTIVE. This block previously hard-deleted every
+    // VenueKnowledge row matching this section's category, including
+    // hand-curated rows, with no source filter and no soft delete. Generated
+    // rows are now written as inactive drafts alongside existing knowledge and
+    // never replace it. The `regenerate` argument is accepted and ignored.
 
     // Build formatted answers string
     const formattedAnswers = Object.entries(answers)
@@ -163,8 +168,10 @@ Generate the Q&A pairs now.`;
         question: pair.question,
         answer: pair.answer,
         category: pair.category,
-        is_active: true,
-        source: 'manual',
+        topic: sectionTopic,
+        is_active: false,
+        needs_review: true,
+        source: 'imported',
         priority: 5
       });
       
@@ -181,7 +188,7 @@ Generate the Q&A pairs now.`;
 
     const progressData = {
       venue_id,
-      [`section_${section_id}`]: 'complete',
+      [`section_${section_id}`]: 'in_progress',
       [`answers_${section_id}`]: answers,
       knowledge_generated_at: new Date().toISOString(),
       knowledge_count: totalKnowledge.length
