@@ -1094,13 +1094,14 @@ export default function useChatFlow({
         return;
       }
 
-      if ((intent === 'package_inquiry' || priceAfterAvailability) && venueId) {
-        const pkgs = await base44.entities.VenuePackage.filter({ venue_id: venueId, is_active: true });
-        packageContext = 'ACTIVE PACKAGES:\n' + pkgs
-          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-          .map(p => `- ${p.name} — $${p.price?.toLocaleString?.() || p.price} (up to ${p.max_guests} guests)\n  ${p.description || ''}\n  Includes: ${(p.includes || []).join('; ')}`)
-          .join('\n\n');
-      }
+      // VenuePackage is deliberately NOT read here. It was a second source of
+      // truth feeding the generator alongside VenueKnowledge, and the two
+      // drifted — VenuePackage carried stale package rules and, being silent
+      // on lodging, caused the generator to hedge and hand off on questions
+      // the knowledge base answered outright. All package facts now come from
+      // VenueKnowledge (topic: packages_pricing). VenuePackage remains in use
+      // for the dashboard and the in-chat package cards only.
+      // packageContext stays empty; buildGeneratorPrompt skips it when empty.
 
       // ── Topic-focused knowledge assembly ─────────────────────────
       // Normal path: primary topic block + always-on general baseline. No cross-topic bleed.
