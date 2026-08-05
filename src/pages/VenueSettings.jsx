@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play, AlertCircle, FileText } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
@@ -14,6 +14,7 @@ import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
 import FirstLookSettings from '../components/admin/FirstLookSettings';
 import VenueSelector from '../components/admin/VenueSelector';
 import FeaturedPhotosManager from '../components/admin/FeaturedPhotosManager';
+import VenueDocumentUpload from '@/components/admin/VenueDocumentUpload';
 
 export default function VenueSettings() {
   const [user, setUser] = useState(null);
@@ -202,6 +203,10 @@ export default function VenueSettings() {
                <Calendar className="w-4 h-4 mr-2" />
                Google Calendar
              </TabsTrigger>
+             <TabsTrigger value="documents">
+               <FileText className="w-4 h-4 mr-2" />
+               Upload Documents
+             </TabsTrigger>
              <TabsTrigger value="chatbot">
                <MessageSquare className="w-4 h-4 mr-2" />
                Chatbot Training
@@ -230,6 +235,10 @@ export default function VenueSettings() {
 
           <TabsContent value="calendar" className="mt-6">
             <GoogleCalendarSync venueId={venueId} />
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-6">
+            <VenueDocumentUpload venueId={venueId} />
           </TabsContent>
 
           <TabsContent value="chatbot" className="mt-6">

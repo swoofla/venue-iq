@@ -257,12 +257,12 @@ export const REQUIRED_TOPICS = [
   { topic: 'vendors',           label: 'Outside vendors' },
   { topic: 'lodging',           label: 'Lodging & overnight stays' },
   { topic: 'amenities',         label: "What's included" },
-  { topic: 'availability_dates',label: 'Dates & seasons' }
+  { topic: 'availability_dates',label: 'Dates & seasons' },
+  { topic: 'getting_ready',     label: 'Getting-ready spaces' }
 ];
 
 export const BONUS_TOPICS = [
   { topic: 'coordination_planning', label: 'Coordination & planning' },
-  { topic: 'getting_ready',         label: 'Getting-ready spaces' },
   { topic: 'decor_rentals',         label: 'Decor & rentals' },
   { topic: 'desserts',              label: 'Desserts & cake' },
   { topic: 'photography_video',     label: 'Photography & video' },
