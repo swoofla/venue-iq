@@ -85,9 +85,14 @@ export default function Home() {
     queryFn: () => base44.entities.BookedWeddingDate.list(),
   });
 
+  // Scoped to this venue. Previously unscoped, which would have served every
+  // venue's knowledge to every venue's chatbot the moment a second venue
+  // existed. Key matches what VenueSettings invalidates so dashboard
+  // approvals reach the live chat.
   const { data: venueKnowledge = [] } = useQuery({
-    queryKey: ['venueKnowledge'],
-    queryFn: () => base44.entities.VenueKnowledge.filter({ is_active: true }),
+    queryKey: ['knowledge-active', venueId],
+    queryFn: () => venueId ? base44.entities.VenueKnowledge.filter({ venue_id: venueId, is_active: true }) : [],
+    enabled: !!venueId
   });
 
   const { data: firstLookConfig } = useQuery({

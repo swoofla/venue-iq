@@ -57,6 +57,9 @@ export default function useChatFlow({
   const lastSubstantiveQuestionRef = useRef(null);
   const currentMonthRef = useRef(null);   // last month (1-12) she stated/used
   const currentMonthsRef = useRef(null);
+  // Holds the venue record once resolved, so handler functions created in an
+  // earlier render (offerHandoff, appendHandoffCard) can still read it.
+  const resolvedVenueRef = useRef(null);
   const multiMonthKeyRef = useRef(null);
 
   // ── Conversational date resolution ──────────────────────────────────────
@@ -193,7 +196,7 @@ export default function useChatFlow({
 
   // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
   const offerHandoff = (topicSummary, originalQuestion) => {
-    const plannerName = venue?.planner_name || 'our planner';
+    const plannerName = venue?.planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
     setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
     markHandoffOffered();
     addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
@@ -256,7 +259,7 @@ export default function useChatFlow({
 
   // Append an inline contact-card message and the warm "drop your info" lead-in.
   const appendHandoffCard = (topicSummary, originalQuestion) => {
-    const plannerName = venue?.planner_name || 'our planner';
+    const plannerName = venue?.planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
     setMessages(prev => [
       ...prev,
       { id: Date.now(), text: `Perfect — drop your name and number below and ${plannerName} will text you!`, isBot: true },
@@ -293,6 +296,31 @@ export default function useChatFlow({
     }
 
     try {
+      // LOAD-RACE GUARD. Props come from React Query and may not have resolved
+      // when a message is auto-fired on page load. Fetch directly rather than
+      // waiting on a prop that cannot change inside this closure.
+      let venueRecord = venue || resolvedVenueRef.current || null;
+      let knowledgeRows = Array.isArray(venueKnowledge) ? venueKnowledge : [];
+      if (!venueRecord || knowledgeRows.length === 0) {
+        try {
+          const [fetchedVenue, fetchedKnowledge] = await Promise.all([
+            venueRecord ? Promise.resolve(venueRecord) : base44.entities.Venue.get(venueId),
+            knowledgeRows.length > 0
+              ? Promise.resolve(knowledgeRows)
+              : base44.entities.VenueKnowledge.filter({ venue_id: venueId, is_active: true })
+          ]);
+          if (fetchedVenue) venueRecord = fetchedVenue;
+          if (Array.isArray(fetchedKnowledge) && fetchedKnowledge.length > 0) knowledgeRows = fetchedKnowledge;
+          console.log('[useChatFlow] Load-race guard fetched:', {
+            venueResolved: !!venueRecord,
+            knowledgeRows: knowledgeRows.length
+          });
+        } catch (err) {
+          console.error('[useChatFlow] Load-race guard fetch failed:', err?.message || err);
+        }
+      }
+      if (venueRecord) resolvedVenueRef.current = venueRecord;
+
       // ── STEP 1: Classify intent ─────────────────────────────────
       const recentHistory = [...messagesRef.current]
         .slice(-6)
@@ -300,8 +328,8 @@ export default function useChatFlow({
         .join('\n');
 
       const today = new Date().toISOString().slice(0, 10);
-      const tz = venue?.timezone || 'America/New_York';
-      const plannerNameForClassifier = venue?.planner_name || 'our planner';
+      const tz = venueRecord?.timezone || 'America/New_York';
+      const plannerNameForClassifier = venueRecord?.planner_name || 'our planner';
 
       const classifier = await base44.integrations.Core.InvokeLLM({
         prompt: buildClassifierPrompt({
@@ -679,7 +707,7 @@ export default function useChatFlow({
       let compactReply = '';
       let priceAfterAvailability = false; // she confirmed an open date mid price-request → price it this turn
       let availResult = null; // debug-trace only: { date, isAvailable, alternatives, error? } | null
-      const plannerNameEarly = venue?.planner_name || 'our planner';
+      const plannerNameEarly = venueRecord?.planner_name || 'our planner';
 
       // ── Multi-date branch: always compact, no generator call ─────
       if (intent === 'date_inquiry' && weddingDates.length > 1) {
@@ -1110,15 +1138,15 @@ export default function useChatFlow({
       // vendors/rules_policies/etc.). Fallback is intentionally unchanged.
       const topic = priceAfterAvailability ? 'packages_pricing' : (classifier?.topic || 'general');
       const formatEntry = (k) => `Q: ${k.question}\nA: ${k.answer}`;
-      const primaryEntries = venueKnowledge.filter(k => k.topic === topic && topic !== 'general');
-      const generalBaseline = venueKnowledge.filter(k => k.topic === 'general');
+      const primaryEntries = knowledgeRows.filter(k => k.topic === topic && topic !== 'general');
+      const generalBaseline = knowledgeRows.filter(k => k.topic === 'general');
       const matchCount = primaryEntries.length;
       console.log('TOPIC:', topic, '| entries matched:', matchCount);
 
       let knowledgeContext;
       if (matchCount === 0) {
         // Migration safety: if no entries are tagged for this topic, fall back to all.
-        knowledgeContext = venueKnowledge.map(formatEntry).join('\n\n');
+        knowledgeContext = knowledgeRows.map(formatEntry).join('\n\n');
       } else {
         const primaryBlock = `=== EVERYTHING ${venueName.toUpperCase()} KNOWS ABOUT ${topic.toUpperCase().replace(/_/g, ' ')} ===\n${primaryEntries.map(formatEntry).join('\n\n')}`;
         const generalBlock = generalBaseline.length > 0
@@ -1127,8 +1155,8 @@ export default function useChatFlow({
         knowledgeContext = primaryBlock + generalBlock;
       }
 
-      const plannerName = venue?.planner_name || 'our planner';
-      const plannerTitle = venue?.planner_title || 'our planner';
+      const plannerName = venueRecord?.planner_name || 'our planner';
+      const plannerTitle = venueRecord?.planner_title || 'our planner';
 
       // ── STEP 3: Generate response ───────────────────────────────
       const knownBlock = `KNOWN ABOUT THIS BRIDE SO FAR (use it; ask only for what's missing):
@@ -1216,7 +1244,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         answer: truncateAnswer(k.answer),
       });
       const knowledgeUsed = (matchCount === 0)
-        ? venueKnowledge.map(k => traceEntry(k, 'fallback-all'))
+        ? knowledgeRows.map(k => traceEntry(k, 'fallback-all'))
         : [
             ...primaryEntries.map(k => traceEntry(k, 'primary')),
             ...generalBaseline.map(k => traceEntry(k, 'general')),
