@@ -272,13 +272,17 @@ export default function useChatFlow({
   const handleUserMessage = async (text) => {
     setShowGreeting(false);
 
-    // Ensure session exists on first message
-    await ensureChatSession();
-
+    // Render her message and the typing indicator BEFORE any await, so the
+    // widget responds instantly instead of appearing frozen on a CTA click.
     const userMsgId = Date.now();
     setMessages(prev => [...prev, { id: userMsgId, text, isBot: false }]);
-
     setIsTyping(true);
+
+    const t0 = performance.now();
+    const mark = (label) => console.log(`[timing] ${label}: ${Math.round(performance.now() - t0)}ms`);
+
+    await ensureChatSession();
+    mark('ensureChatSession');
 
     // Guard against load race: wait for venueId to resolve before classifying/querying
     if (!venueId) {
@@ -320,6 +324,7 @@ export default function useChatFlow({
         }
       }
       if (venueRecord) resolvedVenueRef.current = venueRecord;
+      mark('load-race guard');
 
       // ── STEP 1: Classify intent ─────────────────────────────────
       const recentHistory = [...messagesRef.current]
@@ -348,6 +353,7 @@ export default function useChatFlow({
         response_json_schema: CLASSIFIER_SCHEMA,
         model: 'gemini_3_flash'
       });
+      mark('classifier');
 
       console.log('CLASSIFIER:', JSON.stringify(classifier));
 
@@ -1197,6 +1203,8 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         },
         model: 'claude_opus_4_8'
       });
+      mark('generator');
+      console.log(`[timing] generator prompt chars: ${generatorPrompt.length}`);
 
       // Shape tolerance: the model occasionally wraps its JSON in an extra
       // { response: {...} } envelope even though the schema declares no such
