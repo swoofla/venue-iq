@@ -496,7 +496,11 @@ export default function useChatFlow({
       // Neither the classifier nor the deterministic parser may invent a year
       // the bride never typed. If the raw text has no 4-digit year and no context
       // year is established, discard any resolved date and force the "what year?" path.
-      const rawTextHasYear = /\b(20\d{2})\b/.test(text);
+      // A stated year counts whether she wrote it in full ("2027") or short — a
+      // two-digit year inside a slash/dash date ("10/22/27", "10-22-27") is still
+      // a year she typed, and discarding it made the bot re-ask what she just said.
+      const rawTextHasYear = /\b(20\d{2})\b/.test(text)
+        || /\b\d{1,2}[/-]\d{1,2}[/-]\d{2}(?!\d)/.test(text);
       const hasContextYear = Number.isInteger(currentYearRef.current);
       let weddingDateGuarded = weddingDate;
       let yearMissingGuarded = yearMissing;
