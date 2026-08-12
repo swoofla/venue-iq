@@ -1201,7 +1201,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
           },
           required: ['needsHandoff']
         },
-        model: 'claude_opus_4_8'
+        model: 'claude-sonnet-5'
       });
       mark('generator');
       console.log(`[timing] generator prompt chars: ${generatorPrompt.length}`);
