@@ -1238,7 +1238,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         if (!generatorFollowUp) {
           console.error('Falling back to generic reply — generator produced no answer text. Raw payload:', JSON.stringify(generatorRaw));
         }
-        answer = generatorFollowUp || "Thanks for reaching out! What would you like to know more about?";
+        answer = generatorFollowUp || "I want to make sure I get that right for you — could you tell me a little more about what you'd like to know?";
       }
 
       setMessages(prev => [...prev, { id: Date.now(), text: answer, isBot: true }]);
@@ -1317,7 +1317,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
     } catch (error) {
       console.error('Intent routing error:', error?.message || error);
       setIsTyping(false);
-      const errReply = "Thanks for reaching out! What would you like to know more about?";
+      const errReply = "Sorry — something went wrong on my end just now. Could you send that again?";
       setMessages(prev => [...prev, { id: Date.now(), text: errReply, isBot: true }]);
       debugTraceRef.current.push({
         userMessage: text,
