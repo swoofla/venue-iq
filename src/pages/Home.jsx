@@ -214,7 +214,9 @@ export default function Home() {
     <div className="h-[100dvh] bg-stone-50 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-black text-white px-6 py-3 flex-shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        {/* Host site draws its own floating close button in the top-right on phones —
+            reserve 64px there so it never overlaps the "Book a tour" button. */}
+        <div className="max-w-4xl mx-auto flex items-center justify-between pr-16 md:pr-0">
           <div>
             <h1 style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
             <p
@@ -230,7 +232,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => chat.setActiveFlow('tour')}
-            className="bg-white text-black rounded-full hover:bg-stone-100 transition-colors"
+            className="bg-white text-black rounded-full hover:bg-stone-100 transition-colors whitespace-nowrap flex-shrink-0"
             style={{
               padding: '7px 14px',
               fontSize: '12px',
