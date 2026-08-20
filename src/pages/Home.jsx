@@ -38,6 +38,10 @@ export default function Home() {
   const [noVenueAssigned, setNoVenueAssigned] = useState(false);
 
   const navigate = useNavigate();
+  // Venue resolution and the auth check race to clear `loading`. If venue
+  // wins, the chatbot paints for a frame before navigate() fires. This lets
+  // the venue branch know a redirect is coming and hold the spinner.
+  const authRedirectingRef = React.useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,7 +65,8 @@ export default function Home() {
       } else {
         setVenueNotFound(true);
       }
-      setLoading(false);
+      // Hold the spinner if the auth branch is redirecting to the dashboard.
+      if (!authRedirectingRef.current) setLoading(false);
     });
 
     base44.auth.isAuthenticated().then(isAuth => {
@@ -80,6 +85,10 @@ export default function Home() {
           const isStaff = u.role === 'admin' || u.role === 'venue_owner' || u.role === 'venue_staff';
 
           if (u.role === 'admin' || u.venue_id) {
+            // Claim the redirect before navigating, so a venue-resolution
+            // callback that lands in between does not clear the spinner and
+            // paint the chatbot for a frame.
+            authRedirectingRef.current = true;
             // navigate() instead of window.location.href — a full page load
             // re-boots the app and re-runs auth, which is the flash owners
             // see on login.
@@ -98,6 +107,11 @@ export default function Home() {
       } else {
         setLoading(false);
       }
+    }).catch(err => {
+      // Never strand the spinner. An auth failure means treat them as a
+      // visitor and show the chatbot.
+      console.warn('[Home] Auth check failed, continuing as anonymous:', err?.message || err);
+      setLoading(false);
     });
   }, []);
 
