@@ -103,6 +103,11 @@ export default function Home() {
           }
 
           setLoading(false);
+        }).catch(err => {
+          // auth.me() can reject independently of isAuthenticated(). Without
+          // this the spinner strands permanently.
+          console.warn('[Home] Failed to load user, continuing as anonymous:', err?.message || err);
+          setLoading(false);
         });
       } else {
         setLoading(false);
