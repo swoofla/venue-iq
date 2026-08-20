@@ -29,7 +29,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [venueId, setVenueId] = useState(null);
   const [venueSlug, setVenueSlug] = useState(null); // resolved slug used for the per-tenant storage key
-  const [venueName, setVenueName] = useState('Sugar Lake Weddings');
+  const [venueName, setVenueName] = useState('');
   const [loading, setLoading] = useState(true);
   const [venueNotFound, setVenueNotFound] = useState(false);
 
@@ -39,12 +39,11 @@ export default function Home() {
     const isEmbedded = window.self !== window.top || params.get('embed') === '1';
 
     base44.entities.Venue.list().then(venues => {
-      // ALPHA ONLY — single-venue default. Remove `|| 'sugar-lake-weddings'` at venue #2 to restore strict slug-required behavior.
-      const effectiveSlug = slugFromUrl || 'sugar-lake-weddings';
-      const matched = venues.find(v => v.slug === effectiveSlug) || null;
+      // Strict slug resolution — ?venue=<slug> is required. No default venue.
+      const matched = slugFromUrl ? (venues.find(v => v.slug === slugFromUrl) || null) : null;
       if (matched) {
         setVenueId(matched.id);
-        setVenueSlug(matched.slug || effectiveSlug);
+        setVenueSlug(matched.slug);
         setVenueName(matched.name);
       } else {
         setVenueNotFound(true);

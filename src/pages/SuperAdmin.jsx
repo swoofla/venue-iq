@@ -312,7 +312,7 @@ export default function SuperAdmin() {
 }
 
 function VenueForm({ onClose }) {
-  const [formData, setFormData] = useState({ name: '', location: '', phone: '', email: '', website: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', slug: '', location: '', planner_name: '', timezone: 'America/New_York', phone: '', email: '', website: '', description: '' });
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
@@ -333,13 +333,40 @@ function VenueForm({ onClose }) {
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         />
         <Input
+          placeholder="Slug * (e.g. sugar-lake-weddings)"
+          value={formData.slug}
+          onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+        />
+        <p className="text-xs text-stone-500">
+          The chatbot is reached at <code>?venue={formData.slug || 'your-slug'}</code> — required.
+        </p>
+        <Input
           placeholder="Location"
           value={formData.location}
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
         />
+        <Input
+          placeholder="Planner name * (shown in chat handoffs, e.g. Saydee)"
+          value={formData.planner_name}
+          onChange={(e) => setFormData({ ...formData, planner_name: e.target.value })}
+        />
+        <Select value={formData.timezone} onValueChange={(v) => setFormData({ ...formData, timezone: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Timezone" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="America/New_York">Eastern — America/New_York</SelectItem>
+            <SelectItem value="America/Chicago">Central — America/Chicago</SelectItem>
+            <SelectItem value="America/Denver">Mountain — America/Denver</SelectItem>
+            <SelectItem value="America/Phoenix">Arizona — America/Phoenix</SelectItem>
+            <SelectItem value="America/Los_Angeles">Pacific — America/Los_Angeles</SelectItem>
+            <SelectItem value="America/Anchorage">Alaska — America/Anchorage</SelectItem>
+            <SelectItem value="Pacific/Honolulu">Hawaii — Pacific/Honolulu</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button onClick={() => createMutation.mutate(formData)} className="flex-1" disabled={!formData.name}>
+          <Button onClick={() => createMutation.mutate(formData)} className="flex-1" disabled={!formData.name || !formData.slug || !formData.planner_name}>
             Create Venue
           </Button>
         </div>
