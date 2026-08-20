@@ -11,6 +11,7 @@ import HandoffContactCard from '@/components/chat/HandoffContactCard';
 import TypingIndicator from '@/components/chat/TypingIndicator';
 import ChatInput from '@/components/chat/ChatInput';
 import ChatEmptyState from '@/components/chat/ChatEmptyState';
+import VenuePickerScreen from '@/components/chat/VenuePickerScreen';
 import EnhancedBudgetCalculator from '@/components/flows/EnhancedBudgetCalculator';
 import AvailabilityChecker from '@/components/flows/AvailabilityChecker';
 import TourScheduler from '@/components/flows/TourScheduler';
@@ -32,6 +33,7 @@ export default function Home() {
   const [venueName, setVenueName] = useState('');
   const [loading, setLoading] = useState(true);
   const [venueNotFound, setVenueNotFound] = useState(false);
+  const [venueChoices, setVenueChoices] = useState(null); // set when a picker is needed
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -49,6 +51,9 @@ export default function Home() {
         setVenueId(matched.id);
         setVenueSlug(matched.slug || matched.id);
         setVenueName(matched.name);
+      } else if (!slugFromUrl && venues.length > 1) {
+        // No slug given and several venues exist — let the previewer pick one.
+        setVenueChoices(venues);
       } else {
         setVenueNotFound(true);
       }
@@ -200,6 +205,20 @@ export default function Home() {
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (venueChoices) {
+    return (
+      <VenuePickerScreen
+        venues={venueChoices}
+        onSelect={(v) => {
+          setVenueId(v.id);
+          setVenueSlug(v.slug || v.id);
+          setVenueName(v.name);
+          setVenueChoices(null);
+        }}
+      />
+    );
   }
 
   if (venueNotFound) {
