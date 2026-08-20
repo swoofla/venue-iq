@@ -64,6 +64,7 @@ import QuoteSummary from './pages/QuoteSummary';
 import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
+import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -89,4 +90,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Home",
     Pages: PAGES,
+    Layout: __Layout,
 };
