@@ -124,6 +124,16 @@
       "default": {},
       "description": "Raw answers for personality/brand voice section"
     },
+    "topic_answers": {
+      "type": "object",
+      "default": {},
+      "description": "Raw questionnaire answers keyed by VenueKnowledge topic, e.g. { \"packages_pricing\": { \"offerings\": \"...\", \"prices\": \"...\" }, \"catering\": { ... } }. Replaces the per-section answers_* fields."
+    },
+    "topic_status": {
+      "type": "object",
+      "default": {},
+      "description": "Per-topic completion status keyed by VenueKnowledge topic, e.g. { \"packages_pricing\": \"in_progress\", \"catering\": \"complete\" }. Values: not_started, in_progress, complete. Replaces the per-section section_* fields."
+    },
     "knowledge_generated_at": {
       "type": "string",
       "format": "date-time",
