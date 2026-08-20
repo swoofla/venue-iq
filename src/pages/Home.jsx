@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import { createPageUrl } from '../utils';
 import useChatFlow from '../components/hooks/useChatFlow';
@@ -34,6 +35,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [venueNotFound, setVenueNotFound] = useState(false);
   const [venueChoices, setVenueChoices] = useState(null); // set when a picker is needed
+  const [noVenueAssigned, setNoVenueAssigned] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -64,16 +68,31 @@ export default function Home() {
       if (isAuth) {
         base44.auth.me().then(u => {
           setUser(u);
-          // Admins and users with venue assignments go to Dashboard
-          if (u.role === 'admin' || u.venue_id) {
-            if (!isEmbedded) {
-              window.location.href = createPageUrl('Dashboard');
-              return;
-            } else {
-              setLoading(false);
-            }
+
+          // Never redirect inside the embed. This page is the bride-facing
+          // chatbot on the venue's own website; a logged-in owner viewing it
+          // there must stay in the chat.
+          if (isEmbedded) {
+            setLoading(false);
+            return;
           }
-          // Anyone else can see the chatbot
+
+          const isStaff = u.role === 'admin' || u.role === 'venue_owner' || u.role === 'venue_staff';
+
+          if (u.role === 'admin' || u.venue_id) {
+            // navigate() instead of window.location.href — a full page load
+            // re-boots the app and re-runs auth, which is the flash owners
+            // see on login.
+            navigate(createPageUrl('Dashboard'), { replace: true });
+            return;
+          }
+
+          if (isStaff && !u.venue_id) {
+            // Previously fell through to the chatbot with no explanation.
+            console.warn('[Home] Staff user has no venue_id assigned:', u.email);
+            setNoVenueAssigned(true);
+          }
+
           setLoading(false);
         });
       } else {
@@ -205,6 +224,20 @@ export default function Home() {
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (noVenueAssigned) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-stone-50">
+        <div className="text-center max-w-sm">
+          <h1 className="text-lg font-semibold text-stone-900 mb-2">No venue assigned yet</h1>
+          <p className="text-sm text-stone-600">
+            Your account isn't linked to a venue. Ask whoever invited you to assign one,
+            and then refresh this page.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (venueChoices) {
