@@ -1,6 +1,8 @@
 // Topic-first onboarding. Each step maps to exactly one VenueKnowledge topic,
 // so the readiness checklist can route a venue owner straight to the step that
-// fills the gap it just named.
+// fills the gap it just named. The `topic` values here MUST stay in sync with
+// REQUIRED_TOPICS in onboardingQuestions.jsx — if they drift, the checklist
+// will name a gap that has no step to fill it.
 //
 // Design rules, learned from auditing a live venue's chatbot:
 //  - Every step captures what the venue does NOT offer or allow. A missing "no"
@@ -83,6 +85,18 @@ export const ONBOARDING_STEPS = [
       { id: 'space_combinations', label: 'Can spaces be mixed and matched?', required: true, helpText: 'Couples ask about combinations constantly. Say which pairings are allowed and which are not.', placeholder: 'e.g., "Any ceremony site works with either reception space. The tent cannot be used for dinner."' },
       { id: 'reception_seasonal', label: 'Is any reception space unavailable part of the year?', required: true, helpText: 'If everything is available year-round, write "All spaces available year-round."', placeholder: 'e.g., "The tent is only up May through October. Off-season receptions use the indoor hall."' },
       { id: 'reception_extras', label: 'Does any reception space cost extra?', required: false, helpText: 'If all are included in your base price, write "All included."', placeholder: 'e.g., "Full tent setup is a $1,200 add-on, or included with the all-inclusive package."' }
+    ]
+  },
+  {
+    topic: 'getting_ready',
+    title: 'Getting Ready & Other Spaces',
+    description: 'Where the couple prepares, and everywhere else on the property.',
+    estimatedMinutes: 3,
+    questions: [
+      { id: 'getting_ready_spaces', label: 'Where does the couple get ready?', required: true, helpText: 'Bridal suite, groom\'s lounge, or both. Describe each. If you have no dedicated space, say so plainly.', placeholder: 'e.g., "Bridal suite with makeup stations for six and a private bath. Separate groom\'s lounge with a pool table and TV."' },
+      { id: 'getting_ready_access', label: 'When can they access those spaces, and how many people fit?', required: true, helpText: 'Start time and comfortable headcount for each.', placeholder: 'e.g., "Suites open at 10am. Bridal suite fits 8 comfortably, groom\'s lounge 6."' },
+      { id: 'other_spaces', label: 'What other spaces are on the property?', required: true, helpText: 'Courtyard, patio, cocktail area, lounge, fire pit, lawn games area. Anything a couple would use or ask about. If there are none, write "No other spaces."', placeholder: 'e.g., "A brick courtyard for cocktail hour, a covered patio, and a fire pit by the treeline."' },
+      { id: 'photo_spots', label: 'What spots do photographers love?', required: false, helpText: 'If nothing specific comes to mind, write "No particular spots."', placeholder: 'e.g., "The willow by the water, the rose garden, and the sunset overlook."' }
     ]
   },
   {
