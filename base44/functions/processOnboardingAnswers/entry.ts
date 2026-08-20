@@ -9,16 +9,30 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { venue_id, section_id, answers, regenerate = false } = await req.json();
+    const { venue_id, section_id, topic, answers, regenerate = false } = await req.json();
 
-    if (!venue_id || !section_id || !answers) {
+    // Valid VenueKnowledge topics for the 13-step topic-driven wizard. When a
+    // caller passes `topic`, it is authoritative and section_id is ignored for
+    // tagging. Legacy 4-section callers pass no topic and keep the old path.
+    const VALID_ONBOARDING_TOPICS = [
+      'packages_pricing','capacity_guests','alcohol_bar','catering',
+      'ceremony_spaces','reception_spaces','getting_ready','amenities',
+      'rules_policies','payment_deposits','vendors','lodging','availability_dates'
+    ];
+    if (topic && !VALID_ONBOARDING_TOPICS.includes(topic)) {
+      return Response.json({ error: `Invalid topic: ${topic}` }, { status: 400 });
+    }
+
+    if (!venue_id || !answers || (!section_id && !topic)) {
       return Response.json({ 
-        error: 'Missing required fields: venue_id, section_id, answers' 
+        error: 'Missing required fields: venue_id, answers, and either section_id or topic' 
       }, { status: 400 });
     }
 
+    // Legacy callers must still pass a recognized section_id. A valid topic
+    // makes section_id optional entirely.
     const validSections = ['spaces', 'policies', 'faq', 'personality'];
-    if (!validSections.includes(section_id)) {
+    if (!topic && !validSections.includes(section_id)) {
       return Response.json({ 
         error: 'Invalid section_id. Must be one of: spaces, policies, faq, personality' 
       }, { status: 400 });
@@ -51,7 +65,13 @@ Deno.serve(async (req) => {
       'faq': 'general',
       'personality': 'general'
     };
-    const sectionTopic = topicMap[section_id] || 'general';
+    // An explicit topic from the caller is authoritative. The section map is
+    // the legacy fallback and only covers four ids, two of which resolve to
+    // 'general' — which puts those rows in the always-on baseline block.
+    const sectionTopic = topic || topicMap[section_id] || 'general';
+    if (!topic && (!topicMap[section_id])) {
+      console.warn(`[processOnboardingAnswers] No topic given and section_id "${section_id}" has no mapping — rows will land as 'general' and enter the always-on baseline.`);
+    }
 
     // Deliberately NON-DESTRUCTIVE. This block previously hard-deleted every
     // VenueKnowledge row matching this section's category, including
@@ -186,13 +206,26 @@ Generate the Q&A pairs now.`;
       is_active: true 
     });
 
-    const progressData = {
-      venue_id,
-      [`section_${section_id}`]: 'in_progress',
-      [`answers_${section_id}`]: answers,
-      knowledge_generated_at: new Date().toISOString(),
-      knowledge_count: totalKnowledge.length
-    };
+    // Topic-driven callers write to the topic_answers / topic_status blobs.
+    // Legacy section callers keep writing the per-section fields.
+    // NOTE: existing records predate these fields, so the stored value may be
+    // absent rather than {} — always default before spreading.
+    const existingProgress = progressRecords.length > 0 ? progressRecords[0] : null;
+    const progressData = topic
+      ? {
+          venue_id,
+          topic_answers: { ...(existingProgress?.topic_answers || {}), [topic]: answers },
+          topic_status:  { ...(existingProgress?.topic_status  || {}), [topic]: 'in_progress' },
+          knowledge_generated_at: new Date().toISOString(),
+          knowledge_count: totalKnowledge.length
+        }
+      : {
+          venue_id,
+          [`section_${section_id}`]: 'in_progress',
+          [`answers_${section_id}`]: answers,
+          knowledge_generated_at: new Date().toISOString(),
+          knowledge_count: totalKnowledge.length
+        };
 
     if (progressRecords.length > 0) {
       await base44.asServiceRole.entities.VenueOnboardingProgress.update(
