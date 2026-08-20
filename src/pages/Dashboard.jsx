@@ -24,6 +24,9 @@ export default function Dashboard() {
   const [searchParams] = useSearchParams();
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Which readiness-checklist row was clicked, so the wizard can open on the
+  // step that fills that gap instead of always starting at step one.
+  const [onboardingTopic, setOnboardingTopic] = useState(null);
   const [datePreset, setDatePreset] = useState('30');
   const [dateRange, setDateRange] = useState(() => computePresetRange('30'));
 
@@ -173,7 +176,10 @@ export default function Dashboard() {
         {!showOnboarding && (
           <OnboardingReadiness
             venueId={venueId}
-            onStartOnboarding={(sectionId) => setShowOnboarding(true)}
+            onStartOnboarding={(topic) => {
+              setOnboardingTopic(topic || null);
+              setShowOnboarding(true);
+            }}
           />
         )}
 
@@ -181,13 +187,17 @@ export default function Dashboard() {
           <div className="bg-white border border-stone-200 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Train Your AI Concierge</h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowOnboarding(false)}>
+              <Button variant="ghost" size="sm" onClick={() => { setShowOnboarding(false); setOnboardingTopic(null); }}>
                 ← Back to Dashboard
               </Button>
             </div>
             <VenueOnboardingWizard
               venueId={venueId}
-              onComplete={() => setShowOnboarding(false)}
+              initialTopic={onboardingTopic}
+              onComplete={() => {
+                setShowOnboarding(false);
+                setOnboardingTopic(null);
+              }}
             />
           </div>
         )}

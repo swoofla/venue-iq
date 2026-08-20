@@ -105,14 +105,19 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
     return <Circle className="w-5 h-5 text-stone-300" />;
   };
 
+  // Only the twelve topic rows map to a wizard step. 'basics' is edited in
+  // Venue Settings and 'calendar' has no UI yet, so those two are not
+  // clickable — opening the wizard for them would land on an unrelated step.
+  const NON_TOPIC_ROWS = ['basics', 'calendar'];
   const handleSectionClick = (section) => {
+    if (NON_TOPIC_ROWS.includes(section.id)) return;
     if (section.isAuto || section.status === 'complete' || section.status === 'auto_complete') return;
     onStartOnboarding(section.id);
   };
 
   const handleStartOnboarding = () => {
     const firstIncomplete = sections.find(
-      s => !s.isAuto && !s.isOptional && s.status !== 'complete' && s.status !== 'auto_complete'
+      s => !NON_TOPIC_ROWS.includes(s.id) && s.status !== 'complete' && s.status !== 'auto_complete'
     );
     if (firstIncomplete) {
       onStartOnboarding(firstIncomplete.id);
@@ -176,7 +181,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
         {sections.map((section, index) => {
           const Icon = sectionIcons[section.id] || HelpCircle;
           const isComplete = section.status === 'complete' || section.status === 'auto_complete';
-          const isClickable = !section.isAuto && !isComplete;
+          const isClickable = !NON_TOPIC_ROWS.includes(section.id) && !isComplete;
 
           return (
             <div
