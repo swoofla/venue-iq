@@ -6,14 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Users, Mail, UserPlus, Copy, Check, Loader2 } from 'lucide-react';
+import { Building2, Users, Mail, UserPlus, Copy, Check, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import VenueEditForm from '@/components/admin/VenueEditForm';
 
 export default function SuperAdmin() {
   const [user, setUser] = useState(null);
   const [showVenueForm, setShowVenueForm] = useState(false);
   const [showUserForm, setShowUserForm] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState(null);
+  const [editingVenueId, setEditingVenueId] = useState(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [selectedVenueForInvite, setSelectedVenueForInvite] = useState(null);
   const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'venue_owner' });
@@ -129,24 +131,45 @@ export default function SuperAdmin() {
             <div className="space-y-2">
               {venues.map(venue => (
                 <div key={venue.id} className="border border-stone-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
                       <h3 className="font-semibold">{venue.name}</h3>
                       <p className="text-sm text-stone-600">{venue.location || 'No location'}</p>
-                      <p className="text-xs text-stone-500 mt-1">ID: {venue.id}</p>
+                      <p className="text-xs mt-1">
+                        {venue.slug
+                          ? <span className="text-stone-600">Slug: <code className="bg-stone-100 px-1 rounded">{venue.slug}</code></span>
+                          : <span className="text-amber-700">No slug set — chatbot link won't work</span>}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        Planner: {venue.planner_name || 'not set'} · {venue.timezone || 'America/New_York'}
+                      </p>
+                      <p className="text-xs text-stone-400 mt-1">ID: {venue.id}</p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedVenue(venue);
-                        setShowUserForm(true);
-                      }}
-                    >
-                      <Users className="w-4 h-4 mr-1" />
-                      Assign User
-                    </Button>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingVenueId(editingVenueId === venue.id ? null : venue.id)}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedVenue(venue);
+                          setShowUserForm(true);
+                        }}
+                      >
+                        <Users className="w-4 h-4 mr-1" />
+                        Assign User
+                      </Button>
+                    </div>
                   </div>
+                  {editingVenueId === venue.id && (
+                    <VenueEditForm venue={venue} onClose={() => setEditingVenueId(null)} />
+                  )}
                 </div>
               ))}
             </div>
