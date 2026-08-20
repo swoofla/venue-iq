@@ -39,11 +39,15 @@ export default function Home() {
     const isEmbedded = window.self !== window.top || params.get('embed') === '1';
 
     base44.entities.Venue.list().then(venues => {
-      // Strict slug resolution — ?venue=<slug> is required. No default venue.
-      const matched = slugFromUrl ? (venues.find(v => v.slug === slugFromUrl) || null) : null;
+      // Resolve by ?venue=<slug>. With no slug, fall back to the only venue that
+      // exists — this keeps previews and bare links working while staying correct
+      // for multiple venues, where a slug becomes required.
+      const matched = slugFromUrl
+        ? (venues.find(v => v.slug === slugFromUrl) || null)
+        : (venues.length === 1 ? venues[0] : null);
       if (matched) {
         setVenueId(matched.id);
-        setVenueSlug(matched.slug);
+        setVenueSlug(matched.slug || matched.id);
         setVenueName(matched.name);
       } else {
         setVenueNotFound(true);
