@@ -7,7 +7,14 @@ import { ChevronLeft, Check, Loader2, Clock, ArrowRight, CheckCircle2, AlertCirc
 import { ONBOARDING_STEPS } from './onboardingSteps';
 
 export default function VenueOnboardingWizard({ venueId, initialTopic, onComplete }) {
-  const startIndex = Math.max(0, ONBOARDING_STEPS.findIndex(s => s.topic === initialTopic));
+  // If a checklist topic has no matching step, findIndex returns -1 and this
+  // silently opens step one. REQUIRED_TOPICS and ONBOARDING_STEPS are two
+  // lists in two files with no enforcement, so warn loudly when they drift.
+  const requestedIndex = ONBOARDING_STEPS.findIndex(s => s.topic === initialTopic);
+  if (initialTopic && requestedIndex === -1) {
+    console.warn(`[VenueOnboardingWizard] No step found for topic "${initialTopic}" — REQUIRED_TOPICS and ONBOARDING_STEPS have drifted. Opening step one instead.`);
+  }
+  const startIndex = Math.max(0, requestedIndex);
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [answers, setAnswers] = useState({});
   const [successMessage, setSuccessMessage] = useState(null);
