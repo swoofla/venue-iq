@@ -6,12 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, Play, AlertCircle, FileText } from 'lucide-react';
+import { ArrowLeft, Package, MessageSquare, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon, AlertCircle, FileText } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import TranscriptUpload from '../components/admin/TranscriptUpload';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
-import FirstLookSettings from '../components/admin/FirstLookSettings';
 import VenueSelector from '../components/admin/VenueSelector';
 import FeaturedPhotosManager from '../components/admin/FeaturedPhotosManager';
 import VenueDocumentUpload from '@/components/admin/VenueDocumentUpload';
@@ -191,10 +190,6 @@ export default function VenueSettings() {
                <ImageIcon className="w-4 h-4 mr-2" />
                Welcome Carousel
              </TabsTrigger>
-             <TabsTrigger value="first-look">
-               <Play className="w-4 h-4 mr-2" />
-               First Look
-             </TabsTrigger>
              <TabsTrigger value="visualizer">
                <Sparkles className="w-4 h-4 mr-2" />
                Visualizer Photos
@@ -223,10 +218,6 @@ export default function VenueSettings() {
 
            <TabsContent value="featured-photos" className="mt-6">
              <FeaturedPhotosManager venueId={venueId} />
-           </TabsContent>
-
-           <TabsContent value="first-look" className="mt-6">
-             <FirstLookSettings venueId={venueId} />
            </TabsContent>
 
            <TabsContent value="visualizer" className="mt-6">

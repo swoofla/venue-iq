@@ -47,20 +47,14 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import AdminBudgetEstimates from './pages/AdminBudgetEstimates';
 import AdminCalendar from './pages/AdminCalendar';
 import AdminChatSessions from './pages/AdminChatSessions';
 import ChatTranscript from './pages/ChatTranscript';
-import AdminPhotos from './pages/AdminPhotos';
-import AdminVisualizerSettings from './pages/AdminVisualizerSettings';
 import AdminWeddings from './pages/AdminWeddings';
 import Dashboard from './pages/Dashboard';
 import Feedback from './pages/Feedback';
-import FirstLookEmbed from './pages/FirstLookEmbed';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
-import MaskGenerator from './pages/MaskGenerator';
-import QuoteSummary from './pages/QuoteSummary';
 import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
@@ -68,20 +62,14 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "AdminBudgetEstimates": AdminBudgetEstimates,
     "AdminCalendar": AdminCalendar,
     "AdminChatSessions": AdminChatSessions,
-    "AdminPhotos": AdminPhotos,
     "ChatTranscript": ChatTranscript,
-    "AdminVisualizerSettings": AdminVisualizerSettings,
     "AdminWeddings": AdminWeddings,
     "Dashboard": Dashboard,
     "Feedback": Feedback,
-    "FirstLookEmbed": FirstLookEmbed,
     "Home": Home,
     "Invite": Invite,
-    "MaskGenerator": MaskGenerator,
-    "QuoteSummary": QuoteSummary,
     "Register": Register,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
