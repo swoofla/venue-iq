@@ -56,31 +56,17 @@ export default function Dashboard() {
   });
 
   if (userLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-center">Loading...</div></div>;
+    return <div className="py-12 text-center">Loading...</div>;
   }
 
   if (!venueId) {
     if (user.role === 'admin' && !user.venue_id) {
-      return (
-        <div className="min-h-screen bg-stone-50">
-          <div className="border-b border-stone-200 bg-white">
-            <div className="max-w-7xl mx-auto px-4 py-4">
-              <h1 className="text-2xl font-semibold">Dashboard</h1>
-            </div>
-          </div>
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            <VenueSelector user={user} onVenueSelected={setVenueId} />
-          </div>
-        </div>
-      );
+      return <VenueSelector user={user} onVenueSelected={setVenueId} />;
     }
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
-          <p className="text-stone-600 mb-4">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
-          <Button onClick={() => base44.auth.logout()}>Logout</Button>
-        </div>
+      <div className="text-center max-w-md mx-auto py-12">
+        <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+        <p className="text-stone-600">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
       </div>
     );
   }
@@ -112,53 +98,40 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="border-b border-stone-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold">Dashboard</h1>
-                {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
-              </div>
-              {venue && (
-                <Button 
-                  onClick={handleCopyVenueUrl} 
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      Copy Venue URL
-                    </>
-                  )}
-                </Button>
+    <div>
+      <div className="space-y-8">
+        {/* Page-level actions. The venue name, page title and Log out all live
+            in the shell header now — only these two belong to the page. */}
+        <div className="flex items-center justify-end gap-3">
+          {venue && (
+            <Button
+              onClick={handleCopyVenueUrl}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  Copy Venue URL
+                </>
               )}
-            </div>
-            <div className="flex items-center gap-3">
-              <a
-                href="mailto:support@idealbrides.co"
-                className="flex items-center gap-2 text-sm text-stone-600 hover:text-stone-900 transition-colors"
-              >
-                <Mail className="w-4 h-4" />
-                Contact Support
-              </a>
-              <Button onClick={() => base44.auth.logout()} variant="outline">
-                Logout
-              </Button>
-            </div>
-          </div>
+            </Button>
+          )}
+          <a
+            href="mailto:support@idealbrides.co"
+            className="flex items-center gap-2 text-sm text-stone-600 hover:text-stone-900 transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            Contact Support
+          </a>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
         
         {/* Onboarding Readiness */}
@@ -297,12 +270,12 @@ export default function Dashboard() {
         )}
         </div>
 
-        {/* Footer */}
-        <footer className="border-t border-stone-200 bg-white mt-12 py-4">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-stone-500">
+      {/* Footer */}
+      <footer className="border-t border-stone-200 mt-12 py-4">
+        <div className="text-center text-sm text-stone-500">
           Version {APP_VERSION}
         </div>
-        </footer>
-        </div>
-        );
-        }
+      </footer>
+    </div>
+  );
+}
