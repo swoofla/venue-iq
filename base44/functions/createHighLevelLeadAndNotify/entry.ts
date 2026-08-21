@@ -24,7 +24,13 @@ Deno.serve(async (req) => {
     const venue = await base44.asServiceRole.entities.Venue.get(venueId);
     const headPlannerName = venue?.head_planner_name || 'our head planner';
     const venueName = venue?.name || 'the venue';
-    const venueDomain = venue?.domain || 'sugarlakeweddings.com';
+    // No cross-venue fallback. This previously defaulted to one specific
+    // venue's domain, so a venue with no domain set produced a transcript link
+    // pointing at a DIFFERENT venue's host.
+    const venueDomain = venue?.domain || null;
+    if (!venueDomain) {
+      console.warn(`[createHighLevelLeadAndNotify] Venue ${venue?.id} has no domain set — transcript link omitted from the planner note.`);
+    }
 
     // STEP B: Fetch chat session
     const chatSession = await base44.asServiceRole.entities.ChatSession.get(chatSessionId);
@@ -91,14 +97,16 @@ Deno.serve(async (req) => {
     }
 
     // STEP D: Transcript URL
-    const transcriptUrl = `https://${venueDomain}/ChatTranscript?id=${chatSessionId}`;
+    const transcriptUrl = venueDomain
+      ? `https://${venueDomain}/ChatTranscript?id=${chatSessionId}`
+      : null;
 
     // STEP E: Add note to contact
     let noteId = null;
     try {
       const noteBody =
         `⚡ HANDOFF FROM VIRTUAL PLANNER\n\n` +
-        `📄 Full conversation: ${transcriptUrl}\n\n` +
+        (transcriptUrl ? `📄 Full conversation: ${transcriptUrl}\n\n` : '') +
         `Topic: ${topicSummary}\n` +
         `Wedding date: ${chatSession?.lead_wedding_date || 'not shared'}\n` +
         `Guest count: ${chatSession?.lead_guest_count || 'not shared'}\n` +
@@ -202,7 +210,7 @@ Deno.serve(async (req) => {
       ghl_lead_contact_id: leadContactId,
       ghl_intro_message_id: messageId || undefined,
       ghl_note_id: noteId || undefined,
-      transcript_url: transcriptUrl,
+      transcript_url: transcriptUrl || undefined,
       status: introStatus,
       error_message: smsErrorMessage || undefined
     });

@@ -42,8 +42,7 @@
     },
     "head_planner_name": {
       "type": "string",
-      "default": "Saydee",
-      "description": "Name of the head planner for this venue"
+      "description": "Name of the head planner for this venue. NO DEFAULT \u2014 a venue-specific default would silently give every new venue another venue's planner name, which is exactly what happened when this defaulted to a real person's name."
     },
     "planner_name": {
       "type": "string",
