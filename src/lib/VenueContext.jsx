@@ -57,13 +57,27 @@ export function VenueProvider({ children }) {
   // their own falls through to the selected one.
   const venueId = user?.venue_id || (isAdmin ? selectedVenueId : null);
 
+  // Admins need the full list to switch between venues. A venue owner does
+  // not, and must not — Venue.read is currently open, so listing would hand
+  // them every venue's record.
   const { data: venues = [] } = useQuery({
     queryKey: ['venues'],
     queryFn: () => base44.entities.Venue.list(),
     enabled: !!isAdmin
   });
 
-  const selectedVenue = venues.find(v => v.id === venueId) || null;
+  // Fetch the resolved venue on its own so a venue owner, who never loads the
+  // list, still gets their venue's name for the header. Distinct query key:
+  // ['venue', id] is already used elsewhere with a different queryFn, and two
+  // queryFns under one key is a live hazard — whichever mounts first wins the
+  // cache and the other silently reads the wrong data.
+  const { data: fetchedVenue } = useQuery({
+    queryKey: ['venue-current', venueId],
+    queryFn: () => venueId ? base44.entities.Venue.get(venueId) : null,
+    enabled: !!venueId
+  });
+
+  const selectedVenue = fetchedVenue || venues.find(v => v.id === venueId) || null;
 
   return (
     <VenueContext.Provider value={{
