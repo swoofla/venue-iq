@@ -58,6 +58,11 @@
     "google_calendar_id": {
       "type": "string",
       "description": "Google Calendar ID selected for this venue's wedding-date sync"
+    },
+    "availability_data_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when this venue's booked-date data is seeded and trusted. When false, availability answers must not be given."
     }
   },
   "required": [
