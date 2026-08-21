@@ -4,8 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export default function BlockDateForm({ date, onClose }) {
-  const [user, setUser] = useState(null);
+export default function BlockDateForm({ date, venueId, onClose }) {
   const [formData, setFormData] = useState({
     date: date || '',
     reason: ''
@@ -13,12 +12,11 @@ export default function BlockDateForm({ date, onClose }) {
 
   const queryClient = useQueryClient();
 
-  React.useEffect(() => {
-    base44.auth.me().then(setUser);
-  }, []);
-
   const saveMutation = useMutation({
-    mutationFn: (data) => base44.entities.BlockedDate.create({ ...data, venue_id: user?.venue_id }),
+    mutationFn: (data) => {
+      if (!venueId) throw new Error('No venue selected');
+      return base44.entities.BlockedDate.create({ ...data, venue_id: venueId });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['blocked']);
       onClose();
@@ -27,6 +25,7 @@ export default function BlockDateForm({ date, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!venueId) return;
     saveMutation.mutate(formData);
   };
 
@@ -55,11 +54,17 @@ export default function BlockDateForm({ date, onClose }) {
           />
         </div>
 
+        {!venueId && (
+          <p className="text-sm text-red-600">
+            No venue selected — cannot save. Reload the page.
+          </p>
+        )}
+
         <div className="flex gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" className="flex-1 bg-black hover:bg-stone-800">
+          <Button type="submit" disabled={!venueId} className="flex-1 bg-black hover:bg-stone-800">
             Block Date
           </Button>
         </div>

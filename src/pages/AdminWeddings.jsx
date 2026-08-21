@@ -120,6 +120,7 @@ export default function AdminWeddings() {
           <div className="mb-8">
             <WeddingForm
               wedding={editingWedding}
+              venueId={venueId}
               onClose={() => {
                 setShowForm(false);
                 setEditingWedding(null);

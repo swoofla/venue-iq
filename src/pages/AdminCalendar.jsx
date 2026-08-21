@@ -176,11 +176,13 @@ export default function AdminCalendar() {
           <WeddingForm
             date={selectedDate}
             wedding={editingWedding}
+            venueId={venueId}
             onClose={handleFormClose}
           />
         ) : showBlockForm ? (
           <BlockDateForm
             date={selectedDate}
+            venueId={venueId}
             onClose={handleFormClose}
           />
         ) : selectedDate ? (

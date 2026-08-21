@@ -7,8 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function WeddingForm({ date, wedding, onClose }) {
-  const [user, setUser] = useState(null);
+export default function WeddingForm({ date, wedding, venueId, onClose }) {
   const [formData, setFormData] = useState({
     date: wedding?.date || date || '',
     couple_name: wedding?.couple_name || '',
@@ -22,21 +21,10 @@ export default function WeddingForm({ date, wedding, onClose }) {
 
   const queryClient = useQueryClient();
 
-  React.useEffect(() => {
-    base44.auth.me().then(setUser);
-  }, []);
-
   const saveMutation = useMutation({
-    mutationFn: async (data) => {
-      if (!user?.venue_id) {
-        const currentUser = await base44.auth.me();
-        const dataWithVenue = { ...data, venue_id: currentUser.venue_id };
-        if (wedding) {
-          return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
-        }
-        return base44.entities.BookedWeddingDate.create(dataWithVenue);
-      }
-      const dataWithVenue = { ...data, venue_id: user.venue_id };
+    mutationFn: (data) => {
+      if (!venueId) throw new Error('No venue selected');
+      const dataWithVenue = { ...data, venue_id: venueId };
       if (wedding) {
         return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
       }
@@ -50,7 +38,7 @@ export default function WeddingForm({ date, wedding, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!user) return;
+    if (!venueId) return;
     saveMutation.mutate(formData);
   };
 
@@ -151,11 +139,17 @@ export default function WeddingForm({ date, wedding, onClose }) {
           </label>
         </div>
 
+        {!venueId && (
+          <p className="text-sm text-red-600">
+            No venue selected — cannot save. Reload the page.
+          </p>
+        )}
+
         <div className="flex gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" className="flex-1 bg-black hover:bg-stone-800">
+          <Button type="submit" disabled={!venueId} className="flex-1 bg-black hover:bg-stone-800">
             {wedding ? 'Update' : 'Save'} Wedding
           </Button>
         </div>
