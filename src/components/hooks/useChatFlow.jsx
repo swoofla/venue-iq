@@ -742,7 +742,13 @@ export default function useChatFlow({
                 venueId,
                 date: d,
                 alternativesCount: 0,
-              }).then(r => ({ date: d, isAvailable: r?.data?.isAvailable !== false }))
+              }).then(r => {
+                const v = r?.data?.isAvailable;
+                if (typeof v !== 'boolean') {
+                  console.warn('[availability] multi-date check returned no boolean verdict for', d, '- rendering as unverified. Response:', r?.data);
+                }
+                return { date: d, isAvailable: typeof v === 'boolean' ? v : null };
+              })
                 .catch(() => ({ date: d, isAvailable: null }));
             })
           );
