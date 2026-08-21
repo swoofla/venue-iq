@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { LayoutDashboard, MessageSquare, Calendar, Settings, Building2, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Calendar, Settings, Building2, Brain, LogOut } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useVenue } from '@/lib/VenueContext';
 import {
@@ -16,6 +16,7 @@ const SHELL_PAGES = [
   'Dashboard',
   'AdminChatSessions',
   'ChatTranscript',
+  'Planner',
   'AdminCalendar',
   'AdminWeddings',
   'VenueSettings',
@@ -26,6 +27,7 @@ const SHELL_PAGES = [
 const NAV = [
   { page: 'Dashboard',         label: 'Dashboard',    icon: LayoutDashboard },
   { page: 'AdminChatSessions', label: 'Conversations', icon: MessageSquare, alsoActiveOn: ['ChatTranscript', 'Feedback'] },
+  { page: 'Planner',           label: 'Your Planner', icon: Brain },
   { page: 'AdminCalendar',     label: 'Calendar',     icon: Calendar, alsoActiveOn: ['AdminWeddings'] },
   { page: 'VenueSettings',     label: 'Settings',     icon: Settings }
 ];

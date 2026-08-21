@@ -55,6 +55,7 @@ import Dashboard from './pages/Dashboard';
 import Feedback from './pages/Feedback';
 import Home from './pages/Home';
 import Invite from './pages/Invite';
+import Planner from './pages/Planner';
 import Register from './pages/Register';
 import SuperAdmin from './pages/SuperAdmin';
 import VenueSettings from './pages/VenueSettings';
@@ -70,6 +71,7 @@ export const PAGES = {
     "Feedback": Feedback,
     "Home": Home,
     "Invite": Invite,
+    "Planner": Planner,
     "Register": Register,
     "SuperAdmin": SuperAdmin,
     "VenueSettings": VenueSettings,
