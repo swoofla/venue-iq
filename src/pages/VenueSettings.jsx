@@ -125,7 +125,7 @@ export default function VenueSettings() {
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <h3 className="font-semibold text-blue-900 mb-3">Custom Domain</h3>
               <Input
-                placeholder="e.g., sugarlakeweddings.com"
+                placeholder="e.g., worldsbestvenue.com"
                 value={venue.domain || ''}
                 onChange={(e) => updateVenueMutation.mutate({ domain: e.target.value })}
                 className="bg-white"
