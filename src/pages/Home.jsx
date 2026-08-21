@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useVenue } from '@/lib/VenueContext';
 
 import { createPageUrl } from '../utils';
 import useChatFlow from '../components/hooks/useChatFlow';
@@ -34,6 +35,7 @@ export default function Home() {
   const [venueName, setVenueName] = useState('');
   const [loading, setLoading] = useState(true);
   const [venueNotFound, setVenueNotFound] = useState(false);
+  const [missingSlug, setMissingSlug] = useState(false); // no ?venue= at all, vs. a slug that didn't match
   const [venueChoices, setVenueChoices] = useState(null); // set when a picker is needed
   const [noVenueAssigned, setNoVenueAssigned] = useState(false);
 
@@ -43,26 +45,45 @@ export default function Home() {
   // the venue branch know a redirect is coming and hold the spinner.
   const authRedirectingRef = React.useRef(false);
 
+  // Auth from context, resolved above page level. Home's own auth chain runs
+  // in parallel and races venue resolution; the picker decision cannot depend
+  // on that race, so it reads the provider instead.
+  const { isAdmin: ctxIsAdmin, userLoading: ctxUserLoading } = useVenue();
+
+  // The effect below is keyed on ctxUserLoading so it re-runs once auth
+  // resolves. This ref keeps the body to a single execution.
+  const resolveStartedRef = React.useRef(false);
+
   useEffect(() => {
+    // Wait for the provider to know whether this is an admin. Deciding earlier
+    // would show the neutral screen to an admin who should get the picker.
+    if (ctxUserLoading || resolveStartedRef.current) return;
+    resolveStartedRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const slugFromUrl = params.get('venue');
     const isEmbedded = window.self !== window.top || params.get('embed') === '1';
 
     base44.entities.Venue.list().then(venues => {
-      // Resolve by ?venue=<slug>. With no slug, fall back to the only venue that
-      // exists — this keeps previews and bare links working while staying correct
-      // for multiple venues, where a slug becomes required.
+      // No single-venue fallback. It resolved a bare URL to whichever venue
+      // happened to exist, which served one venue's planner from the neutral
+      // app domain and silently masked a missing ?venue= slug in any embed.
+      // A slug is now required, always.
       const matched = slugFromUrl
         ? (venues.find(v => v.slug === slugFromUrl) || null)
-        : (venues.length === 1 ? venues[0] : null);
+        : null;
       if (matched) {
         setVenueId(matched.id);
         setVenueSlug(matched.slug || matched.id);
         setVenueName(matched.name);
-      } else if (!slugFromUrl && venues.length > 1) {
-        // No slug given and several venues exist — let the previewer pick one.
+      } else if (!slugFromUrl && !isEmbedded && ctxIsAdmin) {
+        // Admin-only convenience for previewing without typing a slug.
         setVenueChoices(venues);
       } else {
+        if (!slugFromUrl) {
+          console.warn('[Home] No ?venue= slug. An embed must always include it.');
+          setMissingSlug(true);
+        }
         setVenueNotFound(true);
       }
       // Hold the spinner if the auth branch is redirecting to the dashboard.
@@ -118,7 +139,7 @@ export default function Home() {
       console.warn('[Home] Auth check failed, continuing as anonymous:', err?.message || err);
       setLoading(false);
     });
-  }, []);
+  }, [ctxUserLoading, ctxIsAdmin, navigate]);
 
   const { data: venue } = useQuery({
     queryKey: ['venue', venueId],
@@ -270,6 +291,27 @@ export default function Home() {
           setVenueChoices(null);
         }}
       />
+    );
+  }
+
+  // No ?venue= slug at all — a different situation from a slug that didn't
+  // match, so it gets its own copy and a way back to the dashboard.
+  if (venueNotFound && missingSlug) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-stone-50">
+        <div className="text-center max-w-sm">
+          <h1 className="text-lg font-semibold text-stone-900 mb-2">No venue specified</h1>
+          <p className="text-sm text-stone-600">
+            This link is missing a venue. If you are a venue owner, sign in to reach your dashboard.
+          </p>
+          <Link
+            to={createPageUrl('Dashboard')}
+            className="inline-block mt-4 text-sm font-medium text-stone-900 underline hover:no-underline"
+          >
+            Sign in
+          </Link>
+        </div>
+      </div>
     );
   }
 
