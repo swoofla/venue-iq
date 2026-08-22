@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Users, Mail, UserPlus, Copy, Check, Loader2, Pencil } from 'lucide-react';
+import { Users, Mail, UserPlus, Copy, Check, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import VenueEditForm from '@/components/admin/VenueEditForm';
 
@@ -85,37 +85,23 @@ export default function SuperAdmin() {
   };
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading...</div>
-      </div>
-    );
+    return <div className="py-12 text-center">Loading...</div>;
   }
 
   if (user.role !== 'admin') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-          <p className="text-stone-600 mb-4">Admin access required</p>
-          <Button onClick={() => base44.auth.logout()}>Logout</Button>
-        </div>
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+        <p className="text-stone-600 mb-4">Admin access required</p>
+        <Button onClick={() => base44.auth.logout()}>Logout</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Building2 className="w-6 h-6" />
-            <h1 className="text-2xl font-semibold">Super Admin - Venue Management</h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div>
+      {/* Title lives in the shell header now. */}
+      <div className="space-y-8">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Venues */}
           <div>

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Package, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Package, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
@@ -56,57 +56,27 @@ export default function VenueSettings() {
   });
 
   if (userLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="py-12 text-center">Loading...</div>;
   }
 
   if (!venueId) {
     if (user.role === 'admin' && !user.venue_id) {
-      return (
-        <div className="min-h-screen bg-white">
-          <div className="border-b border-stone-200">
-            <div className="max-w-7xl mx-auto px-4 py-4">
-              <h1 className="text-2xl font-semibold">Venue Settings</h1>
-            </div>
-          </div>
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            <VenueSelector user={user} onVenueSelected={setVenueId} />
-          </div>
-        </div>
-      );
+      return <VenueSelector user={user} onVenueSelected={setVenueId} />;
     }
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
-          <p className="text-stone-600 mb-4">You need to be assigned to a venue to access settings.</p>
-          <Link to={createPageUrl(user.role === 'admin' ? 'SuperAdmin' : 'Dashboard')}>
-            <Button>Go Back</Button>
-          </Link>
-        </div>
+      <div className="text-center max-w-md mx-auto py-12">
+        <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+        <p className="text-stone-600 mb-4">You need to be assigned to a venue to access settings.</p>
+        <Link to={createPageUrl(user.role === 'admin' ? 'SuperAdmin' : 'Dashboard')}>
+          <Button>Go Back</Button>
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Link to={createPageUrl('Dashboard')}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-semibold">Venue Settings</h1>
-              {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
+    <div>
+      {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
 
         {venue && (
           <div className="space-y-4 mb-6">
@@ -196,8 +166,7 @@ export default function VenueSettings() {
             <GoogleCalendarSync venueId={venueId} />
           </TabsContent>
 
-        </Tabs>
-      </div>
+      </Tabs>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Home, List } from 'lucide-react';
+import { Home, List } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import CalendarView from '../components/admin/CalendarView';
@@ -98,69 +98,44 @@ export default function AdminCalendar() {
   };
 
   if (userLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="py-12 text-center">Loading...</div>;
   }
 
   if (!venueId) {
     if (user.role === 'admin' && !user.venue_id) {
-      return (
-        <div className="min-h-screen bg-white">
-          <div className="border-b border-stone-200">
-            <div className="max-w-7xl mx-auto px-4 py-4">
-              <h1 className="text-2xl font-semibold">Wedding Calendar</h1>
-            </div>
-          </div>
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            <VenueSelector user={user} onVenueSelected={setVenueId} />
-          </div>
-        </div>
-      );
+      return <VenueSelector user={user} onVenueSelected={setVenueId} />;
     }
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
-          <p className="text-stone-600 mb-4">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
-          <Button onClick={() => base44.auth.logout()}>Logout</Button>
-        </div>
+      <div className="text-center max-w-md mx-auto py-12">
+        <h2 className="text-2xl font-bold mb-4">No Venue Assigned</h2>
+        <p className="text-stone-600 mb-4">Your account hasn't been assigned to a venue yet. Please contact your administrator.</p>
+        <Button onClick={() => base44.auth.logout()}>Logout</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CalendarIcon className="w-6 h-6" />
-              <div>
-                <h1 className="text-2xl font-semibold">Wedding Calendar</h1>
-                {venue && <p className="text-sm text-stone-600">{venue.name}</p>}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleClearDates} variant="outline" className="gap-2 text-red-600 hover:text-red-700">
-                🗑️ Clear All Synced Dates
-              </Button>
-              <Link to={createPageUrl('AdminWeddings')}>
-                <Button variant="outline" className="gap-2">
-                  <List className="w-4 h-4" />
-                  Weddings List
-                </Button>
-              </Link>
-              <Link to={createPageUrl('Home')}>
-                <Button variant="outline" className="gap-2">
-                  <Home className="w-4 h-4" />
-                  Chatbot
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+    <>
+      {/* Page actions. The title and venue name live in the shell header now. */}
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+        <Button onClick={handleClearDates} variant="outline" className="gap-2 text-red-600 hover:text-red-700">
+          🗑️ Clear All Synced Dates
+        </Button>
+        <Link to={createPageUrl('AdminWeddings')}>
+          <Button variant="outline" className="gap-2">
+            <List className="w-4 h-4" />
+            Weddings List
+          </Button>
+        </Link>
+        <Link to={createPageUrl('Home')}>
+          <Button variant="outline" className="gap-2">
+            <Home className="w-4 h-4" />
+            Chatbot
+          </Button>
+        </Link>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div>
         {showWeddingForm ? (
           <WeddingForm
             date={selectedDate}
@@ -206,6 +181,6 @@ export default function AdminCalendar() {
         )}
 
       </div>
-    </div>
+    </>
   );
 }
