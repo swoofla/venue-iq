@@ -7,30 +7,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Package, Trash2, Plus, Upload, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
 import VenueSelector from '../components/admin/VenueSelector';
 import FeaturedPhotosManager from '../components/admin/FeaturedPhotosManager';
+import { useVenue } from '@/lib/VenueContext';
 
 export default function VenueSettings() {
-  const [user, setUser] = useState(null);
-  const [selectedVenueId, setSelectedVenueId] = useState(null);
-  const [searchParams] = useSearchParams();
+  // Venue resolution lives in VenueContext so the shell header's switcher and
+  // this page can't disagree. It already reads ?venue_id= and auth.me().
+  const { user, venueId, setVenueId, userLoading } = useVenue();
   const queryClient = useQueryClient();
-
-  React.useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      const paramVenueId = searchParams.get('venue_id');
-      if (paramVenueId) {
-        setSelectedVenueId(paramVenueId);
-      }
-    });
-  }, [searchParams]);
-
-  // Use selectedVenueId if super admin, otherwise use user's venue_id
-  const venueId = selectedVenueId || user?.venue_id;
 
   const { data: venue } = useQuery({
     queryKey: ['venue', venueId],
@@ -67,7 +55,7 @@ export default function VenueSettings() {
     enabled: !!venueId
   });
 
-  if (!user) {
+  if (userLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
@@ -81,7 +69,7 @@ export default function VenueSettings() {
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-4 py-8">
-            <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />
+            <VenueSelector user={user} onVenueSelected={setVenueId} />
           </div>
         </div>
       );
@@ -118,7 +106,7 @@ export default function VenueSettings() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />}
+        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
 
         {venue && (
           <div className="space-y-4 mb-6">

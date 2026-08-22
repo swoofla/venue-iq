@@ -3,34 +3,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Home, List } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import CalendarView from '../components/admin/CalendarView';
 import WeddingForm from '../components/admin/WeddingForm';
 import BlockDateForm from '../components/admin/BlockDateForm';
 import VenueSelector from '../components/admin/VenueSelector';
+import { useVenue } from '@/lib/VenueContext';
 
 export default function AdminCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showWeddingForm, setShowWeddingForm] = useState(false);
   const [showBlockForm, setShowBlockForm] = useState(false);
   const [editingWedding, setEditingWedding] = useState(null);
-  const [user, setUser] = useState(null);
-  const [selectedVenueId, setSelectedVenueId] = useState(null);
-  const [searchParams] = useSearchParams();
+  // Venue resolution lives in VenueContext so the shell header's switcher and
+  // this page can't disagree. It already reads ?venue_id= and auth.me().
+  const { user, venueId, setVenueId, userLoading } = useVenue();
   const queryClient = useQueryClient();
-
-  React.useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      const paramVenueId = searchParams.get('venue_id');
-      if (paramVenueId) {
-        setSelectedVenueId(paramVenueId);
-      }
-    });
-  }, [searchParams]);
-
-  const venueId = selectedVenueId || user?.venue_id;
 
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
@@ -108,7 +97,7 @@ export default function AdminCalendar() {
     setEditingWedding(null);
   };
 
-  if (!user) {
+  if (userLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
@@ -122,7 +111,7 @@ export default function AdminCalendar() {
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-4 py-8">
-            <VenueSelector user={user} onVenueSelected={setSelectedVenueId} />
+            <VenueSelector user={user} onVenueSelected={setVenueId} />
           </div>
         </div>
       );
