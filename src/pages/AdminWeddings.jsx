@@ -24,12 +24,6 @@ export default function AdminWeddings() {
     enabled: !!venueId
   });
 
-  const { data: venue } = useQuery({
-    queryKey: ['venue', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.Venue.get(venueId) : null,
-    enabled: !!venueId
-  });
-
   const deleteWeddingMutation = useMutation({
     mutationFn: (id) => base44.entities.BookedWeddingDate.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['weddings'])

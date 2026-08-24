@@ -101,19 +101,11 @@ export default function ChatTranscript() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="text-stone-500 text-sm">Loading transcript…</div>
-      </div>
-    );
+    return <div className="text-stone-500 text-sm py-12 text-center">Loading transcript…</div>;
   }
 
   if (error || !session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-6">
-        <p className="text-stone-500 text-center text-sm">This transcript is no longer available.</p>
-      </div>
-    );
+    return <p className="text-stone-500 text-center text-sm py-12">This transcript is no longer available.</p>;
   }
 
   const venueName = session.venue_name || 'Venue';
@@ -150,28 +142,28 @@ export default function ChatTranscript() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      {/* Top bar */}
-      <header className="bg-black text-white px-6 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+    <div>
+      <main className="max-w-2xl mx-auto px-5 py-6">
+        {/* Session navigation — back link and prev/next pager, previously in the black top bar. */}
+        <div className="flex items-center justify-between gap-3 mb-5">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               to={createPageUrl('AdminChatSessions')}
-              className="text-white/70 hover:text-white flex items-center gap-1"
+              className="text-stone-500 hover:text-stone-900 flex items-center gap-1"
               style={{ fontSize: '12px' }}
             >
               <ArrowLeft className="w-4 h-4" />
               All sessions
             </Link>
-            <span className="text-white/30">·</span>
-            <h1 className="truncate" style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
+            <span className="text-stone-300">·</span>
+            <h1 className="truncate text-stone-900" style={{ fontSize: '15px', fontWeight: 500 }}>{venueName}</h1>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               type="button"
               onClick={() => goTo(prevId)}
               disabled={!prevId}
-              className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-1.5 rounded text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
               title="Newer session"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -180,16 +172,14 @@ export default function ChatTranscript() {
               type="button"
               onClick={() => goTo(nextId)}
               disabled={!nextId}
-              className="p-1.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-1.5 rounded text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
               title="Older session"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-6">
         {/* Lead info */}
         <div className="mb-6">
           <p style={{ fontSize: '19px', fontWeight: 500 }} className="text-stone-900">

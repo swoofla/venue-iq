@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { MessageSquare, ArrowLeft, Search, UserRoundCheck, CalendarCheck, Download } from 'lucide-react';
+import { MessageSquare, Search, UserRoundCheck, CalendarCheck, Download } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
 function csvEscape(v) {
@@ -160,22 +160,12 @@ export default function AdminChatSessions() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="bg-black text-white px-6 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to={createPageUrl('Dashboard')} className="text-white/60 hover:text-white">
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <h1 style={{ fontSize: '15px', fontWeight: 500 }}>Chat sessions</h1>
-          </div>
-          <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.55)' }}>
-            {sessions.length} TOTAL
-          </span>
-        </div>
-      </header>
+    <main className="max-w-4xl mx-auto px-5 py-6">
+        {/* Session count. The page title and back arrow live in the shell now. */}
+        <p className="text-stone-500 mb-3" style={{ fontSize: '10px', letterSpacing: '0.15em' }}>
+          {sessions.length} TOTAL
+        </p>
 
-      <main className="max-w-4xl mx-auto px-5 py-6">
         <div className="relative mb-4">
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -366,7 +356,6 @@ export default function AdminChatSessions() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+    </main>
   );
 }

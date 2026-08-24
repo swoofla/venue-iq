@@ -47,10 +47,10 @@ export default function Feedback() {
   }, [filter, authStatus]);
 
   if (authStatus === 'checking') {
-    return <div className="mx-auto max-w-3xl p-6 text-sm text-gray-500">Loading…</div>;
+    return <div className="max-w-3xl text-sm text-gray-500">Loading…</div>;
   }
   if (authStatus === 'forbidden') {
-    return <div className="mx-auto max-w-3xl p-6 text-sm text-gray-500">Not found.</div>;
+    return <div className="max-w-3xl text-sm text-gray-500">Not found.</div>;
   }
 
   const fmtDate = (r) => {
@@ -61,9 +61,8 @@ export default function Feedback() {
   const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Chat Feedback</h1>
+    <div className="max-w-3xl">
+      <div className="mb-4 flex items-center justify-end">
         <div className="flex rounded-lg border border-gray-200 p-0.5 text-sm">
           <button onClick={() => setFilter('down')} className={`rounded-md px-3 py-1 ${filter === 'down' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Thumbs-down</button>
           <button onClick={() => setFilter('all')} className={`rounded-md px-3 py-1 ${filter === 'all' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>All</button>
