@@ -10,6 +10,13 @@ import { Users, Mail, UserPlus, Copy, Check, Loader2, Pencil } from 'lucide-reac
 import { toast } from 'sonner';
 import VenueEditForm from '@/components/admin/VenueEditForm';
 
+// Invite links must NOT be built from window.location.origin (nor from the
+// origin the backend sees, which is the same value). Invites generated inside
+// the Base44 editor would carry the preview sandbox host — e.g.
+// preview--...base44.app — which recipients cannot authenticate against, so
+// every such link is dead on arrival. Always issue links on the production host.
+const APP_BASE_URL = 'https://myvirtualplanner.app';
+
 export default function SuperAdmin() {
   const [user, setUser] = useState(null);
   const [showVenueForm, setShowVenueForm] = useState(false);
@@ -47,7 +54,10 @@ export default function SuperAdmin() {
       return result.data;
     },
     onSuccess: (data) => {
-      setGeneratedInviteUrl(data.invite_url);
+      // Deliberately ignoring data.invite_url: the backend builds it from the
+      // request origin, which is the editor preview host when an invite is
+      // created from the editor. Rebuild it on the production host instead.
+      setGeneratedInviteUrl(`${APP_BASE_URL}/invite?token=${data.token}`);
       toast.success('Invitation created successfully!');
     },
     onError: (error) => {
