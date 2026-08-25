@@ -6,14 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MessageSquare, Trash2, Plus, Upload, AlertCircle, FileText } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Upload, AlertCircle, FileText, PlayCircle } from 'lucide-react';
 import { useVenue } from '@/lib/VenueContext';
 import VenueSelector from '@/components/admin/VenueSelector';
 import VenueDocumentUpload from '@/components/admin/VenueDocumentUpload';
 import TranscriptUpload from '@/components/admin/TranscriptUpload';
+import PlannerTestChat from '@/components/admin/PlannerTestChat';
 
 export default function Planner() {
-  const { user, venueId, setVenueId, userLoading } = useVenue();
+  const { user, venueId, setVenueId, userLoading, selectedVenue } = useVenue();
 
   // No is_active filter on purpose — the review queue below has to show
   // drafts, which are exactly the rows that are not yet active.
@@ -58,6 +59,10 @@ export default function Planner() {
           <Upload className="w-4 h-4 mr-2" />
           Upload Transcripts
         </TabsTrigger>
+        <TabsTrigger value="test">
+          <PlayCircle className="w-4 h-4 mr-2" />
+          Test Chatbot
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="review" className="mt-6">
@@ -70,6 +75,10 @@ export default function Planner() {
 
       <TabsContent value="transcripts" className="mt-6">
         <TranscriptUpload venueId={venueId} />
+      </TabsContent>
+
+      <TabsContent value="test" className="mt-6">
+        <PlannerTestChat venue={selectedVenue} />
       </TabsContent>
     </Tabs>
   );
