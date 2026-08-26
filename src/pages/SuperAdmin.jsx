@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Mail, UserPlus, Copy, Check, Loader2, Pencil } from 'lucide-react';
+import { Users, Mail, UserPlus, Copy, Check, Loader2, Pencil, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import VenueEditForm from '@/components/admin/VenueEditForm';
 
@@ -27,6 +27,11 @@ export default function SuperAdmin() {
   const [selectedVenueForInvite, setSelectedVenueForInvite] = useState(null);
   const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'venue_owner' });
   const [generatedInviteUrl, setGeneratedInviteUrl] = useState(null);
+  // The backend now sends the invite email itself. Without these two the admin
+  // could not tell a delivered invite from one that silently hit the
+  // per-recipient send quota.
+  const [inviteEmailSent, setInviteEmailSent] = useState(false);
+  const [inviteEmailError, setInviteEmailError] = useState(null);
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
 
@@ -58,7 +63,13 @@ export default function SuperAdmin() {
       // request origin, which is the editor preview host when an invite is
       // created from the editor. Rebuild it on the production host instead.
       setGeneratedInviteUrl(`${APP_BASE_URL}/invite?token=${data.token}`);
-      toast.success('Invitation created successfully!');
+      setInviteEmailSent(!!data.email_sent);
+      setInviteEmailError(data.email_error || null);
+      if (data.email_sent) {
+        toast.success('Invitation emailed successfully!');
+      } else {
+        toast.warning('Invitation created, but the email did not send.');
+      }
     },
     onError: (error) => {
       toast.error(error.message);
@@ -90,6 +101,8 @@ export default function SuperAdmin() {
   const closeInviteDialog = () => {
     setInviteDialogOpen(false);
     setGeneratedInviteUrl(null);
+    setInviteEmailSent(false);
+    setInviteEmailError(null);
     setInviteForm({ email: '', name: '', role: 'venue_owner' });
     setSelectedVenueForInvite(null);
   };
@@ -291,10 +304,26 @@ export default function SuperAdmin() {
               </div>
             ) : (
               <div className="space-y-4 py-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <Check className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-green-800 font-medium">Invitation Created!</p>
-                </div>
+                {inviteEmailSent ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <Check className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-green-800 font-medium">Invitation sent</p>
+                    <p className="text-sm text-green-700 mt-1">
+                      We emailed the invitation to {inviteForm.email}.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                    <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                    <p className="text-red-800 font-medium">Invitation created, but the email didn't send</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      Copy the link below and send it to {inviteForm.email} yourself.
+                    </p>
+                    {inviteEmailError && (
+                      <p className="text-xs text-red-600/80 mt-2 break-words">{inviteEmailError}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Invitation Link</Label>
@@ -305,22 +334,15 @@ export default function SuperAdmin() {
                     </Button>
                   </div>
                   <p className="text-xs text-stone-500">
-                    Share this link with {inviteForm.email}. It expires in 7 days.
+                    {inviteEmailSent
+                      ? "Only needed if they don't receive the email."
+                      : `Share this link with ${inviteForm.email}. It expires in 7 days.`}
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button onClick={closeInviteDialog} variant="outline" className="flex-1 rounded-full">
-                    Done
-                  </Button>
-                  <Button 
-                    onClick={() => window.open(`mailto:${inviteForm.email}?subject=You're invited&body=Click here to accept your invitation: ${encodeURIComponent(generatedInviteUrl)}`)}
-                    className="flex-1 rounded-full bg-black hover:bg-stone-800"
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Send Email
-                  </Button>
-                </div>
+                <Button onClick={closeInviteDialog} variant="outline" className="w-full rounded-full">
+                  Done
+                </Button>
               </div>
             )}
           </DialogContent>
