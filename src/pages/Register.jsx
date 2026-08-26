@@ -8,6 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { createPageUrl } from '../utils';
 
+// Auth errors arrive in three shapes: a FastAPI validation array, a string
+// detail, or a message that may not be a string at all. Resolving them in one
+// place keeps every handler below rendering readable text instead of
+// "[object Object]".
+function resolveErrorMessage(err, fallback) {
+  const detail = err?.response?.data?.detail;
+  const detailMsg = Array.isArray(detail) ? detail[0]?.msg : (typeof detail === 'string' ? detail : null);
+  const raw = err?.message;
+  const rawMsg = typeof raw === 'string' ? raw : (raw ? JSON.stringify(raw) : null);
+  return detailMsg || rawMsg || fallback;
+}
+
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -25,6 +37,10 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: ''
   });
+
+  const [step, setStep] = useState('form');
+  const [otpCode, setOtpCode] = useState('');
+  const [resendNote, setResendNote] = useState(null);
 
   useEffect(() => {
     async function loadInvite() {
@@ -75,17 +91,7 @@ export default function RegisterPage() {
 
     try {
       await base44.auth.register({ email: formData.email, password: formData.password });
-
-      const result = await base44.functions.invoke('acceptUserInvite', {
-        token: token,
-        name: formData.name
-      });
-
-      if (!result.data?.success) {
-        throw new Error(result.data?.error || 'Failed to complete registration');
-      }
-
-      navigate(createPageUrl('Dashboard'));
+      setStep('otp');
     } catch (err) {
       console.error('Registration error:', err);
       
@@ -93,15 +99,55 @@ export default function RegisterPage() {
       if (msgText.includes('already registered') || msgText.includes('already exists')) {
         setError('An account with this email already exists. Please log in instead.');
       } else {
-        const detail = err?.response?.data?.detail;
-        const detailMsg = Array.isArray(detail) ? detail[0]?.msg : (typeof detail === 'string' ? detail : null);
-        const raw = err?.message;
-        const rawMsg = typeof raw === 'string' ? raw : (raw ? JSON.stringify(raw) : null);
         console.error('[register] failure:', err?.response?.data || err);
-        setError(detailMsg || rawMsg || 'Failed to create account. Please try again.');
+        setError(resolveErrorMessage(err, 'Failed to create account. Please try again.'));
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!otpCode.trim()) {
+      setError('Enter the code from your email');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await base44.auth.verifyOtp({ email: formData.email, otpCode: otpCode.trim() });
+      await base44.auth.loginViaEmailPassword(formData.email, formData.password);
+      // Hard navigation on purpose: the auth context must re-read the now
+      // authenticated user, which a client-side navigate() would not trigger.
+      window.location.href = `${window.location.origin}${createPageUrl('Invite')}?token=${token}`;
+    } catch (err) {
+      console.error('[verifyOtp] failure:', err?.response?.data || err);
+      setError(resolveErrorMessage(err, 'Could not verify that code. Please try again.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError(null);
+    setResendNote(null);
+
+    try {
+      await base44.auth.resendOtp(formData.email);
+      setResendNote('A new code is on its way.');
+    } catch (err) {
+      console.error('[resendOtp] failure:', err?.response?.data || err);
+      const status = err?.response?.status;
+      const text = resolveErrorMessage(err, '');
+      if (status === 429 || /429|rate limit/i.test(String(text))) {
+        setResendNote('Please wait a moment before requesting another code.');
+      } else {
+        setError(resolveErrorMessage(err, 'Could not resend the code. Please try again.'));
+      }
     }
   };
 
@@ -124,6 +170,73 @@ export default function RegisterPage() {
             <CardTitle>Invalid Invitation</CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === 'otp') {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Check your email</CardTitle>
+            <CardDescription>
+              We sent a 6-digit code to {formData.email}. Enter it below to finish setting up your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleVerify} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otpCode">Verification Code</Label>
+                <Input
+                  id="otpCode"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder="123456"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+
+              {resendNote && (
+                <p className="text-sm text-stone-500">{resendNote}</p>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full rounded-full bg-black hover:bg-stone-800"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify and continue'
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={handleResend}
+                className="text-sm text-stone-600 hover:underline"
+              >
+                Resend code
+              </button>
+            </div>
+          </CardContent>
         </Card>
       </div>
     );
@@ -227,7 +340,7 @@ export default function RegisterPage() {
             <p className="text-sm text-stone-600">
               Already have an account?{' '}
               <button
-                onClick={() => base44.auth.redirectToLogin(window.location.href)}
+                onClick={() => base44.auth.redirectToLogin(`${window.location.origin}${createPageUrl('Invite')}?token=${token}`)}
                 className="text-black font-medium hover:underline"
               >
                 Log in
