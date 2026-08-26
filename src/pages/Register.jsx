@@ -74,7 +74,7 @@ export default function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await base44.auth.register(formData.email, formData.password);
+      await base44.auth.register({ email: formData.email, password: formData.password });
 
       const result = await base44.functions.invoke('acceptUserInvite', {
         token: token,
@@ -92,7 +92,12 @@ export default function RegisterPage() {
       if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
         setError('An account with this email already exists. Please log in instead.');
       } else {
-        setError(err.message || 'Failed to create account. Please try again.');
+        const detail = err?.response?.data?.detail;
+        const detailMsg = Array.isArray(detail) ? detail[0]?.msg : (typeof detail === 'string' ? detail : null);
+        const raw = err?.message;
+        const rawMsg = typeof raw === 'string' ? raw : (raw ? JSON.stringify(raw) : null);
+        console.error('[register] failure:', err?.response?.data || err);
+        setError(detailMsg || rawMsg || 'Failed to create account. Please try again.');
       }
     } finally {
       setSubmitting(false);
