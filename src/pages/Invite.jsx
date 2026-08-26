@@ -97,7 +97,11 @@ export default function InvitePage() {
         throw new Error(result.data?.error || 'Failed to accept invitation');
       }
 
-      navigate(createPageUrl('Dashboard'));
+      // Hard navigation on purpose: acceptUserInvite has just written venue_id
+      // to this user, and VenueContext only reads auth.me() once on mount. A
+      // client-side navigate() would leave Dashboard reading the pre-acceptance
+      // user object and showing "No Venue Assigned".
+      window.location.href = `${window.location.origin}${createPageUrl('Dashboard')}`;
     } catch (err) {
       console.error('Accept invite error:', err);
       setAcceptError(readableError(err));
