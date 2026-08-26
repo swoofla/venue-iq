@@ -64,15 +64,49 @@ Deno.serve(async (req) => {
       created_by: created_by || null
     });
 
-    const baseUrl = req.headers.get('origin') || 'https://your-app.base44.app';
+    // Never derive the invite host from the request origin: inside the Base44
+    // editor that is a preview sandbox the recipient cannot authenticate
+    // against. Always issue links on the production host.
+    const baseUrl = 'https://myvirtualplanner.app';
     const inviteUrl = `${baseUrl}/invite?token=${token}`;
+
+    const roleLabel = role === 'venue_owner' ? 'Venue Owner' : 'Staff Member';
+    const greeting = name ? `Hi ${name},` : 'Hi,';
+
+    let emailSent = false;
+    let emailError = null;
+    try {
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to: email,
+        subject: `You're invited to ${venue.name} on Virtual Planner`,
+        from_name: 'Virtual Planner',
+        body: `${greeting}
+
+You've been invited to join ${venue.name} on Virtual Planner as a ${roleLabel}.
+
+Accept your invitation here:
+${inviteUrl}
+
+This link expires in 7 days.
+
+If you weren't expecting this, you can ignore this email.`
+      });
+      emailSent = true;
+    } catch (err) {
+      // A delivery failure must never fail invite creation - the record exists
+      // and the admin can still copy the link manually.
+      emailError = err?.message || String(err);
+      console.error('createUserInvite: email send failed', emailError);
+    }
 
     return Response.json({ 
       success: true,
       invite_id: invite.id,
       invite_url: inviteUrl,
       token,
-      expires_at: expiresAt.toISOString()
+      expires_at: expiresAt.toISOString(),
+      email_sent: emailSent,
+      email_error: emailError
     });
 
   } catch (error) {
