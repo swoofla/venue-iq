@@ -78,18 +78,31 @@ Deno.serve(async (req) => {
     try {
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: email,
-        subject: `You're invited to ${venue.name} on Virtual Planner`,
+        subject: `Set up your Virtual Planner account for ${venue.name}`,
         from_name: 'Virtual Planner',
-        body: `${greeting}
-
-You've been invited to join ${venue.name} on Virtual Planner as a ${roleLabel}.
-
-Accept your invitation here:
-${inviteUrl}
-
-This link expires in 7 days.
-
-If you weren't expecting this, you can ignore this email.`
+        body: `<div style="max-width:520px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<div style="background-color:#000000;padding:20px 28px;border-radius:12px 12px 0 0;">
+<div style="color:#ffffff;font-size:17px;font-weight:500;line-height:1.2;">Virtual Planner</div>
+<div style="color:#a8a29e;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;margin-top:5px;">Venue access</div>
+</div>
+<div style="background-color:#ffffff;padding:28px;border:1px solid #e7e5e4;border-top:none;border-radius:0 0 12px 12px;">
+<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#1c1917;">${greeting}</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1c1917;">You've been given access to your venue's planner.</p>
+<div style="background-color:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;padding:16px 18px;margin:0 0 22px;">
+<div style="font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#78716c;">Venue</div>
+<div style="font-size:19px;font-weight:500;color:#1c1917;margin-top:4px;">${venue.name}</div>
+<div style="font-size:13px;color:#57534e;margin-top:6px;">Your role: ${roleLabel}</div>
+</div>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#57534e;">Your planner answers couples' questions on your website, checks your open dates, and passes real enquiries to your team. Set up your account and you'll see what it still needs to learn about your venue.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;"><tr><td bgcolor="#000000" style="border-radius:999px;">
+<a href="${inviteUrl}" style="display:inline-block;background-color:#000000;color:#ffffff;font-size:15px;font-weight:500;text-decoration:none;padding:13px 30px;border-radius:999px;">Accept your invitation</a>
+</td></tr></table>
+<p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#78716c;">Or paste this into your browser:<br><span style="color:#57534e;word-break:break-all;">${inviteUrl}</span></p>
+<div style="border-top:1px solid #e7e5e4;padding-top:16px;">
+<p style="margin:0;font-size:12px;line-height:1.6;color:#a8a29e;">This link expires in 7 days. If you weren't expecting it, you can ignore this email.</p>
+</div>
+</div>
+</div>`
       });
       emailSent = true;
     } catch (err) {
