@@ -89,7 +89,8 @@ export default function RegisterPage() {
     } catch (err) {
       console.error('Registration error:', err);
       
-      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
+      const msgText = typeof err?.message === 'string' ? err.message : JSON.stringify(err?.message ?? '');
+      if (msgText.includes('already registered') || msgText.includes('already exists')) {
         setError('An account with this email already exists. Please log in instead.');
       } else {
         const detail = err?.response?.data?.detail;
