@@ -1199,20 +1199,13 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
         weddingDate,
       });
 
-      const generatorRaw = await base44.integrations.Core.InvokeLLM({
-        prompt: generatorPrompt,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            needsHandoff: { type: 'boolean' },
-            topicSummary: { type: 'string', maxLength: 40, description: "A SHORT noun phrase (2-4 words) naming the subject of the handoff — e.g. 'preferred vendors', 'pricing questions', 'refund policy', 'speaking with a planner'. Never a full sentence. No trailing punctuation. Lowercase unless a proper noun." },
-            acknowledgment: { type: 'string' },
-            answer: { type: 'string' }
-          },
-          required: ['needsHandoff']
-        },
-        model: 'claude_opus_4_7'
+      const generatorRes = await base44.functions.invoke('invokeAnthropicGenerator', {
+        prompt: generatorPrompt
       });
+      if (generatorRes?.data?.error) {
+        console.error('[anthropic-generator] backend returned an error:', generatorRes.data.error);
+      }
+      const generatorRaw = generatorRes?.data?.result;
       mark('generator');
       console.log(`[timing] generator prompt chars: ${generatorPrompt.length}`);
 
