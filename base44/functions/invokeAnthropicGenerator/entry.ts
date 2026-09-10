@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-const MODEL = 'REPLACE_WITH_MODEL_ID';
+const MODEL = 'claude-sonnet-5';
 const TIMEOUT_MS = 60000;
 const MAX_TOKENS = 2000;
 
