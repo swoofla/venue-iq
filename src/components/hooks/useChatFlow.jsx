@@ -1294,7 +1294,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
       // NOTE: offerStaged is a local flag, not the handoffPending state — state
       // set above is not readable in this same render.
       if (!offerStaged && !handoffPending && !verdictSentence && typeof answer === 'string') {
-        const CONTACT_ACTION = /(reach out|text you|call you|follow up with you|get in touch|be in touch|connect you|put you in touch)/i;
+        const CONTACT_ACTION = /(reach out|reach back out|text you|call you|email you|follow up|get in touch|be in touch|touch base|connect you|get you connected|put you in touch|loop you in|loop in|pass (?:you |your |along))/i;
         const COMMITMENT = /(i'll have|i will have|i'll get|i'm going to have|let me have|i'll connect|i will connect|i'll pass)/i;
         if (CONTACT_ACTION.test(answer)) {
           const topic = generator?.topicSummary || 'your question';
