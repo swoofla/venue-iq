@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Could not read that document', detail: payload?.reading_error || 'The reader could not verify the PDF. No facts were saved. Please try a smaller PDF.' }, { status: 422 });
     }
     const raw = payload.entries;
-    const readingFailure = /(?:file|document|pdf|upload).{0,100}(?:exceeds?|too large|size limit|10\\s*mb)|(?:cannot|can't|could not|unable to).{0,30}(?:read|access|open|process).{0,30}(?:file|document|pdf)|(?:re-upload|reupload|provide the file again)/i;
+    const readingFailure = /(?:file|document|pdf|upload).{0,100}(?:exceeds?|too large|size limit|10\s*mb)|(?:cannot|can't|could not|unable to).{0,30}(?:read|access|open|process).{0,30}(?:file|document|pdf)|(?:re-upload|reupload|provide the file again)/i;
     const usable = raw.filter(e => e && VALID_TOPICS.includes(e.topic) &&
       typeof e.question === 'string' && e.question.trim() &&
       typeof e.answer === 'string' && e.answer.trim() &&
