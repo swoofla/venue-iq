@@ -97,6 +97,14 @@
       "type": "boolean",
       "default": false,
       "description": "Flagged for venue owner review before going live"
+    },
+    "source_excerpt": {
+      "type": "string",
+      "description": "Passage quoted from the imported document for review"
+    },
+    "source_page": {
+      "type": "integer",
+      "description": "One-based source PDF page"
     }
   },
   "required": [
