@@ -266,6 +266,12 @@ function ChatbotTraining({ knowledge, venueId }) {
                 </div>
                 <p className="font-medium mb-2">{item.question}</p>
                 <p className="text-sm text-stone-600">{item.answer}</p>
+                {item.source_excerpt && (
+                  <details className="mt-3 text-sm text-stone-500">
+                    <summary className="cursor-pointer">Document source{item.source_page ? ` · Page ${item.source_page}` : ''}</summary>
+                    <blockquote className="mt-2 border-l-2 border-stone-200 pl-3 whitespace-pre-wrap">{item.source_excerpt}</blockquote>
+                  </details>
+                )>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 ml-4">
                 {item.needs_review && (
