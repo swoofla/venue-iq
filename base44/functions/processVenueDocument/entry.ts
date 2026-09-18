@@ -107,10 +107,15 @@ Deno.serve(async (req) => {
         )));
       }
       const payloads = results.map(result => result?.entries ? result : result?.output);
-      const failed = payloads.find(result => result?.document_readable !== true || !Array.isArray(result?.entries));
-      extraction = failed || {
+      if (payloads.some(result => result?.document_readable !== true || !Array.isArray(result?.entries))) {
+        throw new Error('The reader could not verify every page group. No facts were saved. Please try again.');
+      }
+      extraction = {
         document_readable: true,
-        entries: payloads.flatMap(result => result.entries)
+        entries: payloads.flatMap((result, index) => {
+          const assigned = new Set([...batches[index].matchAll(/(?:^|\n)PAGE (\d+)\n/g)].map(match => Number(match[1])));
+          return result.entries.filter(entry => !assigned.size || assigned.has(entry.source_page));
+        })
       };
     } catch (err) {
       console.error('Document extraction failed:', err?.message || err);
