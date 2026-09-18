@@ -1,5 +1,5 @@
 import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+const workerUrl = '/pdf.worker-4.10.38.min.mjs';
 
 // Preserve the user's original; upload a smaller reading copy for oversized PDFs.
 const MAX_READER_BYTES = 8 * 1024 * 1024;
