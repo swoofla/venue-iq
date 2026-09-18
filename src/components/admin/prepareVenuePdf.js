@@ -1,13 +1,12 @@
+import * as pdfjs from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
 // Preserve the user's original; upload a smaller reading copy for oversized PDFs.
 const MAX_READER_BYTES = 8 * 1024 * 1024;
 
 export async function prepareVenuePdf(file, onProgress = () => {}) {
   if (!/\.pdf$/i.test(file.name)) throw new Error('Please choose a PDF file.');
   if (file.size > 75 * 1024 * 1024) throw new Error('Please split PDFs larger than 75 MB into smaller documents.');
-  const [pdfjs, { default: workerUrl }] = await Promise.all([
-    import('pdfjs-dist'),
-    import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-  ]);
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const loading = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false });
   try {
