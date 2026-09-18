@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
 import { REQUIRED_TOPICS } from './onboardingQuestions';
+import { prepareVenuePdf } from './prepareVenuePdf';
 
 const labelFor = (topic) => {
   const match = REQUIRED_TOPICS.find(t => t.topic === topic);
@@ -14,6 +15,7 @@ export default function VenueDocumentUpload({ venueId }) {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | uploading | extracting | done | error
   const [result, setResult] = useState(null);
+  const [progress, setProgress] = useState('Preparing your PDF...');
   const [error, setError] = useState(null);
   const queryClient = useQueryClient();
 
@@ -32,8 +34,11 @@ export default function VenueDocumentUpload({ venueId }) {
     setResult(null);
 
     try {
+      setStatus('preparing');
+      setProgress('Preparing your PDF...');
+      const prepared = await prepareVenuePdf(file, setProgress);
       setStatus('uploading');
-      const uploaded = await base44.integrations.Core.UploadFile({ file });
+      const uploaded = await base44.integrations.Core.UploadFile({ file: prepared.file });
       const fileUrl = uploaded?.file_url || uploaded?.url;
       if (!fileUrl) throw new Error('Upload succeeded but no file URL came back.');
 
@@ -41,7 +46,10 @@ export default function VenueDocumentUpload({ venueId }) {
       const response = await base44.functions.invoke('processVenueDocument', {
         venue_id: venueId,
         file_url: fileUrl,
-        document_name: file.name
+        document_name: file.name,
+        document_text: prepared.documentText,
+        page_count: prepared.pageCount,
+        file_size: prepared.file.size
       });
 
       const data = response?.data;
@@ -55,12 +63,12 @@ export default function VenueDocumentUpload({ venueId }) {
       queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
     } catch (err) {
       console.error('Document processing failed:', err);
-      setError(err?.message || 'Something went wrong reading that document.');
+      setError(err?.response?.data?.detail || err?.response?.data?.error || err?.message || 'Something went wrong reading that document.');
       setStatus('error');
     }
   };
 
-  const busy = status === 'uploading' || status === 'extracting';
+  const busy = ['preparing', 'uploading', 'extracting'].includes(status);
 
   return (
     <div className="space-y-4">
@@ -100,6 +108,7 @@ export default function VenueDocumentUpload({ venueId }) {
       </div>
 
       <Button onClick={handleProcess} disabled={!file || busy} className="gap-2">
+        {status === 'preparing' && (<><Loader2 className="w-4 h-4 animate-spin" />{progress}</>)}
         {status === 'uploading' && (<><Loader2 className="w-4 h-4 animate-spin" />Uploading...</>)}
         {status === 'extracting' && (<><Loader2 className="w-4 h-4 animate-spin" />Reading your document...</>)}
         {!busy && (<><Upload className="w-4 h-4" />Read This Document</>)}
@@ -120,12 +129,14 @@ export default function VenueDocumentUpload({ venueId }) {
           <div className="bg-green-50 border border-green-200 rounded-xl p-4">
             <div className="flex items-center gap-2 text-green-900 font-medium mb-1">
               <CheckCircle2 className="w-5 h-5" />
-              Found {result.created} {result.created === 1 ? 'fact' : 'facts'} in your document
+              Found {result.extracted ?? result.created} {(result.extracted ?? result.created) === 1 ? 'fact' : 'facts'} in your document
             </div>
             <p className="text-xs text-green-800">
-              These are saved as drafts. Head to Chatbot Training, filter to "Awaiting
-              review", and approve the ones that look right.
-              {result.skipped > 0 && ` (${result.skipped} were skipped as duplicates or unusable.)`}
+              {result.created} new drafts saved. Open Review & Train, filter to "Awaiting review",
+              and approve the ones that look right.
+              {result.duplicates > 0 && ` ${result.duplicates} facts already exist and were left unchanged.`}
+              {result.invalid > 0 && ` ${result.invalid} unsupported entries were rejected.`}
+              {result.page_count > 0 && ` Read ${result.page_count} pages.`}
             </p>
           </div>
 
@@ -151,8 +162,8 @@ export default function VenueDocumentUpload({ venueId }) {
                 Still needs your input
               </p>
               <p className="text-xs text-stone-600 mb-2">
-                Your document didn't cover these, so brides asking about them won't get an
-                answer yet.
+                No facts were extracted for these topics. Check the document or add the
+                details manually; existing knowledge may already cover them.
               </p>
               <div className="space-y-1">
                 {result.topicsMissing.map(t => (
