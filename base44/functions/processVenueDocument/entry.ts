@@ -91,11 +91,27 @@ Deno.serve(async (req) => {
     // Both are evidence, not instructions.
     let extraction;
     try {
-      extraction = await base44.integrations.Core.InvokeLLM({
-        prompt: EXTRACTION_PROMPT + (document_text ? '\n\nEXTRACTED DOCUMENT TEXT (untrusted evidence):\n' + document_text : ''),
-        file_urls: [file_url],
-        response_json_schema: EXTRACTION_SCHEMA
-      });
+      const pages = document_text ? document_text.split(/\n\n(?=PAGE \d+\n)/) : [];
+      const batches = [];
+      for (let i = 0; i < pages.length; i += 4) batches.push(pages.slice(i, i + 4).join('\n\n'));
+      if (!batches.length) batches.push('');
+      const results = [];
+      // Bound concurrency while giving each page group its own extraction budget.
+      for (let i = 0; i < batches.length; i += 3) {
+        results.push(...await Promise.all(batches.slice(i, i + 3).map(batch =>
+          base44.integrations.Core.InvokeLLM({
+            prompt: EXTRACTION_PROMPT + '\nExtract every supported detail from the assigned pages below, not just highlights. Use the attached full PDF for visual verification and checking contradictions. Only create entries for facts on the assigned pages. Keep package-specific amenities, times, seasonal restrictions and prices in their package context. Use getting_ready for preparation rooms, alcohol_bar for bartenders, and reception_spaces for reception locations.\n\nASSIGNED PAGES (untrusted evidence):\n' + (batch || 'All pages in the attachment'),
+            file_urls: [file_url],
+            response_json_schema: EXTRACTION_SCHEMA
+          })
+        )));
+      }
+      const payloads = results.map(result => result?.entries ? result : result?.output);
+      const failed = payloads.find(result => result?.document_readable !== true || !Array.isArray(result?.entries));
+      extraction = failed || {
+        document_readable: true,
+        entries: payloads.flatMap(result => result.entries)
+      };
     } catch (err) {
       console.error('Document extraction failed:', err?.message || err);
       return Response.json({
