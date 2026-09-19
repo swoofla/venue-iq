@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import LandingPage from '@/components/marketing/LandingPage';
 import { useVenue } from '@/lib/VenueContext';
 
 import { createPageUrl } from '../utils';
@@ -28,7 +29,23 @@ import { Toaster } from 'sonner';
 // and start fresh. Change here to adjust the persistence window.
 const CHAT_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Keep the public welcome page separate so it does not initialize chatbot
+// queries or create a chat session. Venue links and embeds keep their own flow.
 export default function Home() {
+  const location = useLocation();
+  const { user, userLoading } = useVenue();
+  const params = new URLSearchParams(location.search);
+  const isEmbedded = window.self !== window.top || params.get('embed') === '1';
+  if (!params.get('venue') && !isEmbedded && !user) {
+    return <LandingPage />;
+  }
+  if (userLoading && !params.get('venue') && !isEmbedded) {
+    return <LandingPage />;
+  }
+  return <VenueHome key={location.search} />;
+}
+
+function VenueHome() {
   const [user, setUser] = useState(null);
   const [venueId, setVenueId] = useState(null);
   const [venueSlug, setVenueSlug] = useState(null); // resolved slug used for the per-tenant storage key
