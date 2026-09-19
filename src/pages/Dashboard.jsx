@@ -132,7 +132,7 @@ export default function Dashboard() {
           </a>
         </div>
 
-        {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
+        {/* Venue switching is provided by the shared header. */}
         
         {/* Onboarding Readiness */}
         {!showOnboarding && (
