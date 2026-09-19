@@ -307,3 +307,21 @@ export function calculateReadinessScore(activeKnowledge = [], venue = null) {
 
 export { ONBOARDING_SECTIONS };
 export default ONBOARDING_SECTIONS;
+
+// Shared onboarding state: active knowledge is covered; inactive review drafts
+// need approval, and neither historical form status nor blank forms imply coverage.
+export function getOnboardingTopicState(topic, knowledge = []) {
+  if (knowledge.some(k => k.topic === topic && k.is_active)) return 'covered';
+  if (knowledge.some(k => k.topic === topic && !k.is_active && k.needs_review)) return 'review';
+  return 'unanswered';
+}
+
+export function nextUnansweredStep(steps, currentIndex, knowledge, excludedTopics = []) {
+  const excluded = new Set(excludedTopics);
+  for (let offset = 1; offset < steps.length; offset++) {
+    const index = (currentIndex + offset) % steps.length;
+    if (!excluded.has(steps[index].topic) &&
+        getOnboardingTopicState(steps[index].topic, knowledge) === 'unanswered') return index;
+  }
+  return -1;
+}
