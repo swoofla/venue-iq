@@ -67,7 +67,7 @@ export default function LandingPage() {
           <aside><Heart size={22} strokeWidth={1.4} aria-hidden="true" /><h3>Planning your own celebration?</h3><p>Your venue has a planner just for you. Visit your venue’s website or use the planner link they shared to explore the details of your day.</p></aside>
         </section>
       </main>
-      <footer className="vp-footer vp-container"><a className="vp-brand" href="/"><img className="vp-logo" src="/my-virtual-planner-logo.png" alt="My Virtual Planner" width="2162" height="727" /></a><span>Good beginnings. Beautiful possibilities.</span><span>© {new Date().getFullYear()} My Virtual Planner</span></footer>
+      <footer className="vp-footer vp-container"><a className="vp-brand" href="/"><img className="vp-logo" src="/my-virtual-planner-logo.png" alt="My Virtual Planner" width="2162" height="727" /></a><nav aria-label="Legal" className="vp-legal-links"><a href="/privacy-policy.html">Privacy Policy</a><a href="/terms-of-service.html">Terms of Service</a></nav><span>© {new Date().getFullYear()} My Virtual Planner</span></footer>
     </div>
   );
 }
