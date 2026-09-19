@@ -38,12 +38,6 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
     enabled: !!venueId
   });
 
-  const { data: operatingRules = [] } = useQuery({
-    queryKey: ['operating-rules', venueId],
-    queryFn: () => base44.entities.VenueOperatingRules.filter({ venue_id: venueId }),
-    enabled: !!venueId
-  });
-
   const { data: venue } = useQuery({
     queryKey: ['venue', venueId],
     queryFn: () => base44.entities.Venue.get(venueId),
@@ -60,7 +54,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
 
   const progress = progressRecords?.[0];
 
-  const readiness = calculateReadinessScore(knowledge, venue, operatingRules.length > 0);
+  const readiness = calculateReadinessScore(knowledge, venue);
   const score = readiness.score;
 
   // Don't render if fully ready
@@ -68,7 +62,6 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
 
   const sections = [
     { id: 'basics',   label: 'Venue Basics',       status: readiness.basics ? 'complete' : 'not_started',   subtext: 'Name, timezone, and who brides get handed off to' },
-    { id: 'calendar', label: 'Operating Calendar', status: readiness.calendar ? 'complete' : 'not_started', subtext: 'What you host each month, guest caps, blocked dates' },
     ...REQUIRED_TOPICS.map(t => ({
       id: t.topic,
       label: t.label,
@@ -105,10 +98,8 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
     return <Circle className="w-5 h-5 text-stone-300" />;
   };
 
-  // Only the twelve topic rows map to a wizard step. 'basics' is edited in
-  // Venue Settings and 'calendar' has no UI yet, so those two are not
-  // clickable — opening the wizard for them would land on an unrelated step.
-  const NON_TOPIC_ROWS = ['basics', 'calendar'];
+  // Topic rows map to wizard steps. Venue Basics is edited in Venue Settings.
+  const NON_TOPIC_ROWS = ['basics'];
   const handleSectionClick = (section) => {
     if (NON_TOPIC_ROWS.includes(section.id)) return;
     if (section.isAuto || section.status === 'complete' || section.status === 'auto_complete') return;
