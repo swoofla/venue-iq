@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { LayoutDashboard, MessageSquare, Calendar, Settings, Building2, Brain, LogOut } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -34,6 +34,7 @@ const NAV = [
 
 export default function Layout({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
   // pathname never contains a query string, so the old .split('?') was a no-op.
   const currentPage = location.pathname.replace(/^\//, '');
   const { user, isAdmin, venueId, setVenueId, venues, selectedVenue } = useVenue();
@@ -41,6 +42,13 @@ export default function Layout({ children }) {
   if (!SHELL_PAGES.includes(currentPage)) {
     return <>{children}</>;
   }
+
+  const handleVenueChange = (id) => {
+    setVenueId(id);
+    const params = new URLSearchParams(location.search);
+    params.set('venue_id', id);
+    navigate({ pathname: location.pathname, search: params.toString(), hash: location.hash }, { replace: true });
+  };
 
   const isActive = (item) =>
     currentPage === item.page || (item.alsoActiveOn || []).includes(currentPage);
@@ -61,7 +69,7 @@ export default function Layout({ children }) {
               {isAdmin && !user?.venue_id && venues.length > 0 && (
                 <div className="flex items-center gap-2 min-w-0">
                   <Building2 className="w-4 h-4 text-stone-400 shrink-0" />
-                  <Select value={venueId || ''} onValueChange={setVenueId}>
+                  <Select value={venueId || ''} onValueChange={handleVenueChange}>
                     <SelectTrigger className="h-8 w-[180px] text-sm border-stone-200">
                       <SelectValue placeholder="Choose a venue" />
                     </SelectTrigger>
@@ -111,7 +119,8 @@ export default function Layout({ children }) {
           </nav>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      {/* Reset forms, selected calendars, and results when the managed venue changes. */}
+      <main key={venueId || 'no-venue'} className="max-w-7xl mx-auto px-4 py-6">
         {children}
       </main>
     </div>
