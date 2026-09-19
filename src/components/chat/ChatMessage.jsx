@@ -44,6 +44,13 @@ const markdownComponents = {
 };
 
 export default function ChatMessage({ message, isBot }) {
+  // Some generated replies contain literal JSON newline escapes. Normalize at
+  // render time so both new replies and restored chat history get proper lists
+  // and paragraphs, without changing visitors' messages or decoding other escapes.
+  const markdown = isBot && typeof message === 'string'
+    ? message.replace(/\\r\\n|\\n|\\r/g, '\n')
+    : '';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -77,7 +84,7 @@ export default function ChatMessage({ message, isBot }) {
               remarkPlugins={[remarkGfm]}
               components={markdownComponents}
             >
-              {message || ''}
+              {markdown}
             </ReactMarkdown>
           </div>
         ) : (
