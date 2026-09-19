@@ -22,7 +22,7 @@ export default function LandingPage() {
     <div className="vp-landing">
       <a className="vp-skip" href="#main-content">Skip to content</a>
       <header className="vp-header vp-container">
-        <a href="/" className="vp-brand" aria-label="Virtual Planner home"><span className="vp-brand-mark"><Sparkles size={22} aria-hidden="true" /></span> Virtual Planner<span className="vp-brand-dot">.</span></a>
+        <a href="/" className="vp-brand" aria-label="My Virtual Planner home"><img className="vp-logo" src="/my-virtual-planner-logo.png" alt="My Virtual Planner" width="2162" height="727" /></a>
         <nav aria-label="Main navigation">
           <a className="vp-nav-link" href="#features">The experience</a>
           {action('vp-nav-signin', 'Sign in')}
@@ -67,7 +67,7 @@ export default function LandingPage() {
           <aside><Heart size={22} strokeWidth={1.4} aria-hidden="true" /><h3>Planning your own celebration?</h3><p>Your venue has a planner just for you. Visit your venue’s website or use the planner link they shared to explore the details of your day.</p></aside>
         </section>
       </main>
-      <footer className="vp-footer vp-container"><a className="vp-brand" href="/">Virtual Planner<span className="vp-brand-dot">.</span></a><span>Good beginnings. Beautiful possibilities.</span><span>© {new Date().getFullYear()} Virtual Planner</span></footer>
+      <footer className="vp-footer vp-container"><a className="vp-brand" href="/"><img className="vp-logo" src="/my-virtual-planner-logo.png" alt="My Virtual Planner" width="2162" height="727" /></a><span>Good beginnings. Beautiful possibilities.</span><span>© {new Date().getFullYear()} My Virtual Planner</span></footer>
     </div>
   );
 }
