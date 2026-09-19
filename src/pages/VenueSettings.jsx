@@ -76,7 +76,7 @@ export default function VenueSettings() {
 
   return (
     <div>
-      {user.role === 'admin' && !user.venue_id && <VenueSelector user={user} onVenueSelected={setVenueId} />}
+      {/* Venue switching is provided by the shared header. */}
 
         {venue && (
           <div className="space-y-4 mb-6">
