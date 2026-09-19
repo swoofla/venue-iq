@@ -166,7 +166,7 @@ export const ONBOARDING_STEPS = [
   {
     topic: 'availability_dates',
     title: 'Dates & Seasons',
-    description: 'The narrative side of your calendar. The month-by-month grid is a separate step.',
+    description: 'Booking windows, seasonal highlights, dates you never book, and how many weddings you host at once.',
     estimatedMinutes: 3,
     questions: [
       { id: 'booking_window', label: 'How far in advance do couples typically book?', required: true, helpText: 'Give a realistic range and note which dates go fastest.', placeholder: 'e.g., "Most book 12-18 months out. Fall Saturdays go first, often two years ahead."' },
