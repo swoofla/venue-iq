@@ -273,12 +273,12 @@ export const BONUS_TOPICS = [
  * Coverage-based readiness.
  *   activeKnowledge  — VenueKnowledge rows where is_active is true
  *   venue            — the Venue record
- *   hasOperatingRules— boolean, whether a VenueOperatingRules record exists
+ *   Weights: venue basics 8%, required topics 72%, bonus topics 20%.
  *
- * Returns { score, basics, calendar, requiredCovered, requiredTotal,
+ * Returns { score, basics, requiredCovered, requiredTotal,
  *           bonusCovered, coveredTopics, missingRequired }
  */
-export function calculateReadinessScore(activeKnowledge = [], venue = null, hasOperatingRules = false) {
+export function calculateReadinessScore(activeKnowledge = [], venue = null) {
   const covered = new Set(
     (activeKnowledge || [])
       .filter(k => k && k.topic && k.topic !== 'general')
@@ -291,14 +291,12 @@ export function calculateReadinessScore(activeKnowledge = [], venue = null, hasO
 
   let score = 0;
   if (basics) score += 8;
-  if (hasOperatingRules) score += 12;
-  score += Math.round((requiredCovered / REQUIRED_TOPICS.length) * 60);
+  score += Math.round((requiredCovered / REQUIRED_TOPICS.length) * 72);
   score += Math.round((bonusCovered / BONUS_TOPICS.length) * 20);
 
   return {
     score: Math.min(score, 100),
     basics,
-    calendar: hasOperatingRules,
     requiredCovered,
     requiredTotal: REQUIRED_TOPICS.length,
     bonusCovered,
