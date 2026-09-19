@@ -51,7 +51,7 @@ export default function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-14 gap-4">
             <Link to={createPageUrl('Dashboard')} className="font-semibold text-stone-900 tracking-tight whitespace-nowrap">
-              Virtual Planner
+              My Virtual Planner
             </Link>
 
             <div className="flex items-center gap-3 min-w-0">
