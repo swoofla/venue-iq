@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Circle,
   CircleDot,
-  AlertCircle,
   Building2,
   FileText,
   HelpCircle,
