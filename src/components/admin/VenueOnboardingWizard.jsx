@@ -1,197 +1,150 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ChevronLeft, Check, Loader2, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { ONBOARDING_STEPS } from './onboardingSteps';
+import { getOnboardingTopicState, nextUnansweredStep } from './onboardingQuestions';
+
+const labels = { covered: 'Covered', review: 'Needs review', unanswered: 'Unanswered' };
 
 export default function VenueOnboardingWizard({ venueId, initialTopic, onComplete }) {
-  // If a checklist topic has no matching step, findIndex returns -1 and this
-  // silently opens step one. REQUIRED_TOPICS and ONBOARDING_STEPS are two
-  // lists in two files with no enforcement, so warn loudly when they drift.
-  const requestedIndex = ONBOARDING_STEPS.findIndex(s => s.topic === initialTopic);
-  if (initialTopic && requestedIndex === -1) {
-    console.warn(`[VenueOnboardingWizard] No step found for topic "${initialTopic}" — REQUIRED_TOPICS and ONBOARDING_STEPS have drifted. Opening step one instead.`);
-  }
-  const startIndex = Math.max(0, requestedIndex);
-  const [currentIndex, setCurrentIndex] = useState(startIndex);
-  const [answers, setAnswers] = useState({});
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(Math.max(0, ONBOARDING_STEPS.findIndex(s => s.topic === initialTopic)));
+  const [drafts, setDrafts] = useState({});
+  const [skipped, setSkipped] = useState([]);
+  const [savedTopics, setSavedTopics] = useState([]);
+  const [message, setMessage] = useState('');
+  const [finished, setFinished] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const top = useRef(null);
   const queryClient = useQueryClient();
-
-  const currentStep = ONBOARDING_STEPS[currentIndex];
-
-  const { data: progressRecords } = useQuery({
+  const progressQuery = useQuery({
     queryKey: ['onboarding-progress', venueId],
     queryFn: () => base44.entities.VenueOnboardingProgress.filter({ venue_id: venueId }),
     enabled: !!venueId
   });
+  const knowledgeQuery = useQuery({
+    queryKey: ['onboarding-knowledge', venueId],
+    queryFn: () => base44.entities.VenueKnowledge.filter({ venue_id: venueId }),
+    enabled: !!venueId
+  });
+  const knowledge = knowledgeQuery.data || [];
+  const step = ONBOARDING_STEPS[currentIndex];
+  const answers = drafts[step.topic] ?? progressQuery.data?.[0]?.topic_answers?.[step.topic] ?? {};
+  const stateOf = topic => getOnboardingTopicState(topic, knowledge);
+  const state = stateOf(step.topic);
+  const entries = knowledge.filter(k => k.topic === step.topic && (k.is_active || k.needs_review));
+  const coveredCount = ONBOARDING_STEPS.filter(s => stateOf(s.topic) === 'covered').length;
+  const reviewCount = ONBOARDING_STEPS.filter(s => stateOf(s.topic) === 'review' || (stateOf(s.topic) === 'unanswered' && savedTopics.includes(s.topic))).length;
 
-  const progress = progressRecords?.[0];
-  // Records created before topic_answers/topic_status existed have no key for
-  // either field — the schema default only applies on write. Always default.
-  const topicAnswers = progress?.topic_answers || {};
-  const topicStatus = progress?.topic_status || {};
-
-  useEffect(() => {
-    const saved = topicAnswers[currentStep.topic];
-    setAnswers(saved && typeof saved === 'object' ? saved : {});
-    setSuccessMessage(null);
-  }, [currentIndex, progress, currentStep.topic]);
-
+  const openStep = index => {
+    setCurrentIndex(index);
+    setEditing(false);
+    setFinished(false);
+    top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const advance = (extraExcluded = [], latestKnowledge = knowledge) => {
+    const next = nextUnansweredStep(ONBOARDING_STEPS, currentIndex, latestKnowledge, [...skipped, ...savedTopics, ...extraExcluded]);
+    if (next === -1) setFinished(true);
+    else openStep(next);
+  };
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const response = await base44.functions.invoke('processOnboardingAnswers', {
-        venue_id: venueId,
-        topic: currentStep.topic,
-        answers
-      });
+    mutationFn: async ({ topic, values }) => {
+      const response = await base44.functions.invoke('processOnboardingAnswers', { venue_id: venueId, topic, answers: values });
+      if (response.data?.success === false || response.data?.error) throw new Error(response.data.error || 'Unable to save');
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['onboarding-progress', venueId] });
       queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
       queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
-      setSuccessMessage(
-        `Saved. We drafted ${data?.created ?? 0} answer${data?.created === 1 ? '' : 's'} for your chatbot — review and approve them in Chatbot Training before they go live.`
-      );
+      const refreshed = await knowledgeQuery.refetch();
+      if (!(data?.created > 0)) {
+        setMessage('Your answers were saved, but no review drafts were created. Please revise this topic and save again.');
+        return;
+      }
+      setSavedTopics(previous => [...new Set([...previous, variables.topic])]);
+      setMessage(`Saved ${step.title}. ${data.created} draft answer(s) need approval in Your Planner before the chatbot can use them.`);
+      advance([variables.topic], refreshed.data || knowledge);
     }
   });
-
-  const handleAnswerChange = (questionId, value) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
-  };
-
-  const handleSave = () => {
-    const missing = currentStep.questions
-      .filter(q => q.required)
-      .filter(q => !answers[q.id] || !answers[q.id].trim());
-    if (missing.length > 0) {
-      alert(`Please fill in: ${missing.map(q => q.label).join(', ')}`);
+  const save = () => {
+    const missing = step.questions.filter(q => q.required && !String(answers[q.id] || '').trim());
+    if (missing.length) {
+      setMessage('Please answer the required questions before saving: ' + missing.map(q => q.label).join(', '));
       return;
     }
-    saveMutation.mutate();
+    setMessage('');
+    saveMutation.mutate({ topic: step.topic, values: answers });
   };
-
-  const goNext = () => {
-    if (currentIndex < ONBOARDING_STEPS.length - 1) setCurrentIndex(i => i + 1);
-    else if (onComplete) onComplete();
+  const skip = () => {
+    setSkipped(previous => [...new Set([...previous, step.topic])]);
+    setMessage('Skipped for now. This topic will remain unanswered.');
+    advance([step.topic]);
   };
-
-  const statusOf = (topic) => topicStatus[topic] || 'not_started';
-  const completedCount = ONBOARDING_STEPS.filter(s => statusOf(s.topic) !== 'not_started').length;
-  const isCurrentDone = statusOf(currentStep.topic) !== 'not_started';
+  const busy = saveMutation.isPending;
+  if (progressQuery.isPending || knowledgeQuery.isPending) return <p role="status">Loading your saved information…</p>;
+  if (progressQuery.isError || knowledgeQuery.isError) return <div role="alert">Unable to load your saved information. <Button onClick={() => { progressQuery.refetch(); knowledgeQuery.refetch(); }}>Try again</Button></div>;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Step chips — a 13-step circle-and-connector bar is unreadable on a
-          phone, so this is a wrapping grid of short labels instead. */}
+    <div ref={top} className="max-w-2xl mx-auto scroll-mt-28">
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-stone-900">
-            Step {currentIndex + 1} of {ONBOARDING_STEPS.length}
-          </p>
-          <p className="text-xs text-stone-500">{completedCount} started</p>
-        </div>
+        <p className="text-sm font-medium mb-2">{coveredCount} covered · {reviewCount} need review · {ONBOARDING_STEPS.length - coveredCount - reviewCount} unanswered</p>
+        <p className="text-xs text-stone-500 mb-3">Saving moves to the next unanswered topic. Covered topics are skipped automatically; you can review any topic below.</p>
         <div className="flex flex-wrap gap-1.5">
-          {ONBOARDING_STEPS.map((step, index) => {
-            const done = statusOf(step.topic) !== 'not_started';
-            const isCurrent = index === currentIndex;
-            return (
-              <button
-                key={step.topic}
-                onClick={() => setCurrentIndex(index)}
-                className={`text-xs px-2.5 py-1.5 rounded-full transition-colors ${
-                  isCurrent
-                    ? 'bg-stone-900 text-white'
-                    : done
-                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-                }`}
-              >
-                {done && !isCurrent && <Check className="w-3 h-3 inline mr-1" />}
-                {step.title}
-              </button>
-            );
+          {ONBOARDING_STEPS.map((item, index) => {
+            const status = stateOf(item.topic);
+            return <button key={item.topic} disabled={busy} onClick={() => { setMessage(''); openStep(index); }}
+              aria-current={!finished && index === currentIndex ? 'step' : undefined}
+              className={`text-xs px-2.5 py-1.5 rounded-full ${!finished && index === currentIndex ? 'bg-stone-900 text-white' : status === 'covered' ? 'bg-green-100 text-green-800' : status === 'review' ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-600'}`}>
+              {status === 'covered' && <Check className="w-3 h-3 inline mr-1" />}{item.title} · {labels[status]}
+            </button>;
           })}
         </div>
       </div>
-
-      {/* Step header */}
-      <div className="bg-white border-2 border-stone-200 rounded-xl p-5 mb-6">
-        <h2 className="text-xl font-bold text-stone-900 mb-1">{currentStep.title}</h2>
-        <p className="text-stone-600 text-sm mb-3">{currentStep.description}</p>
-        <div className="flex items-center gap-2 text-xs text-stone-500">
-          <Clock className="w-3.5 h-3.5" />
-          <span>about {currentStep.estimatedMinutes} minutes</span>
+      {message && <p role="status" className="rounded-xl bg-stone-100 p-4 mb-5 text-sm">{message}</p>}
+      {saveMutation.isError && <p role="alert" className="text-red-700 mb-4">Could not save. Your answers are still here. {saveMutation.error?.message}</p>}
+      {finished ? <div className="border rounded-xl p-6 space-y-4">
+        <h2 className="text-xl font-semibold">You've reached the end of this pass</h2>
+        <p className="text-sm text-stone-600">Saved drafts still need approval in Your Planner. Skipped topics remain unanswered. You can return to any topic above.</p>
+        <Button onClick={onComplete}>Back to dashboard</Button>
+      </div> : <>
+        <div className="border rounded-xl p-5 mb-6">
+          <h2 className="text-xl font-bold mb-1">{step.title}</h2>
+          <p className="text-sm text-stone-600">{step.description}</p>
+          <p className="text-xs mt-3">{labels[state]} · About {step.estimatedMinutes} minutes</p>
         </div>
-      </div>
-
-      {successMessage && (
-        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm text-green-900 font-medium">{successMessage}</p>
-            {currentIndex < ONBOARDING_STEPS.length - 1 && (
-              <button onClick={goNext} className="text-sm text-green-700 hover:text-green-900 font-medium mt-2 flex items-center gap-1">
-                Next step <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
+        {entries.length > 0 && <div className="border rounded-xl p-5 mb-6">
+          <h3 className="font-semibold mb-2">{state === 'covered' ? 'Existing chatbot knowledge' : 'Saved drafts awaiting approval'}</h3>
+          <p className="text-sm text-stone-600 mb-3">Covered means this topic has active knowledge, not that every question below has been answered. Information imported or entered elsewhere does not fill in this questionnaire.</p>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {entries.map(entry => <details key={entry.id} className="text-sm">
+              <summary className="cursor-pointer font-medium">{entry.question} <span className="text-xs text-stone-500">({entry.is_active ? 'Active' : 'Needs review'})</span></summary>
+              <p className="mt-2 whitespace-pre-wrap">{entry.answer}</p>
+            </details>)}
           </div>
-        </div>
-      )}
-
-      {saveMutation.isError && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-red-900 font-medium">Couldn't save that step</p>
-            <p className="text-xs text-red-800 mt-1">{saveMutation.error?.message || 'Something went wrong. Your answers are still here — try again.'}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Questions */}
-      <div className="space-y-6 mb-8">
-        {currentStep.questions.map((question) => (
-          <div key={question.id}>
-            <label className="block font-semibold text-stone-900 mb-1">
-              {question.label}
-              {question.required && <span className="text-red-600 ml-1">*</span>}
-            </label>
+          <p className="text-xs text-stone-500 mt-3">Review or edit these entries in Your Planner. Adding answers here creates new drafts and keeps existing knowledge.</p>
+          {!editing && <Button variant="outline" className="mt-4" onClick={() => setEditing(true)}>Add or update questionnaire answers</Button>}
+        </div>}
+        {(state === 'unanswered' || editing) && <div className="space-y-6 mb-8">
+          {step.questions.map(question => <div key={question.id}>
+            <label htmlFor={question.id} className="block font-semibold mb-1">{question.label}{question.required && <span className="text-red-600 ml-1">*</span>}</label>
             <p className="text-sm text-stone-600 mb-2">{question.helpText}</p>
-            <Textarea
-              placeholder={question.placeholder}
-              value={answers[question.id] || ''}
-              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-              rows={4}
-              className="bg-white border-stone-200 rounded-xl text-sm resize-none"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between border-t-2 border-stone-200 pt-6">
-        {currentIndex > 0 ? (
-          <Button variant="ghost" onClick={() => setCurrentIndex(i => i - 1)} className="gap-2">
-            <ChevronLeft className="w-4 h-4" />
-            Back
+            <Textarea id={question.id} disabled={busy} placeholder={question.placeholder} value={answers[question.id] || ''}
+              onChange={event => setDrafts(previous => ({ ...previous, [step.topic]: { ...answers, [question.id]: event.target.value } }))}
+              rows={4} className="rounded-xl" />
+          </div>)}
+        </div>}
+        <div className="flex flex-wrap justify-end gap-3 border-t pt-6">
+          <Button variant="ghost" disabled={busy} onClick={state === 'unanswered' ? skip : () => advance()}>
+            {state === 'unanswered' ? 'Skip for now' : 'Next unanswered topic'}
           </Button>
-        ) : <div />}
-
-        <div className="flex items-center gap-3">
-          <button onClick={goNext} className="text-sm text-stone-600 hover:text-stone-900">
-            Skip for now
-          </button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-stone-900 hover:bg-stone-800 rounded-full gap-2">
-            {saveMutation.isPending
-              ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</>
-              : isCurrentDone ? <><Check className="w-4 h-4" />Save again</> : 'Save this step'}
-          </Button>
+          {(state === 'unanswered' || editing) && <Button disabled={busy} onClick={save}>
+            {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : 'Save & continue'}
+          </Button>}
         </div>
-      </div>
+      </>}
     </div>
   );
 }
