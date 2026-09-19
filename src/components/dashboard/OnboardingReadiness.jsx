@@ -17,7 +17,7 @@ import {
   Upload,
   Settings
 } from 'lucide-react';
-import { calculateReadinessScore, REQUIRED_TOPICS } from '@/components/admin/onboardingQuestions';
+import { calculateReadinessScore, REQUIRED_TOPICS, getOnboardingTopicState } from '@/components/admin/onboardingQuestions';
 
 const sectionIcons = {
   venue_basics: Settings,
@@ -31,9 +31,9 @@ const sectionIcons = {
 };
 
 export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
-  const { data: progressRecords } = useQuery({
-    queryKey: ['onboarding-progress', venueId],
-    queryFn: () => base44.entities.VenueOnboardingProgress.filter({ venue_id: venueId }),
+  const { data: allKnowledge = [] } = useQuery({
+    queryKey: ['onboarding-knowledge', venueId],
+    queryFn: () => base44.entities.VenueKnowledge.filter({ venue_id: venueId }),
     enabled: !!venueId
   });
 
@@ -51,7 +51,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
 
   if (!venueId) return null;
 
-  const progress = progressRecords?.[0];
+
 
   const readiness = calculateReadinessScore(knowledge, venue);
   const score = readiness.score;
@@ -64,8 +64,8 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
     ...REQUIRED_TOPICS.map(t => ({
       id: t.topic,
       label: t.label,
-      status: readiness.coveredTopics.has(t.topic) ? 'complete' : 'not_started',
-      subtext: readiness.coveredTopics.has(t.topic) ? null : 'Your bot cannot answer questions on this yet'
+      status: readiness.coveredTopics.has(t.topic) ? 'complete' : getOnboardingTopicState(t.topic, allKnowledge) === 'review' ? 'in_progress' : 'not_started',
+      subtext: readiness.coveredTopics.has(t.topic) ? 'Covered by active knowledge · Click to review' : getOnboardingTopicState(t.topic, allKnowledge) === 'review' ? 'Draft answers saved · Approve them in Your Planner' : 'No active knowledge for this topic yet'
     }))
   ];
 
@@ -101,13 +101,12 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
   const NON_TOPIC_ROWS = ['basics'];
   const handleSectionClick = (section) => {
     if (NON_TOPIC_ROWS.includes(section.id)) return;
-    if (section.isAuto || section.status === 'complete' || section.status === 'auto_complete') return;
     onStartOnboarding(section.id);
   };
 
   const handleStartOnboarding = () => {
     const firstIncomplete = sections.find(
-      s => !NON_TOPIC_ROWS.includes(s.id) && s.status !== 'complete' && s.status !== 'auto_complete'
+      s => !NON_TOPIC_ROWS.includes(s.id) && s.status === 'not_started'
     );
     if (firstIncomplete) {
       onStartOnboarding(firstIncomplete.id);
@@ -130,7 +129,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
             <h3 className="text-lg font-semibold text-stone-900 mb-1">Chatbot Readiness</h3>
             <p className="text-sm text-stone-600">{getSubtitle()}</p>
             <p className="text-xs text-stone-500 mt-1">
-              {knowledge.length} knowledge entries • your bot can answer {readiness.requiredCovered} of {readiness.requiredTotal} things brides ask most
+              {knowledge.length} active knowledge entries • {readiness.requiredCovered} of {readiness.requiredTotal} topics covered
             </p>
           </div>
         </div>
@@ -171,11 +170,14 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
         {sections.map((section, index) => {
           const Icon = sectionIcons[section.id] || HelpCircle;
           const isComplete = section.status === 'complete' || section.status === 'auto_complete';
-          const isClickable = !NON_TOPIC_ROWS.includes(section.id) && !isComplete;
+          const isClickable = !NON_TOPIC_ROWS.includes(section.id);
 
           return (
             <div
               key={section.id}
+              role={isClickable ? 'button' : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onKeyDown={e => { if (isClickable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleSectionClick(section); } }}
               onClick={() => isClickable && handleSectionClick(section)}
               className={`flex items-center justify-between py-3 border-b border-stone-50 last:border-0 ${
                 isClickable ? 'cursor-pointer hover:bg-stone-50 -mx-2 px-2 rounded-lg' : ''
@@ -186,7 +188,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4 text-stone-400" />
                   <div>
-                    <p className={`text-sm font-medium ${isComplete ? 'line-through text-stone-500' : 'text-stone-900'}`}>
+                    <p className={`text-sm font-medium ${isComplete ? 'text-stone-500' : 'text-stone-900'}`}>
                       {section.label}
                     </p>
                     {section.subtext && (
@@ -202,7 +204,7 @@ export default function OnboardingReadiness({ venueId, onStartOnboarding }) {
       </div>
 
       {/* CTA Button */}
-      {score < 85 && (
+      {sections.some(s => !NON_TOPIC_ROWS.includes(s.id) && s.status === 'not_started') && (
         <Button
           onClick={handleStartOnboarding}
           className="w-full bg-stone-900 hover:bg-stone-800 text-white rounded-full"
