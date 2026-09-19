@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Calendar, Home, Settings, BookOpen, Package, Copy, Check, Mail, MessageSquare } from 'lucide-react';
+import { Calendar, Home, Settings, BookOpen, Copy, Check, Mail, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
