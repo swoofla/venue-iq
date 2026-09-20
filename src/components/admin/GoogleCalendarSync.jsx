@@ -141,6 +141,8 @@ export default function GoogleCalendarSync({ venueId }) {
         setSyncResult({
           eventsFound: data.eventsFound || 0,
           recordsCreated: data.recordsCreated || 0,
+          recordsUpdated: data.recordsUpdated || 0,
+          recordsMerged: data.recordsMerged || 0,
           skippedExisting: data.skippedExisting || 0,
         });
       }
@@ -258,7 +260,8 @@ export default function GoogleCalendarSync({ venueId }) {
           <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-green-700">
             <p>
-              Found {syncResult.eventsFound} event{syncResult.eventsFound !== 1 ? 's' : ''} — added {syncResult.recordsCreated} new date{syncResult.recordsCreated !== 1 ? 's' : ''}
+              Found {syncResult.eventsFound} event{syncResult.eventsFound !== 1 ? 's' : ''} — added {syncResult.recordsCreated} new booking{syncResult.recordsCreated !== 1 ? 's' : ''}; updated {syncResult.recordsUpdated} booking{syncResult.recordsUpdated !== 1 ? 's' : ''}
+              {syncResult.recordsMerged > 0 && `; consolidated ${syncResult.recordsMerged} old daily copies`}
               {syncResult.skippedExisting > 0 && ` (${syncResult.skippedExisting} already existed)`}.
             </p>
             <Link className="inline-block underline font-medium mt-2" to={`/AdminCalendar?venue_id=${encodeURIComponent(venueId)}`}>View dates on your calendar</Link>

@@ -455,7 +455,7 @@ function VenueHome() {
 
               {chat.activeFlow === 'availability' && (
                 <AvailabilityChecker
-                  bookedDates={bookedDates}
+                  venueId={venueId}
                   onScheduleTour={chat.handleAvailabilityTour}
                   onCancel={chat.closeFlow}
                 />

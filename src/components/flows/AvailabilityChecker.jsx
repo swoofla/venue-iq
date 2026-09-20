@@ -1,76 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar, CheckCircle, XCircle } from 'lucide-react';
-import { format, addDays, addWeeks } from 'date-fns';
+import { format } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 
-export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, onCancel }) {
+export default function AvailabilityChecker({ venueId, onScheduleTour, onCancel }) {
   const [selectedDate, setSelectedDate] = useState('');
   const [checkResult, setCheckResult] = useState(null);
-  const [availableDates, setAvailableDates] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchWeddingDates() {
-      try {
-        const [booked, blocked] = await Promise.all([
-          base44.entities.BookedWeddingDate.list(),
-          base44.entities.BlockedDate.list()
-        ]);
-        const unavailableDates = [
-          ...booked.map(b => b.date),
-          ...blocked.map(b => b.date)
-        ];
-        setAvailableDates(unavailableDates);
-      } catch (error) {
-        console.error('Error fetching dates:', error);
-        setAvailableDates([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchWeddingDates();
-  }, [bookedDates]);
-
-  const checkAvailability = () => {
-    // Parse date in UTC to avoid timezone shifting
-    const dateObj = new Date(selectedDate + 'T00:00:00');
-    const isUnavailable = availableDates.includes(selectedDate);
-    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 5 || dateObj.getDay() === 6; // Sun, Fri, Sat
-    
-    if (isUnavailable) {
-      // Find nearest available dates
-      let alternatives = [];
-      
-      if (isWeekend) {
-        // For weekend dates, prioritize weekend alternatives
-        for (let offset of [7, -7, 14, -14, 21, -21]) {
-          const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
-          const altDateObj = new Date(altDate);
-          const isAltWeekend = altDateObj.getDay() === 0 || altDateObj.getDay() === 5 || altDateObj.getDay() === 6;
-
-          if (isAltWeekend && !availableDates.includes(altDate) && !alternatives.includes(altDate)) {
-            alternatives.push(altDate);
-            if (alternatives.length >= 2) break;
-          }
-        }
-      } else {
-        // For weekday dates, include any nearby available dates
-        for (let offset of [1, -1, 2, -2, 3, -3, 7, -7]) {
-          const altDate = format(addDays(dateObj, offset), 'yyyy-MM-dd');
-          if (!availableDates.includes(altDate) && !alternatives.includes(altDate)) {
-            alternatives.push(altDate);
-            if (alternatives.length >= 2) break;
-          }
-        }
-      }
-      
-      setCheckResult({ available: false, alternatives: alternatives.slice(0, 2) });
-    } else {
-      setCheckResult({ available: true, date: selectedDate });
-    }
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const checkAvailability = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!venueId) throw new Error('Please open the calendar for a specific venue.');
+      const response = await base44.functions.invoke('checkDateAvailability', { venueId, date: selectedDate, alternativesCount: 2 });
+      if (typeof response.data?.isAvailable !== 'boolean') throw new Error('Could not confirm availability. Please try again.');
+      setCheckResult({ available: response.data.isAvailable, date: selectedDate, alternatives: response.data.alternatives || [] });
+    } catch (err) {
+      setError(err.message || 'Could not check availability. Please try again.');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -84,6 +35,7 @@ export default function AvailabilityChecker({ bookedDates = [], onScheduleTour, 
         <h3 className="text-lg font-semibold text-stone-900">Check Date Availability</h3>
       </div>
 
+      {error && <p role="alert" className="text-red-600 mb-4">{error}</p>}
       {loading ? (
         <div className="text-center py-8 text-stone-500">Loading availability...</div>
       ) : !checkResult ? (

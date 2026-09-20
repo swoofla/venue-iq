@@ -180,53 +180,39 @@ Deno.serve(async (req) => {
 
       const eventsFound = events.length;
 
-      // Dedupe each occupied date, not the entire Google event. An older
-      // import may already contain Thursday but still need Friday and Saturday.
       const existing = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
-      const existingDates = new Set(existing.map(b => b.date).filter(Boolean));
-
-      const bookingsToCreate = [];
-      const usedDatesThisRun = new Set();
+      let recordsCreated = 0;
+      let recordsUpdated = 0;
+      let recordsMerged = 0;
       let skippedExisting = 0;
       let skippedNoDate = 0;
-
       for (const event of events) {
         if (!event.id || event.status === 'cancelled') continue;
         const dates = eventDatesInTz(event, venueTz);
-        if (!dates.length) {
-          skippedNoDate += 1;
-          continue;
-        }
-        for (const dateStr of dates) {
-          if (existingDates.has(dateStr) || usedDatesThisRun.has(dateStr)) {
-            skippedExisting += 1;
-            continue;
+        if (!dates.length) { skippedNoDate += 1; continue; }
+        const matches = existing.filter(row => !row.merged_into_id && row.google_event_id === event.id && (!row.google_calendar_id || row.google_calendar_id === calendarId))
+          .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+        const primary = matches[0];
+        const range = { date: dates[0], end_date: dates[dates.length - 1], google_calendar_id: calendarId };
+        if (primary) {
+          // Preserve names, notes, contact details and deposit information edited in the app.
+          if (primary.date !== range.date || primary.end_date !== range.end_date || primary.google_calendar_id !== calendarId) {
+            await base44.asServiceRole.entities.BookedWeddingDate.update(primary.id, range);
+            Object.assign(primary, range);
+            recordsUpdated += 1;
+          } else { skippedExisting += 1; }
+          for (const duplicate of matches.slice(1)) {
+            await base44.asServiceRole.entities.BookedWeddingDate.update(duplicate.id, { merged_into_id: primary.id });
+            duplicate.merged_into_id = primary.id;
+            recordsMerged += 1;
           }
-          usedDatesThisRun.add(dateStr);
-          bookingsToCreate.push({
-            venue_id: venueId,
-            date: dateStr,
-            couple_name: event.summary || 'Wedding Booking',
-            google_event_id: event.id,
+        } else {
+          const created = await base44.asServiceRole.entities.BookedWeddingDate.create({
+            venue_id: venueId, ...range,
+            couple_name: event.summary || 'Wedding Booking', google_event_id: event.id,
           });
-        }
-      }
-
-      let recordsCreated = 0;
-      if (bookingsToCreate.length > 0) {
-        try {
-          const created = await base44.asServiceRole.entities.BookedWeddingDate.bulkCreate(bookingsToCreate);
-          recordsCreated = Array.isArray(created) ? created.length : bookingsToCreate.length;
-        } catch (error) {
-          console.log(`Bulk create error: ${error.message} — falling back to individual creates`);
-          for (const booking of bookingsToCreate) {
-            try {
-              await base44.asServiceRole.entities.BookedWeddingDate.create(booking);
-              recordsCreated += 1;
-            } catch (e) {
-              console.log(`Skipped ${booking.date}: ${e.message}`);
-            }
-          }
+          existing.push(created);
+          recordsCreated += 1;
         }
       }
 
@@ -236,6 +222,8 @@ Deno.serve(async (req) => {
         success: true,
         eventsFound,
         recordsCreated,
+        recordsUpdated,
+        recordsMerged,
         skippedExisting,
         skippedNoDate,
         venueId,
