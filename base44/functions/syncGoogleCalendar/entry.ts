@@ -35,6 +35,9 @@ Deno.serve(async (req) => {
     }
 
     const { action, calendarId, venueId } = await req.json();
+    if (action === 'sync_calendar' && user.role !== 'admin' && (!user.venue_id || user.venue_id !== venueId)) {
+      return Response.json({ error: 'You can only sync the calendar for your assigned venue.' }, { status: 403 });
+    }
 
     // Fire-and-forget audit log — never let a logging failure break the sync.
     const logSyncEvent = (status, errorMessage) => {
