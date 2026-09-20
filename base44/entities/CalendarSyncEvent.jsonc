@@ -46,7 +46,7 @@
           }
         },
         {
-          "data.venue_id": "{{user.venue_id}}"
+          "data.venue_id": "{{user.data.venue_id}}"
         }
       ]
     },
