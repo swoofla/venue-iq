@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +9,7 @@ import { AlertCircle, CheckCircle2, Loader2, LogOut, RefreshCw } from 'lucide-re
 const GOOGLE_CALENDAR_CONNECTOR_ID = '6a2b72d0b1ae3cefb36ece05';
 
 export default function GoogleCalendarSync({ venueId }) {
+  const queryClient = useQueryClient();
   const [authed, setAuthed] = useState(null); // null = unknown, true/false once known
   const [status, setStatus] = useState('loading'); // loading | not_connected | reconnect_needed | connecting | connected
   const [previouslyConnected, setPreviouslyConnected] = useState(false);
@@ -134,6 +137,7 @@ export default function GoogleCalendarSync({ venueId }) {
       } else if (data.error) {
         setError(data.error);
       } else {
+        ['weddings', 'booked-dates', 'venue', 'venue-current', 'calendar-sync-events'].forEach(key => queryClient.invalidateQueries({ queryKey: [key, venueId] }));
         setSyncResult({
           eventsFound: data.eventsFound || 0,
           recordsCreated: data.recordsCreated || 0,
@@ -257,6 +261,7 @@ export default function GoogleCalendarSync({ venueId }) {
               Found {syncResult.eventsFound} event{syncResult.eventsFound !== 1 ? 's' : ''} — added {syncResult.recordsCreated} new date{syncResult.recordsCreated !== 1 ? 's' : ''}
               {syncResult.skippedExisting > 0 && ` (${syncResult.skippedExisting} already existed)`}.
             </p>
+            <Link className="inline-block underline font-medium mt-2" to={`/AdminCalendar?venue_id=${encodeURIComponent(venueId)}`}>View dates on your calendar</Link>
           </div>
         </div>
       )}
