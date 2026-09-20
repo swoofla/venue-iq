@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { REQUIRED_TOPICS, BONUS_TOPICS } from '@/components/admin/onboardingQuestions';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +20,7 @@ export default function Planner() {
 
   // No is_active filter on purpose — the review queue below has to show
   // drafts, which are exactly the rows that are not yet active.
-  const { data: knowledge = [] } = useQuery({
+  const { data: knowledge = [], isPending: knowledgeLoading, error: knowledgeError } = useQuery({
     queryKey: ['knowledge', venueId],
     queryFn: () => venueId ? base44.entities.VenueKnowledge.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
@@ -43,6 +45,9 @@ export default function Planner() {
       </div>
     );
   }
+
+  if (knowledgeError) return <p role="alert" className="p-6 text-red-700">Could not load training entries. Please refresh and try again.</p>;
+  if (knowledgeLoading) return <p role="status" className="p-6">Loading training entries…</p>;
 
   return (
     <Tabs defaultValue="review">
@@ -90,34 +95,45 @@ function ChatbotTraining({ knowledge, venueId }) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [reviewFilter, setReviewFilter] = useState('all');
   const queryClient = useQueryClient();
+  const [notice, setNotice] = useState(null);
+  const [approvalItems, setApprovalItems] = useState(null);
+  const refreshKnowledge = () => {
+    ['knowledge', 'knowledge-active', 'onboarding-knowledge', 'onboarding-progress'].forEach(key =>
+      queryClient.invalidateQueries({ queryKey: [key, venueId] }));
+  };
+  const showError = error => setNotice({ error: true, text: error?.response?.data?.message || error?.response?.data?.error || error?.message || 'The action failed. Please try again.' });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.VenueKnowledge.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
-      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
-    }
+    mutationFn: id => base44.entities.VenueKnowledge.delete(id),
+    onSuccess: () => setNotice({ text: 'Entry deleted.' }),
+    onError: showError,
+    onSettled: refreshKnowledge
   });
-
   const approveMutation = useMutation({
-    mutationFn: (id) => base44.entities.VenueKnowledge.update(id, { needs_review: false, is_active: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
-      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
-    }
+    mutationFn: id => base44.entities.VenueKnowledge.update(id, { needs_review: false, is_active: true }),
+    onSuccess: () => setNotice({ text: 'Entry approved and active in your chatbot.' }),
+    onError: showError,
+    onSettled: refreshKnowledge
   });
-
   const approveAllMutation = useMutation({
-    mutationFn: async (items) => {
+    mutationFn: async items => {
+      let approved = 0;
       for (const item of items) {
-        await base44.entities.VenueKnowledge.update(item.id, { needs_review: false, is_active: true });
+        try {
+          await base44.entities.VenueKnowledge.update(item.id, { needs_review: false, is_active: true });
+          approved++;
+          setNotice({ text: `Approving ${approved} of ${items.length}…` });
+        } catch (error) {
+          throw new Error(`Approved ${approved} of ${items.length}. Remaining entries still need review. ${error?.response?.data?.message || error.message || 'Please try again.'}`);
+        }
       }
+      return approved;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
-      queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
-    }
+    onSuccess: count => setNotice({ text: `${count} entries approved and active in your chatbot.` }),
+    onError: showError,
+    onSettled: refreshKnowledge
   });
+  const busy = approveMutation.isPending || approveAllMutation.isPending || deleteMutation.isPending;
 
   const needsReviewCount = knowledge.filter(k => k.needs_review).length;
   const byCategory = categoryFilter === 'all'
@@ -127,17 +143,26 @@ function ChatbotTraining({ knowledge, venueId }) {
     ? byCategory
     : reviewFilter === 'needs_review'
       ? byCategory.filter(k => k.needs_review)
-      : byCategory.filter(k => !k.needs_review);
+      : byCategory.filter(k => k.is_active && !k.needs_review);
   const filteredNeedsReview = filteredKnowledge.filter(k => k.needs_review);
 
   const handleApproveAll = () => {
-    if (confirm(`Approve ${filteredNeedsReview.length} entries? They will become active in your chatbot.`)) {
-      approveAllMutation.mutate(filteredNeedsReview);
-    }
+    setApprovalItems([...filteredNeedsReview]);
   };
 
   return (
     <div>
+      {notice && <div role={notice.error ? 'alert' : 'status'} className={`fixed bottom-5 right-5 z-50 max-w-md p-4 rounded-xl shadow-lg border ${notice.error ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'}`}>
+        <p>{notice.text}</p><button onClick={() => setNotice(null)} className="underline text-sm mt-2">Dismiss</button>
+      </div>}
+      <Dialog open={!!approvalItems} onOpenChange={open => { if (!open) setApprovalItems(null); }}>
+        <DialogContent>
+          <DialogTitle>Approve {approvalItems?.length || 0} entries?</DialogTitle>
+          <DialogDescription>These answers will become active in your chatbot. Only approve information you have reviewed.</DialogDescription>
+          <Button onClick={() => setApprovalItems(null)} variant="outline">Cancel</Button>
+          <Button onClick={() => { const items = approvalItems; setApprovalItems(null); approveAllMutation.mutate(items); }}>Approve entries</Button>
+        </DialogContent>
+      </Dialog>
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <p className="text-sm text-blue-900">
           Train your chatbot by adding common questions and preferred answers. The chatbot will use this information to provide accurate, venue-specific responses.
@@ -164,13 +189,14 @@ function ChatbotTraining({ knowledge, venueId }) {
           {filteredNeedsReview.length > 0 && (
             <Button 
               variant="outline" 
+              disabled={busy}
               onClick={handleApproveAll}
               className="text-green-600 border-green-600 hover:bg-green-50"
             >
               Approve All Visible ({filteredNeedsReview.length})
             </Button>
           )}
-          <Button onClick={() => setShowForm(true)}>
+          <Button disabled={busy} onClick={() => { setEditingKnowledge(null); setShowForm(true); }}>
             <Plus className="w-4 h-4 mr-2" />
             Add Q&A
           </Button>
@@ -215,6 +241,7 @@ function ChatbotTraining({ knowledge, venueId }) {
 
       {showForm && (
         <KnowledgeForm
+          key={editingKnowledge?.id || 'new'}
           venueId={venueId}
           knowledge={editingKnowledge}
           onClose={() => {
@@ -278,6 +305,7 @@ function ChatbotTraining({ knowledge, venueId }) {
                   <>
                     <Button
                       size="sm"
+                      disabled={busy}
                       onClick={() => approveMutation.mutate(item.id)}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
@@ -297,7 +325,7 @@ function ChatbotTraining({ knowledge, venueId }) {
                     </Button>
                   </>
                 )}
-                {!item.needs_review && (
+                {(
                   <>
                     <Button
                       size="sm"
@@ -335,7 +363,8 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
   const [formData, setFormData] = useState({
     question: knowledge?.question || '',
     answer: knowledge?.answer || '',
-    category: knowledge?.category || 'faq'
+    category: knowledge?.category || 'faq',
+    topic: knowledge?.topic || 'general'
   });
   const queryClient = useQueryClient();
 
@@ -348,6 +377,7 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
       return base44.entities.VenueKnowledge.create(dataWithVenue);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding-knowledge', venueId] });
       queryClient.invalidateQueries({ queryKey: ['knowledge', venueId] });
       queryClient.invalidateQueries({ queryKey: ['knowledge-active', venueId] });
       onClose();
@@ -355,8 +385,11 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
   });
 
   return (
-    <div className="bg-stone-50 border border-stone-200 rounded-xl p-6 mb-6">
-      <h3 className="font-semibold mb-4">{knowledge ? 'Edit Q&A' : 'Add Q&A'}</h3>
+    <Dialog open onOpenChange={open => { if (!open && !saveMutation.isPending) onClose(); }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogTitle>{knowledge ? 'Edit Q&A' : 'Add Q&A'}</DialogTitle>
+      <DialogDescription>{knowledge?.needs_review ? 'Save your corrections, then approve this entry when ready.' : 'Write the answer you want your chatbot to use.'}</DialogDescription>
+      {saveMutation.isError && <p role="alert" className="text-red-700">{saveMutation.error?.response?.data?.message || saveMutation.error?.response?.data?.error || saveMutation.error?.message || 'Could not save. Your answers are still here.'}</p>}
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-2">Category</label>
@@ -369,21 +402,31 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
               <SelectItem value="policy">Policy</SelectItem>
               <SelectItem value="pricing">Pricing</SelectItem>
               <SelectItem value="amenities">Amenities</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              {['pricing_nuance','capacity','ceremony_spaces','lodging','sales_workflow','objection_handling','brand_voice','vendor_info','seasonal','location_directions','human_handoff'].map(category => <SelectItem key={category} value={category}>{category.replaceAll('_', ' ')}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Question *</label>
-          <Input
+          <label className="block text-sm font-medium mb-2">Topic</label>
+          <Select value={formData.topic} onValueChange={topic => setFormData({ ...formData, topic })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General</SelectItem>
+              {[...REQUIRED_TOPICS, ...BONUS_TOPICS].map(item => <SelectItem key={item.topic} value={item.topic}>{item.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label htmlFor="knowledge-question" className="block text-sm font-medium mb-2">Question *</label>
+          <Input id="knowledge-question"
             placeholder="e.g., What's your cancellation policy?"
             value={formData.question}
             onChange={(e) => setFormData({ ...formData, question: e.target.value })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Answer *</label>
-          <Textarea
+          <label htmlFor="knowledge-answer" className="block text-sm font-medium mb-2">Answer *</label>
+          <Textarea id="knowledge-answer"
             placeholder="How the chatbot should respond..."
             value={formData.answer}
             onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
@@ -391,12 +434,13 @@ function KnowledgeForm({ venueId, knowledge, onClose }) {
           />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-          <Button onClick={() => saveMutation.mutate(formData)} className="flex-1" disabled={!formData.question || !formData.answer}>
-            Save Q&A
+          <Button variant="outline" onClick={onClose} disabled={saveMutation.isPending} className="flex-1">Cancel</Button>
+          <Button onClick={() => saveMutation.mutate(formData)} className="flex-1" disabled={saveMutation.isPending || !formData.question.trim() || !formData.answer.trim()}>
+            {saveMutation.isPending ? 'Saving…' : 'Save Q&A'}
           </Button>
         </div>
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
