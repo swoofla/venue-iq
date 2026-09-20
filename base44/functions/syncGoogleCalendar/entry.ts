@@ -26,6 +26,33 @@ function eventDateInTz(event, timeZone) {
   }
 }
 
+// Google end dates/times are exclusive. Walk calendar dates, not 24-hour
+// increments in the venue timezone, so daylight-saving changes do not skip days.
+function eventDatesInTz(event, timeZone) {
+  if (event.status === 'cancelled') return [];
+  const first = eventDateInTz(event, timeZone);
+  if (!first) return [];
+  let last = first;
+  if (event.start?.date && event.end?.date) {
+    const end = Date.parse(event.end.date + 'T00:00:00Z');
+    if (!Number.isFinite(end) || event.end.date <= first) return [];
+    last = new Date(end - 1).toISOString().slice(0, 10);
+  } else if (event.start?.dateTime && event.end?.dateTime) {
+    const start = Date.parse(event.start.dateTime);
+    const end = Date.parse(event.end.dateTime);
+    if (!Number.isFinite(end) || end <= start) return [];
+    last = eventDateInTz({ start: { dateTime: new Date(end - 1).toISOString() } }, timeZone);
+  }
+  if (!last || last < first) return [];
+  const dates = [];
+  const cursor = new Date(first + 'T00:00:00Z');
+  while (cursor.toISOString().slice(0, 10) <= last) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -153,35 +180,36 @@ Deno.serve(async (req) => {
 
       const eventsFound = events.length;
 
-      // Load existing BookedWeddingDates for this venue to dedupe by BOTH
-      // google_event_id AND date (so we don't clobber manually-entered dates).
+      // Dedupe each occupied date, not the entire Google event. An older
+      // import may already contain Thursday but still need Friday and Saturday.
       const existing = await base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId });
-      const existingEventIds = new Set(existing.map(b => b.google_event_id).filter(Boolean));
       const existingDates = new Set(existing.map(b => b.date).filter(Boolean));
 
       const bookingsToCreate = [];
-      const usedDatesThisRun = new Set(); // avoid duplicates within the same batch
+      const usedDatesThisRun = new Set();
       let skippedExisting = 0;
       let skippedNoDate = 0;
 
       for (const event of events) {
-        if (!event.id) continue;
-        const dateStr = eventDateInTz(event, venueTz);
-        if (!dateStr) {
+        if (!event.id || event.status === 'cancelled') continue;
+        const dates = eventDatesInTz(event, venueTz);
+        if (!dates.length) {
           skippedNoDate += 1;
           continue;
         }
-        if (existingEventIds.has(event.id) || existingDates.has(dateStr) || usedDatesThisRun.has(dateStr)) {
-          skippedExisting += 1;
-          continue;
+        for (const dateStr of dates) {
+          if (existingDates.has(dateStr) || usedDatesThisRun.has(dateStr)) {
+            skippedExisting += 1;
+            continue;
+          }
+          usedDatesThisRun.add(dateStr);
+          bookingsToCreate.push({
+            venue_id: venueId,
+            date: dateStr,
+            couple_name: event.summary || 'Wedding Booking',
+            google_event_id: event.id,
+          });
         }
-        usedDatesThisRun.add(dateStr);
-        bookingsToCreate.push({
-          venue_id: venueId,
-          date: dateStr,
-          couple_name: event.summary || 'Wedding Booking',
-          google_event_id: event.id,
-        });
       }
 
       let recordsCreated = 0;
