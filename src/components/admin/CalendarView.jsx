@@ -2,7 +2,7 @@ import { bookingCovers } from '@/lib/bookingDates';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 
 export default function CalendarView({ weddings, blocked, onDateClick, onDeleteWedding }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Home, Settings, BookOpen, Copy, Check, Mail, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { format, addDays, startOfMonth, endOfMonth } from 'date-fns';
+import { addDays, startOfMonth, endOfMonth } from 'date-fns';
 import VenueAnalytics from '@/components/dashboard/VenueAnalytics';
 import IndustryBenchmarks from '@/components/dashboard/IndustryBenchmarks';
 import SourceBreakdown from '@/components/dashboard/SourceBreakdown';
