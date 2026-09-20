@@ -136,6 +136,7 @@ export default function AdminCalendar() {
       <div>
         {showWeddingForm ? (
           <WeddingForm
+            key={editingWedding?.id || selectedDate || 'new'}
             date={selectedDate}
             wedding={editingWedding}
             venueId={venueId}
