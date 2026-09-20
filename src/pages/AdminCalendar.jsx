@@ -21,7 +21,7 @@ export default function AdminCalendar() {
   const { user, venueId, setVenueId, userLoading } = useVenue();
   const queryClient = useQueryClient();
 
-  const { data: weddings = [] } = useQuery({
+  const { data: weddings = [], isPending: weddingsLoading, error: weddingsError, refetch: refetchWeddings } = useQuery({
     queryKey: ['weddings', venueId],
     queryFn: async () => {
       if (!venueId) return [];
@@ -31,7 +31,7 @@ export default function AdminCalendar() {
     enabled: !!venueId
   });
 
-  const { data: blocked = [] } = useQuery({
+  const { data: blocked = [], isPending: blockedLoading, error: blockedError, refetch: refetchBlocked } = useQuery({
     queryKey: ['blocked', venueId],
     queryFn: () => venueId ? base44.entities.BlockedDate.filter({ venue_id: venueId }) : [],
     enabled: !!venueId
@@ -110,6 +110,9 @@ export default function AdminCalendar() {
 
   return (
     <>
+      {(weddingsError || blockedError) && <div role="alert" className="p-4 mb-4 bg-red-50 text-red-800 rounded-xl">Could not load calendar dates. Please try again.<Button variant="outline" onClick={() => { refetchWeddings(); refetchBlocked(); }}>Retry</Button></div>}
+      {(weddingsLoading || blockedLoading) && <p role="status">Loading calendar dates…</p>}
+      {!weddingsLoading && !weddingsError && <p className="text-sm text-stone-600 mb-4">{weddings.length} booked dates loaded for this venue.</p>}
       {/* Page actions. The title and venue name live in the shell header now. */}
       <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <Button onClick={handleClearDates} variant="outline" className="gap-2 text-red-600 hover:text-red-700">
@@ -161,7 +164,7 @@ export default function AdminCalendar() {
           </div>
         ) : null}
 
-        {venueId && (
+        {venueId && !weddingsLoading && !blockedLoading && !weddingsError && !blockedError && (
           <CalendarView
             weddings={weddings}
             blocked={blocked}
