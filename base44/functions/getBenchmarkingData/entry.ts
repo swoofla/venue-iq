@@ -10,11 +10,13 @@ Deno.serve(async (req) => {
     }
 
     // Use service role to get data across all venues
-    const [allWeddings, allPackages, allSubmissions] = await Promise.all([
+    const [weddingRows, allPackages, allSubmissions] = await Promise.all([
       base44.asServiceRole.entities.BookedWeddingDate.list(),
       base44.asServiceRole.entities.VenuePackage.list(),
       base44.asServiceRole.entities.ContactSubmission.list()
     ]);
+
+    const allWeddings = weddingRows.filter(w => !w.merged_into_id);
 
     // Calculate average package pricing
     const avgPackagePricing = allPackages.length > 0

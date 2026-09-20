@@ -1,3 +1,4 @@
+import { bookingEnd, bookingLabel } from '@/lib/bookingDates';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -20,7 +21,7 @@ export default function AdminWeddings() {
 
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId }, 'date') : [],
+    queryFn: () => venueId ? base44.entities.BookedWeddingDate.filter({ venue_id: venueId }, 'date').then(rows => rows.filter(row => !row.merged_into_id)) : [],
     enabled: !!venueId
   });
 
@@ -29,8 +30,8 @@ export default function AdminWeddings() {
     onSuccess: () => queryClient.invalidateQueries(['weddings'])
   });
 
-  const upcomingWeddings = weddings.filter(w => new Date(w.date) >= new Date()).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const pastWeddings = weddings.filter(w => new Date(w.date) < new Date());
+  const upcomingWeddings = weddings.filter(w => bookingEnd(w) >= format(new Date(), 'yyyy-MM-dd')).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pastWeddings = weddings.filter(w => bookingEnd(w) < format(new Date(), 'yyyy-MM-dd'));
 
   const packageNames = {
     intimate_garden: 'Intimate Garden',
@@ -77,6 +78,7 @@ export default function AdminWeddings() {
         {showForm && (
           <div className="mb-8">
             <WeddingForm
+              key={editingWedding?.id || 'new'}
               wedding={editingWedding}
               venueId={venueId}
               onClose={() => {
@@ -89,7 +91,7 @@ export default function AdminWeddings() {
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Upcoming Weddings ({upcomingWeddings.length})</h2>
-          <Button onClick={() => setShowForm(true)} className="bg-black hover:bg-stone-800">
+          <Button onClick={() => { setEditingWedding(null); setShowForm(true); }} className="bg-black hover:bg-stone-800">
             + Add Wedding
           </Button>
         </div>
@@ -117,7 +119,7 @@ export default function AdminWeddings() {
                 upcomingWeddings.map((wedding) => (
                   <tr key={wedding.id} className="border-b border-stone-100 hover:bg-stone-50">
                     <td className="px-6 py-4 font-medium">
-                      {format(new Date(wedding.date + 'T00:00:00'), 'MMM d, yyyy')}
+                      {bookingLabel(wedding)}
                     </td>
                     <td className="px-6 py-4">{wedding.couple_name || '-'}</td>
                     <td className="px-6 py-4">{packageNames[wedding.package] || '-'}</td>
@@ -178,7 +180,7 @@ export default function AdminWeddings() {
                   {pastWeddings.map((wedding) => (
                     <tr key={wedding.id} className="border-b border-stone-100">
                       <td className="px-6 py-4 font-medium text-stone-500">
-                        {format(new Date(wedding.date + 'T00:00:00'), 'MMM d, yyyy')}
+                        {bookingLabel(wedding)}
                       </td>
                       <td className="px-6 py-4 text-stone-500">{wedding.couple_name || '-'}</td>
                       <td className="px-6 py-4 text-stone-500">{packageNames[wedding.package] || '-'}</td>

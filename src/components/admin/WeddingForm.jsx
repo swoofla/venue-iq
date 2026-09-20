@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function WeddingForm({ date, wedding, venueId, onClose }) {
   const [formData, setFormData] = useState({
     date: wedding?.date || date || '',
+    end_date: wedding?.end_date || wedding?.date || date || '',
     couple_name: wedding?.couple_name || '',
     email: wedding?.email || '',
     phone: wedding?.phone || '',
@@ -24,14 +25,18 @@ export default function WeddingForm({ date, wedding, venueId, onClose }) {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       if (!venueId) throw new Error('No venue selected');
+      if (!data.date || !data.end_date || data.end_date < data.date) throw new Error('End date must be on or after the start date.');
       const dataWithVenue = { ...data, venue_id: venueId };
+      if (dataWithVenue.guest_count === '') delete dataWithVenue.guest_count;
+      if (!dataWithVenue.package) delete dataWithVenue.package;
       if (wedding) {
         return base44.entities.BookedWeddingDate.update(wedding.id, dataWithVenue);
       }
       return base44.entities.BookedWeddingDate.create(dataWithVenue);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['weddings']);
+      queryClient.invalidateQueries({ queryKey: ['weddings'] });
+      queryClient.invalidateQueries({ queryKey: ['bookedDates'] });
       onClose();
     }
   });
@@ -50,14 +55,21 @@ export default function WeddingForm({ date, wedding, venueId, onClose }) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Date *</label>
+          <label className="block text-sm font-medium mb-2" htmlFor="booking-start">Start date *</label>
           <Input
+            id="booking-start"
             type="date"
             value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value, end_date: !formData.end_date || formData.end_date < e.target.value ? e.target.value : formData.end_date })}
             required
-            min={new Date().toISOString().split('T')[0]}
           />
+        </div>
+
+        <div>
+          <label htmlFor="booking-end" className="block text-sm font-medium mb-2">End date *</label>
+          <Input id="booking-end" type="date" value={formData.end_date} min={formData.date} required onChange={e => setFormData({ ...formData, end_date: e.target.value })} />
+          <p className="text-sm text-stone-600 mt-2">Every day from start through end is reserved, including both dates. Use the same date for a single-day booking.</p>
+          {wedding?.google_event_id && <p className="text-sm text-stone-600 mt-2">Imported from Google Calendar. A future sync will use the dates from Google.</p>}
         </div>
 
         <div>
@@ -145,12 +157,13 @@ export default function WeddingForm({ date, wedding, venueId, onClose }) {
           </p>
         )}
 
+        {saveMutation.error && <p role="alert" className="text-red-600">{saveMutation.error.message}</p>}
         <div className="flex gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
             Cancel
           </Button>
-          <Button type="submit" disabled={!venueId} className="flex-1 bg-black hover:bg-stone-800">
-            {wedding ? 'Update' : 'Save'} Wedding
+          <Button type="submit" disabled={!venueId || saveMutation.isPending || !formData.date || !formData.end_date || formData.end_date < formData.date} className="flex-1 bg-black hover:bg-stone-800">
+            {saveMutation.isPending ? 'Saving…' : wedding ? 'Update Wedding' : 'Save Wedding'}
           </Button>
         </div>
       </form>

@@ -1,3 +1,4 @@
+import { bookingCovers } from '@/lib/bookingDates';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -26,7 +27,7 @@ export default function AdminCalendar() {
     queryFn: async () => {
       if (!venueId) return [];
       const result = await base44.entities.BookedWeddingDate.filter({ venue_id: venueId });
-      return result;
+      return result.filter(row => !row.merged_into_id);
     },
     enabled: !!venueId
   });
@@ -48,7 +49,7 @@ export default function AdminCalendar() {
   });
 
   const handleDateClick = (date) => {
-    const wedding = weddings.find(w => w.date === date);
+    const wedding = weddings.find(w => bookingCovers(w, date));
     const block = blocked.find(b => b.date === date);
 
     if (wedding) {
@@ -112,7 +113,7 @@ export default function AdminCalendar() {
     <>
       {(weddingsError || blockedError) && <div role="alert" className="p-4 mb-4 bg-red-50 text-red-800 rounded-xl">Could not load calendar dates. Please try again.<Button variant="outline" onClick={() => { refetchWeddings(); refetchBlocked(); }}>Retry</Button></div>}
       {(weddingsLoading || blockedLoading) && <p role="status">Loading calendar dates…</p>}
-      {!weddingsLoading && !weddingsError && <p className="text-sm text-stone-600 mb-4">{weddings.length} booked dates loaded for this venue.</p>}
+      {!weddingsLoading && !weddingsError && <p className="text-sm text-stone-600 mb-4">{weddings.length} bookings loaded for this venue. Multi-day bookings block every day in their range.</p>}
       {/* Page actions. The title and venue name live in the shell header now. */}
       <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
         <Button onClick={handleClearDates} variant="outline" className="gap-2 text-red-600 hover:text-red-700">

@@ -1,3 +1,4 @@
+import { bookingCovers } from '@/lib/bookingDates';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -15,7 +16,7 @@ export default function CalendarView({ weddings, blocked, onDateClick, onDeleteW
 
   const getDateStatus = (date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const wedding = weddings.find(w => w.date === dateStr);
+    const wedding = weddings.find(w => bookingCovers(w, dateStr));
     const block = blocked.find(b => b.date === dateStr);
     
     if (wedding) return { type: 'wedding', data: wedding };

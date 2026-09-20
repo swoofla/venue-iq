@@ -35,9 +35,11 @@ Deno.serve(async (req) => {
     ]);
 
     const unavailable = new Set([
-      ...booked.map(b => b.date).filter(Boolean),
+      
       ...blocked.map(b => b.date).filter(Boolean),
     ]);
+
+    const isUnavailable = (day) => unavailable.has(day) || booked.some(b => !b.merged_into_id && b.date <= day && (b.end_date || b.date) >= day);
 
     // ── Month-level openings mode ─────────────────────────────────────────
     // Enumerate open days in the target month that match a weekday filter.
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
         if (!weekdayFilter.has(d.getDay())) continue;
         if (d < todayFloor) continue;
         const iso = toIsoLocal(d);
-        if (unavailable.has(iso)) continue;
+        if (isUnavailable(iso)) continue;
         allOpen.push(iso);
       }
 
@@ -81,7 +83,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const isAvailable = !unavailable.has(date);
+    const isAvailable = !isUnavailable(date);
 
     // Build alternatives only if requested date is unavailable
     let alternatives = [];
@@ -94,7 +96,7 @@ Deno.serve(async (req) => {
         const d = new Date(target.getTime() + offsetDays * DAY_MS);
         if (d < todayFloor) return null;
         const iso = toIsoLocal(d);
-        if (unavailable.has(iso)) return null;
+        if (isUnavailable(iso)) return null;
         return iso;
       };
 

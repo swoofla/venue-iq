@@ -1,3 +1,4 @@
+import { bookingEnd, bookingLabel } from '@/lib/bookingDates';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -39,7 +40,7 @@ export default function Dashboard() {
 
   const { data: weddings = [] } = useQuery({
     queryKey: ['weddings', venueId],
-    queryFn: () => venueId ? base44.asServiceRole.entities.BookedWeddingDate.filter({ venue_id: venueId }) : [],
+    queryFn: () => venueId ? base44.entities.BookedWeddingDate.filter({ venue_id: venueId }).then(rows => rows.filter(row => !row.merged_into_id)) : [],
     enabled: !!venueId
   });
 
@@ -77,7 +78,7 @@ export default function Dashboard() {
   const next30Days = addDays(now, 30);
   const upcomingWeddings = weddings.filter(w => {
     const weddingDate = new Date(w.date);
-    return weddingDate >= now && weddingDate <= next30Days;
+    return new Date(bookingEnd(w) + 'T23:59:59') >= now && weddingDate <= next30Days;
   });
 
   const currentYear = now.getFullYear();
@@ -257,7 +258,7 @@ export default function Dashboard() {
                   <div key={wedding.id} className="flex items-center justify-between py-2 border-b border-stone-100 last:border-0">
                     <div>
                       <p className="font-medium">{wedding.couple_name || 'Wedding Booking'}</p>
-                      <p className="text-sm text-stone-600">{format(new Date(wedding.date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</p>
+                      <p className="text-sm text-stone-600">{bookingLabel(wedding)}</p>
                     </div>
                     <div className="text-sm text-stone-500">
                       {wedding.guest_count ? `${wedding.guest_count} guests` : ''}
