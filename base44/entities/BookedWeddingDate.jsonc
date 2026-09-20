@@ -59,7 +59,7 @@
     "create": {
       "$or": [
         {
-          "data.venue_id": "{{user.venue_id}}"
+          "data.venue_id": "{{user.data.venue_id}}"
         },
         {
           "user_condition": {
@@ -71,7 +71,7 @@
     "read": {
       "$or": [
         {
-          "data.venue_id": "{{user.venue_id}}"
+          "data.venue_id": "{{user.data.venue_id}}"
         },
         {
           "user_condition": {
@@ -83,7 +83,7 @@
     "update": {
       "$or": [
         {
-          "data.venue_id": "{{user.venue_id}}"
+          "data.venue_id": "{{user.data.venue_id}}"
         },
         {
           "user_condition": {
@@ -95,7 +95,7 @@
     "delete": {
       "$or": [
         {
-          "data.venue_id": "{{user.venue_id}}"
+          "data.venue_id": "{{user.data.venue_id}}"
         },
         {
           "user_condition": {
