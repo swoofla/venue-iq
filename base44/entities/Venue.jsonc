@@ -77,7 +77,7 @@
     "update": {
       "$or": [
         {
-          "id": "{{user.venue_id}}"
+          "id": "{{user.data.venue_id}}"
         },
         {
           "user_condition": {
