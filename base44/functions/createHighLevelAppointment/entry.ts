@@ -13,6 +13,16 @@ Deno.serve(async (req) => {
 
     const venue = await base44.asServiceRole.entities.Venue.get(data.venue_id);
     const timezone = venue.timezone || 'America/New_York';
+    const calendarResponse = await fetch(`https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}`, {
+      headers: { Authorization: `Bearer ${HIGHLEVEL_API_KEY}`, Version: '2021-07-28' },
+    });
+    if (!calendarResponse.ok) return Response.json({ error: 'Unable to access this venue’s tour calendar' }, { status: 503 });
+    const calendarData = await calendarResponse.json();
+    const calendar = calendarData.calendar || calendarData;
+    if (calendar.locationId !== HIGHLEVEL_LOCATION_ID || calendar.isActive === false) {
+      return Response.json({ error: 'Tour calendar is inactive or belongs to a different account' }, { status: 503 });
+    }
+
 
     // Compute the correct UTC offset for the venue timezone on the exact tour date,
     // so daylight-saving transitions (EST vs EDT) are handled automatically.

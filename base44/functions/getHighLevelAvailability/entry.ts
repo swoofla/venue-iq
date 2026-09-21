@@ -5,9 +5,9 @@ Deno.serve(async (req) => {
     const { startDate, endDate, venueId } = await req.json();
     const base44 = createClientFromRequest(req);
     
-    const { apiKey: HIGHLEVEL_API_KEY, calendarId: HIGHLEVEL_TOUR_CALENDAR_ID } = highLevelConfig(venueId);
+    const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID, calendarId: HIGHLEVEL_TOUR_CALENDAR_ID } = highLevelConfig(venueId);
     
-    if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_TOUR_CALENDAR_ID) {
+    if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_LOCATION_ID || !HIGHLEVEL_TOUR_CALENDAR_ID) {
       return Response.json({ 
         error: 'HighLevel configuration missing' 
       }, { status: 500 });
@@ -15,6 +15,16 @@ Deno.serve(async (req) => {
 
     const venue = await base44.asServiceRole.entities.Venue.get(venueId);
     const timezone = venue.timezone || 'America/New_York';
+    const calendarResponse = await fetch(`https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}`, {
+      headers: { Authorization: `Bearer ${HIGHLEVEL_API_KEY}`, Version: '2021-07-28' },
+    });
+    if (!calendarResponse.ok) return Response.json({ error: 'Unable to access this venue’s tour calendar' }, { status: 503 });
+    const calendarData = await calendarResponse.json();
+    const calendar = calendarData.calendar || calendarData;
+    if (calendar.locationId !== HIGHLEVEL_LOCATION_ID || calendar.isActive === false) {
+      return Response.json({ error: 'Tour calendar is inactive or belongs to a different account' }, { status: 503 });
+    }
+
 
     const formatTimeFromISO = (slot) => new Intl.DateTimeFormat('en-US', {
       timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true,
