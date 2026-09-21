@@ -60,11 +60,12 @@ Deno.serve(async (req) => {
             'Planner_Contact_Requested',
             `topic_${(String(topicSummary || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30)) || 'general'}`
           ],
-          customFields: [
+          // Sugar Lake already has these fields. Other accounts receive details in the note.
+          ...(venueId === '696c4539ef1c68d790d9c6a0' ? { customFields: [
             { key: 'wedding_date', field_value: chatSession?.lead_wedding_date || '' },
             { key: 'guest_count', field_value: chatSession?.lead_guest_count?.toString() || '' },
             { key: 'chatbot_question', field_value: originalQuestion }
-          ]
+          ] } : {})
         })
       });
 
