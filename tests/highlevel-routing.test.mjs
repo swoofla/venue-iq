@@ -24,3 +24,12 @@ for(const fn of ['getHighLevelAvailability','createHighLevelAppointment','create
 const mismatch=await run('createHighLevelLeadAndNotify',conrad,{mismatch:true});assert.equal(mismatch.response.status,400);assert.equal(mismatch.calls.length,0);
 const failed=await run('createHighLevelAppointment',conrad,{fail:true});assert.notEqual(failed.response.status,200);assert.ok(!failed.payload.success);
 console.log('PASS: venue routing, missing credentials, cross-venue handoff rejection, Central time, booking failures; all external calls mocked.');
+for (const user of [null,{role:'venue_owner',venue_id:sugar},{role:'venue_owner',venue_id:conrad},{role:'admin'}]) {
+ let handler;
+ vm.runInNewContext(fs.readFileSync('base44/functions/getChatSessionPublic/entry.ts','utf8').replace(/^import .*\n/gm,''),{
+  Response,console, Deno:{serve:fn=>handler=fn},createClientFromRequest:()=>({auth:{me:async()=>user},asServiceRole:{entities:{ChatSession:{get:async()=>({id:'session',venue_id:conrad})},Venue:{get:async()=>({name:'Conrad'})}}}})
+ });
+ const res=await handler({json:async()=>({id:'session'})});
+ assert.equal(res.status,!user?401:user.role==='admin'||user.venue_id===conrad?200:404);
+}
+console.log('PASS: transcript requires sign-in and same-venue ownership or admin access.');
