@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { MessageSquare, Search, UserRoundCheck, CalendarCheck, Download } from 'lucide-react';
 import { createPageUrl } from '../utils';
+import { useVenue } from '@/lib/VenueContext';
 
 function csvEscape(v) {
   if (v === null || v === undefined) return '';
@@ -78,6 +79,8 @@ function firstUserMessage(messages) {
 }
 
 export default function AdminChatSessions() {
+  const { venueId } = useVenue();
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState([]);
   const [query, setQuery] = useState('');
@@ -87,10 +90,19 @@ export default function AdminChatSessions() {
   const PAGE_SIZE = 50;
 
   useEffect(() => {
-    base44.entities.ChatSession.list('-created_date', 1000)
-      .then(setSessions)
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    setSessions([]);
+    setSelectedIds(new Set());
+    setPage(1);
+    setError('');
+    setLoading(!!venueId);
+    if (!venueId) return;
+    base44.entities.ChatSession.filter({ venue_id: venueId }, '-created_date', 1000)
+      .then(rows => { if (!cancelled) setSessions(rows); })
+      .catch(() => { if (!cancelled) setError('Unable to load conversations. Please refresh to try again.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [venueId]);
 
   // Reset to page 1 whenever filters change
   useEffect(() => { setPage(1); }, [query, category]);
@@ -237,7 +249,7 @@ export default function AdminChatSessions() {
           })}
         </div>
 
-        {loading ? (
+        {error ? <p role="alert" className="text-red-600 py-8">{error}</p> : !venueId ? <p className="py-8">Select a venue to view its conversations.</p> : loading ? (
           <p className="text-sm text-stone-500 text-center py-12">Loading sessions…</p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-stone-500 text-center py-12">

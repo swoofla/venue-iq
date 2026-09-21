@@ -1,17 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
-  const HIGHLEVEL_API_KEY = Deno.env.get('HIGHLEVEL_API_KEY');
-  const HIGHLEVEL_LOCATION_ID = Deno.env.get('HIGHLEVEL_LOCATION_ID');
-
-  if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_LOCATION_ID) {
-    return Response.json({ success: false, error: 'HighLevel credentials not configured' }, { status: 500 });
-  }
-
   const base44 = createClientFromRequest(req);
 
   try {
     let { venueId, chatSessionId, leadName, leadPhone, leadEmail, topicSummary, originalQuestion } = await req.json();
+
+    const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID } = highLevelConfig(venueId);
+    if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_LOCATION_ID) return Response.json({ success: false, error: 'Planner texting is not connected for this venue yet.' }, { status: 503 });
 
     // Entry sanitizer: strip any invisible/control chars from phone before validation or downstream use.
     leadPhone = String(leadPhone ?? '').replace(/[^\d+]/g, '');
@@ -34,6 +30,8 @@ Deno.serve(async (req) => {
 
     // STEP B: Fetch chat session
     const chatSession = await base44.asServiceRole.entities.ChatSession.get(chatSessionId);
+
+    if (!chatSession || chatSession.venue_id !== venueId) return Response.json({ error: 'Session does not belong to this venue' }, { status: 400 });
 
     // Normalize phone
     const digits = String(leadPhone).replace(/\D/g, '');
@@ -98,7 +96,7 @@ Deno.serve(async (req) => {
 
     // STEP D: Transcript URL
     const transcriptUrl = venueDomain
-      ? `https://${venueDomain}/ChatTranscript?id=${chatSessionId}`
+      ? `https://myvirtualplanner.app/ChatTranscript?id=${chatSessionId}`
       : null;
 
     // STEP E: Add note to contact
@@ -146,7 +144,7 @@ Deno.serve(async (req) => {
       const firstName = leadName.split(' ')[0];
       const plannerFirst = headPlannerName.split(' ')[0];
       const smsBody =
-        `Hi ${firstName}! 👋 This is the virtual planner at ${venueName}. I've let ${plannerFirst}, our head planner, know you'd like to connect — she'll text you back from this number shortly. Feel free to reply here with anything else in the meantime!`;
+        `Hi ${firstName}! 👋 This is the virtual planner at ${venueName}. I've let ${plannerFirst}, our head planner, know you'd like to connect — they'll text you back from this number shortly. Feel free to reply here with anything else in the meantime!`;
 
       const smsRes = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
         method: 'POST',
@@ -227,3 +225,17 @@ Deno.serve(async (req) => {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 });
+// Keep credentials server-side. Never fall back to another venue's account.
+function highLevelConfig(venueId) {
+  const prefixes = {
+    '696c4539ef1c68d790d9c6a0': '',
+    '6aac0d32b262b9e75ba4515d': 'CONRAD_',
+  };
+  const prefix = prefixes[venueId];
+  if (prefix === undefined) return {};
+  return {
+    apiKey: Deno.env.get(`${prefix}HIGHLEVEL_API_KEY`),
+    locationId: Deno.env.get(`${prefix}HIGHLEVEL_LOCATION_ID`),
+    calendarId: Deno.env.get(`${prefix}HIGHLEVEL_TOUR_CALENDAR_ID`),
+  };
+}

@@ -9,8 +9,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const HIGHLEVEL_API_KEY = Deno.env.get('HIGHLEVEL_API_KEY');
-  const HIGHLEVEL_LOCATION_ID = Deno.env.get('HIGHLEVEL_LOCATION_ID');
+  const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID } = highLevelConfig(data.venue_id);
 
   // Fallback: persist a ContactSubmission so the lead is never lost when
   // HighLevel rejects, env vars are missing, or any unexpected error fires.
@@ -42,12 +41,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const venue = await base44.asServiceRole.entities.Venue.get(data.venue_id);
     const contactData = {
       locationId: HIGHLEVEL_LOCATION_ID,
       email: data.email,
       name: data.name,
       phone: data.phone,
-      source: 'Sugar Lake Virtual Planner',
+      source: `${venue.name} Virtual Planner`,
       tags: ['Virtual Planner Lead']
     };
 
@@ -112,3 +112,17 @@ Deno.serve(async (req) => {
     return await writeFallback(error.message);
   }
 });
+// Keep credentials server-side. Never fall back to another venue's account.
+function highLevelConfig(venueId) {
+  const prefixes = {
+    '696c4539ef1c68d790d9c6a0': '',
+    '6aac0d32b262b9e75ba4515d': 'CONRAD_',
+  };
+  const prefix = prefixes[venueId];
+  if (prefix === undefined) return {};
+  return {
+    apiKey: Deno.env.get(`${prefix}HIGHLEVEL_API_KEY`),
+    locationId: Deno.env.get(`${prefix}HIGHLEVEL_LOCATION_ID`),
+    calendarId: Deno.env.get(`${prefix}HIGHLEVEL_TOUR_CALENDAR_ID`),
+  };
+}

@@ -5,15 +5,14 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const data = await req.json();
 
-    const HIGHLEVEL_API_KEY = Deno.env.get('HIGHLEVEL_API_KEY');
-    const HIGHLEVEL_LOCATION_ID = Deno.env.get('HIGHLEVEL_LOCATION_ID');
-    const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
+    const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID, calendarId: HIGHLEVEL_TOUR_CALENDAR_ID } = highLevelConfig(data.venue_id);
 
     if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_LOCATION_ID || !HIGHLEVEL_TOUR_CALENDAR_ID) {
       return Response.json({ error: 'HighLevel credentials not configured' }, { status: 500 });
     }
 
-    const timezone = data.timezone || 'America/New_York';
+    const venue = await base44.asServiceRole.entities.Venue.get(data.venue_id);
+    const timezone = venue.timezone || 'America/New_York';
 
     // Compute the correct UTC offset for the venue timezone on the exact tour date,
     // so daylight-saving transitions (EST vs EDT) are handled automatically.
@@ -72,12 +71,7 @@ Deno.serve(async (req) => {
     const time24 = convertTo24Hour(data.tour_time);
     const startTimeISO = `${data.tour_date}T${time24}${tzOffset}`;
     
-    // End time is 1 hour later
-    const [hours, minutes] = time24.split(':').map(Number);
-    const endHours = (hours + 1).toString().padStart(2, '0');
-    const endTimeISO = `${data.tour_date}T${endHours}:${minutes.toString().padStart(2, '0')}:00${tzOffset}`;
-
-    console.log('DEBUG: Appointment times:', { startTimeISO, endTimeISO, timezone });
+    // Omit endTime so HighLevel uses this calendar's configured tour duration.
 
     // Create the appointment using CORRECT V2 endpoint
     const appointmentData = {
@@ -86,9 +80,10 @@ Deno.serve(async (req) => {
       contactId: contactId,
       title: `Venue Tour - ${data.name}`,
       startTime: startTimeISO,
-      endTime: endTimeISO,
       timezone: timezone,
       appointmentStatus: 'confirmed',
+      ignoreFreeSlotValidation: false,
+      ignoreDateRange: false,
       notes: `Wedding Date: ${data.wedding_date || 'TBD'}\nGuest Count: ${data.guest_count || 'TBD'}\nSource: Virtual Planner`
     };
 
@@ -130,4 +125,18 @@ function convertTo24Hour(time12h) {
   }
 
   return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
+}
+// Keep credentials server-side. Never fall back to another venue's account.
+function highLevelConfig(venueId) {
+  const prefixes = {
+    '696c4539ef1c68d790d9c6a0': '',
+    '6aac0d32b262b9e75ba4515d': 'CONRAD_',
+  };
+  const prefix = prefixes[venueId];
+  if (prefix === undefined) return {};
+  return {
+    apiKey: Deno.env.get(`${prefix}HIGHLEVEL_API_KEY`),
+    locationId: Deno.env.get(`${prefix}HIGHLEVEL_LOCATION_ID`),
+    calendarId: Deno.env.get(`${prefix}HIGHLEVEL_TOUR_CALENDAR_ID`),
+  };
 }

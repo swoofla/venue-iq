@@ -85,12 +85,14 @@ export default function ChatTranscript() {
   // Load sibling session IDs once the current session is known, scoped to the same venue.
   useEffect(() => {
     if (!session?.id) return;
-    // We don't have direct venue_id back from getChatSessionPublic — but admin RLS
-    // now allows reading ChatSession, so pull the newest 200 ordered by created_date.
-    base44.entities.ChatSession.list('-created_date', 200)
-      .then(list => setSiblingIds(list.map(s => s.id)))
-      .catch(() => setSiblingIds([]));
-  }, [session?.id]);
+    let cancelled = false;
+    setSiblingIds([]);
+    if (!session.venue_id) return;
+    base44.entities.ChatSession.filter({ venue_id: session.venue_id }, '-created_date', 200)
+      .then(list => { if (!cancelled) setSiblingIds(list.map(s => s.id)); })
+      .catch(() => { if (!cancelled) setSiblingIds([]); });
+    return () => { cancelled = true; };
+  }, [session?.id, session?.venue_id]);
 
   const currentIdx = siblingIds.indexOf(id);
   const prevId = currentIdx > 0 ? siblingIds[currentIdx - 1] : null; // newer

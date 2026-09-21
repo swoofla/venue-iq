@@ -1,9 +1,11 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
 Deno.serve(async (req) => {
   try {
-    const { startDate, endDate, timezone = 'America/New_York' } = await req.json();
+    const { startDate, endDate, venueId } = await req.json();
+    const base44 = createClientFromRequest(req);
     
-    const HIGHLEVEL_API_KEY = Deno.env.get('HIGHLEVEL_API_KEY');
-    const HIGHLEVEL_TOUR_CALENDAR_ID = Deno.env.get('HIGHLEVEL_TOUR_CALENDAR_ID');
+    const { apiKey: HIGHLEVEL_API_KEY, calendarId: HIGHLEVEL_TOUR_CALENDAR_ID } = highLevelConfig(venueId);
     
     if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_TOUR_CALENDAR_ID) {
       return Response.json({ 
@@ -11,19 +13,13 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
+    const venue = await base44.asServiceRole.entities.Venue.get(venueId);
+    const timezone = venue.timezone || 'America/New_York';
+
     // Get timezone offset string for date range query
     const getTimezoneOffsetString = (tz) => {
-      const offsets = {
-        'America/New_York': '-05:00',
-        'America/Chicago': '-06:00',
-        'America/Denver': '-07:00',
-        'America/Phoenix': '-07:00',
-        'America/Los_Angeles': '-08:00',
-        'America/Anchorage': '-09:00',
-        'Pacific/Honolulu': '-10:00',
-        'America/Puerto_Rico': '-04:00'
-      };
-      return offsets[tz] || '-05:00';
+      const raw = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date(`${startDate}T12:00:00Z`)).find(p => p.type === 'timeZoneName').value;
+      return raw === 'GMT' ? '+00:00' : raw.replace('GMT', '');
     };
 
     // Parse ISO 8601 string and extract formatted time
@@ -114,3 +110,17 @@ Deno.serve(async (req) => {
     }, { status: 500 });
   }
 });
+// Keep credentials server-side. Never fall back to another venue's account.
+function highLevelConfig(venueId) {
+  const prefixes = {
+    '696c4539ef1c68d790d9c6a0': '',
+    '6aac0d32b262b9e75ba4515d': 'CONRAD_',
+  };
+  const prefix = prefixes[venueId];
+  if (prefix === undefined) return {};
+  return {
+    apiKey: Deno.env.get(`${prefix}HIGHLEVEL_API_KEY`),
+    locationId: Deno.env.get(`${prefix}HIGHLEVEL_LOCATION_ID`),
+    calendarId: Deno.env.get(`${prefix}HIGHLEVEL_TOUR_CALENDAR_ID`),
+  };
+}

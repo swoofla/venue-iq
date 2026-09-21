@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
     return Response.json({
       session: {
         id: session.id,
+        venue_id: session.venue_id,
         venue_name: venueName,
         venue_domain: venueDomain,
         lead_name: session.lead_name || null,
