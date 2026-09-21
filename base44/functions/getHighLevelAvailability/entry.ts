@@ -39,8 +39,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid date range' }, { status: 400 });
     }
 
-    // Call HighLevel V2 API
-    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDateTime.getTime()}&endDate=${endDateTime.getTime()}&timezone=${encodeURIComponent(timezone)}`;
+    // HighLevel limits each free-slots request to 31 days. Keep padded
+    // timezone boundaries, but fetch in 14-day chunks and merge overlaps.
+    const rawData = {};
+    const chunkMs = 14 * 24 * 60 * 60 * 1000;
+    for (let cursor = startDateTime.getTime(); cursor < endDateTime.getTime(); cursor += chunkMs) {
+      const chunkEnd = Math.min(cursor + chunkMs, endDateTime.getTime());
+    const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${cursor}&endDate=${chunkEnd}&timezone=${encodeURIComponent(timezone)}`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -61,7 +66,12 @@ Deno.serve(async (req) => {
       }, { status: response.status });
     }
     
-    const rawData = await response.json();
+    const chunk = await response.json();
+    for (const [dateKey, dateData] of Object.entries(chunk)) {
+      if (!dateData || !Array.isArray(dateData.slots)) continue;
+      rawData[dateKey] = { slots: [...new Set([...(rawData[dateKey]?.slots || []), ...dateData.slots])].sort() };
+    }
+    }
     
     // Transform the response
     const transformedSlots = [];
