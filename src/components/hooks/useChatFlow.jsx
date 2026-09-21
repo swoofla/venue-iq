@@ -43,6 +43,7 @@ export default function useChatFlow({
   // ChatSession tracking
   const [chatSessionId, setChatSessionId] = useState(null);
   const chatSessionIdRef = useRef(null);
+  const sessionCreationRef = useRef(null);
   const messagesRef = useRef([]);
   const flowsCompletedRef = useRef([]);
   const flowResultsRef = useRef({});
@@ -121,19 +122,28 @@ export default function useChatFlow({
   // Ensure ChatSession exists — called lazily on first interaction
   const ensureChatSession = useCallback(async () => {
     if (chatSessionIdRef.current || !venueId) return chatSessionIdRef.current;
-    try {
-      const session = await base44.entities.ChatSession.create({
-        venue_id: venueId,
-        status: 'active',
-        messages: [],
-      });
-      chatSessionIdRef.current = session.id;
-      setChatSessionId(session.id);
-      return session.id;
-    } catch (err) {
-      console.error('Failed to create ChatSession:', err?.message || err);
-      return null;
-    }
+    if (sessionCreationRef.current) return sessionCreationRef.current;
+    sessionCreationRef.current = (async () => {
+      try {
+        const session = await base44.entities.ChatSession.create({
+          venue_id: venueId,
+          status: 'active',
+          messages: messagesRef.current
+            .filter(m => !m.isHandoffCard && typeof m.text === 'string')
+            .map(m => ({ role: m.isBot ? 'bot' : 'user', content: m.text, timestamp: new Date().toISOString() })),
+        });
+        if (!session?.id) throw new Error('Session creation returned no ID');
+        chatSessionIdRef.current = session.id;
+        setChatSessionId(session.id);
+        return session.id;
+      } catch (err) {
+        console.error('Failed to create ChatSession:', err?.message || err);
+        return null;
+      } finally {
+        sessionCreationRef.current = null;
+      }
+    })();
+    return sessionCreationRef.current;
   }, [venueId]);
 
   // Debounced sync of messages to the ChatSession
@@ -1460,6 +1470,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
     setLeadPhone,
     messagesContainerRef,
     chatSessionId,
+    ensureChatSession,
     handleUserMessage,
     handleQuickAction,
     handleBudgetComplete,

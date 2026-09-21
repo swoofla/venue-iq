@@ -8,6 +8,7 @@ export default function HandoffContactCard({
   originalQuestion,
   venueId,
   chatSessionId,
+  ensureChatSession,
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -41,17 +42,18 @@ export default function HandoffContactCard({
     // Reveal per-field errors instead of silently disabling the button.
     if (!nameValid || !phoneValid || !emailValid) return;
 
-    // Backend requires chatSessionId and 400s without it. Guard rather than fire a doomed call.
-    if (!chatSessionId) {
-      setSubmitError('Something went wrong on our end. Please try again in a moment.');
-      return;
-    }
-
     setSubmitting(true);
     try {
+      // Restored forms or transient session-creation failures must be recoverable.
+      const sessionId = chatSessionId || await ensureChatSession?.();
+      if (!sessionId) {
+        setSubmitError('Unable to save this conversation. Your details are still here—please try again.');
+        return;
+      }
       const res = await base44.functions.invoke('createHighLevelLeadAndNotify', {
         venueId,
-        chatSessionId,
+        chatSessionId: sessionId,
+  ensureChatSession,
         leadName: name.trim(),
         leadPhone: sanitizedPhone,
         leadEmail: emailTrimmed || undefined,

@@ -403,6 +403,7 @@ function VenueHome() {
                       originalQuestion={message.originalQuestion}
                       venueId={venueId}
                       chatSessionId={chat.chatSessionId}
+                      ensureChatSession={chat.ensureChatSession}
                     />
                   ) : (
                     <>
