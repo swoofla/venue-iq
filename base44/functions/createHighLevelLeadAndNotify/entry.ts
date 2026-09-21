@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         `Budget feel: ${chatSession?.lead_budget_range || 'not shared'}\n` +
         `Flows completed: ${(chatSession?.flows_completed || []).join(', ') || 'none'}\n\n` +
         `Her exact question:\n"${originalQuestion}"\n\n` +
-        `Auto-sent intro at ${new Date().toLocaleString()}. Reply in this thread to continue the conversation with the lead.`;
+        `Handoff requested at ${new Date().toISOString()}. Introduction text will be attempted after this note; this note does not confirm delivery.`;
 
       const noteRes = await fetch(`https://services.leadconnectorhq.com/contacts/${leadContactId}/notes`, {
         method: 'POST',

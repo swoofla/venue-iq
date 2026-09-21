@@ -16,6 +16,7 @@ export default function HandoffContactCard({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [textSent, setTextSent] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
   const planner = plannerName || 'our planner';
@@ -59,10 +60,9 @@ export default function HandoffContactCard({
       });
 
       const data = res?.data ?? res;
-      // Success = a HandoffRequest was created (handoffId present). An intro_failed
-      // status still means the lead is captured and the planner has the tagged contact + note,
-      // so we treat a returned handoffId as success regardless of SMS outcome.
+      // Capturing a request does not imply that HighLevel accepted the text.
       if (data && data.handoffId) {
+        setTextSent(data.success === true);
         setDone(true);
       } else {
         setSubmitError("We couldn't send that just now. Please try again.");
@@ -77,15 +77,15 @@ export default function HandoffContactCard({
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
+      <div className={`rounded-2xl border p-4 sm:p-5 ${textSent ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-500">
-            <Check className="h-5 w-5 text-white" />
+            {textSent ? <Check className="h-5 w-5 text-white" /> : <AlertCircle className="h-5 w-5 text-white" />}
           </div>
           <div>
-            <p className="font-semibold text-green-900">You're all set!</p>
+            <p className="font-semibold text-green-900">{textSent ? "You're all set!" : 'Your request was saved'}</p>
             <p className="mt-1 text-sm text-green-800">
-              {planner} will text you shortly. Feel free to keep chatting in the meantime.
+              {textSent ? `Your introduction text has been submitted. You can reply there to connect with ${planner}.` : `Your details were saved for ${planner}, but we couldn't send the introduction text. Please contact the venue directly if you need a prompt response.`}
             </p>
           </div>
         </div>
