@@ -1,3 +1,4 @@
+import { isDirectPlannerRequest } from './handoffIntent';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import parseDateFromText from './parseDateFromText';
@@ -196,16 +197,17 @@ export default function useChatFlow({
 
   // Offer a handoff — marks pending and posts a warm bot line. NEVER intercepts.
   const offerHandoff = (topicSummary, originalQuestion) => {
-    const plannerName = venue?.planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
+    const plannerName = venue?.head_planner_name || venue?.planner_name || resolvedVenueRef.current?.head_planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
     setHandoffPending({ topicSummary: topicSummary || 'general inquiry', originalQuestion: originalQuestion || 'Requested to speak with a planner' });
     markHandoffOffered();
-    addBotMessage(`Of course — want me to have ${plannerName} text you directly? She usually responds within an hour or two.`);
+    addBotMessage(`Of course — want me to have ${plannerName} text you directly? Please share your contact details after accepting.`);
   };
 
   // Public helper used by "Talk to a planner" link
   const requestPlannerHandoff = async () => {
     await ensureChatSession();
-    offerHandoff('general inquiry');
+    setHandoffPending(null);
+    appendHandoffCard('general inquiry', 'Requested to speak with a planner');
   };
 
   // Store tester feedback on a specific bot message. Bundles the full debug trace and
@@ -259,7 +261,7 @@ export default function useChatFlow({
 
   // Append an inline contact-card message and the warm "drop your info" lead-in.
   const appendHandoffCard = (topicSummary, originalQuestion) => {
-    const plannerName = venue?.planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
+    const plannerName = venue?.head_planner_name || venue?.planner_name || resolvedVenueRef.current?.head_planner_name || resolvedVenueRef.current?.planner_name || 'our planner';
     setMessages(prev => [
       ...prev,
       { id: Date.now(), text: `Perfect — drop your name and number below and ${plannerName} will text you!`, isBot: true },
@@ -325,6 +327,16 @@ export default function useChatFlow({
       }
       if (venueRecord) resolvedVenueRef.current = venueRecord;
       mark('load-race guard');
+
+      // A direct request is already consent to open the contact form; don't ask the LLM to promise a follow-up.
+      if (isDirectPlannerRequest(text, venueRecord)) {
+        setHandoffPending(null);
+        markHandoffOffered();
+        appendHandoffCard('Requested to speak with a planner', text);
+        setIsTyping(false);
+        return;
+      }
+
 
       // ── STEP 1: Classify intent ─────────────────────────────────
       const recentHistory = [...messagesRef.current]
@@ -1283,7 +1295,12 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
       let offerStaged = false;
       if (generator?.needsHandoff && !verdictSentence) {
         const topic = generator.topicSummary || 'your question';
-        setHandoffPending({ topicSummary: topic, originalQuestion: lastSubstantiveQuestionRef.current || text });
+        if (/(i['’]ll have|i will have|let me have|i['’]ll connect|i will connect)/i.test(answer)) {
+          setHandoffPending(null);
+          appendHandoffCard(topic, lastSubstantiveQuestionRef.current || text);
+        } else {
+          setHandoffPending({ topicSummary: topic, originalQuestion: lastSubstantiveQuestionRef.current || text });
+        }
         markHandoffOffered();
         offerStaged = true;
       }

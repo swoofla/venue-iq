@@ -398,7 +398,7 @@ function VenueHome() {
                     />
                   ) : message.isHandoffCard ? (
                     <HandoffContactCard
-                      plannerName={venue?.planner_name || 'our planner'}
+                      plannerName={venue?.head_planner_name || venue?.planner_name || 'our planner'}
                       topicSummary={message.topicSummary}
                       originalQuestion={message.originalQuestion}
                       venueId={venueId}
