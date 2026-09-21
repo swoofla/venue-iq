@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import HighLevelConnection from '../components/admin/HighLevelConnection';
 import GoogleCalendarSync from '../components/admin/GoogleCalendarSync';
 import VenueSelector from '../components/admin/VenueSelector';
 import { useVenue } from '@/lib/VenueContext';
@@ -114,6 +115,7 @@ export default function VenueSettings() {
         )}
         
       <GoogleCalendarSync venueId={venueId} />
+      <HighLevelConnection key={venueId} venueId={venueId} />
     </div>
   );
 }
