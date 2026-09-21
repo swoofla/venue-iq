@@ -4,25 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ProgressDots from '../chat/ProgressDots';
 import { CalendarCheck, Clock, User, CheckCircle } from 'lucide-react';
-import { format, addDays, nextTuesday, nextThursday, nextSaturday, nextSunday } from 'date-fns';
 import { base44 } from '@/api/base44Client';
-
-const fallbackTimeSlots = {
-  Tuesday: ['10:00 AM', '2:00 PM', '4:00 PM'],
-  Thursday: ['10:00 AM', '2:00 PM', '4:00 PM'],
-  Saturday: ['9:00 AM', '11:00 AM', '1:00 PM', '3:00 PM'],
-  Sunday: ['12:00 PM', '2:00 PM', '4:00 PM'],
-};
-
-const getFallbackDates = () => {
-  const today = new Date();
-  return [
-    { day: 'Tuesday', date: nextTuesday(today), slots: fallbackTimeSlots.Tuesday },
-    { day: 'Thursday', date: nextThursday(today), slots: fallbackTimeSlots.Thursday },
-    { day: 'Saturday', date: nextSaturday(today), slots: fallbackTimeSlots.Saturday },
-    { day: 'Sunday', date: nextSunday(today), slots: fallbackTimeSlots.Sunday },
-  ].sort((a, b) => a.date - b.date);
-};
 
 export default function TourScheduler({ preSelectedDate, venue, prefillContact, onComplete, onCancel }) {
   const [step, setStep] = useState(0);
@@ -36,13 +18,22 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
     guestCount: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const [upcomingDates, setUpcomingDates] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    setUpcomingDates([]);
+    setSelectedDay(null);
+    setSelectedTime('');
     async function fetchAvailability() {
       try {
         const result = await base44.functions.invoke('getHighLevelAvailability', {
+          venueId: venue?.id,
           startDate: new Date().toISOString().split('T')[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           timezone: venue?.timezone || 'America/New_York'
@@ -75,16 +66,17 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
           console.log(`${slot.date}: ${slot.slots.length} slots - ${slot.slots.join(', ')}`);
         });
 
-        setUpcomingDates(transformedSlots);
+        if (!cancelled) setUpcomingDates(transformedSlots.filter(d => d.slots.length));
       } catch (error) {
         console.log('DEBUG Frontend: Error:', error);
-        setUpcomingDates(getFallbackDates());
+        if (!cancelled) setError('Tour availability is temporarily unavailable. Please contact the planner to arrange a visit.');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchAvailability();
-  }, [venue?.timezone]);
+    return () => { cancelled = true; };
+  }, [venue?.id, venue?.timezone]);
 
   const handleNext = () => {
     if (step === 0 && selectedDay) {
@@ -94,14 +86,22 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
     }
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    onComplete({
-      ...formData,
-      tourDate: selectedDay.date,
-      tourTime: selectedTime,
-      timezone: venue?.timezone || 'America/New_York'
-    });
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const booked = await onComplete({
+        ...formData,
+        tourDate: selectedDay.date,
+        tourTime: selectedTime,
+        timezone: venue?.timezone || 'America/New_York'
+      });
+      if (booked) setSubmitted(true);
+      else setError('Your tour could not be confirmed. Please contact the planner.');
+    } catch {
+      setError('Unable to confirm your tour. Please try again.');
+    } finally { setSubmitting(false); }
   };
 
   if (submitted) {
@@ -115,7 +115,7 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
           <CheckCircle className="w-8 h-8 text-green-600" />
         </div>
         <h3 className="text-xl font-semibold text-stone-900 mb-2">Tour Scheduled!</h3>
-        <p className="text-stone-600 mb-4">We're excited to show you Sugar Lake Weddings.</p>
+        <p className="text-stone-600 mb-4">We're excited to show you {venue?.name || 'the venue'}.</p>
         
         <div className="bg-stone-50 rounded-xl p-4 mb-4 text-left">
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -156,6 +156,8 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
       className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 mb-4"
     >
       <ProgressDots current={step} total={3} />
+      {error && <p role="alert" className="text-sm text-red-700 mt-4">{error}</p>}
+      {!loading && !error && upcomingDates.length === 0 && <p className="text-sm text-stone-600 mt-4">No tour times are available in the next 30 days. Please contact the planner.</p>}
 
       <AnimatePresence mode="wait">
         {step === 0 && (
@@ -180,7 +182,7 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
                   return (
                     <button
                       key={dateKey}
-                      onClick={() => setSelectedDay(dateOption)}
+                      onClick={() => { setSelectedDay(dateOption); setSelectedTime(''); }}
                       className={`w-full p-4 rounded-xl text-left transition-all ${
                         isSelected
                           ? 'bg-black text-white'
@@ -298,13 +300,13 @@ export default function TourScheduler({ preSelectedDate, venue, prefillContact, 
         <Button
           onClick={step === 2 ? handleSubmit : handleNext}
           disabled={
-            (step === 0 && !selectedDay) ||
+            submitting || loading || (step === 0 && !selectedDay) ||
             (step === 1 && !selectedTime) ||
             (step === 2 && (!formData.name || !formData.email || !formData.phone))
           }
           className="flex-1 rounded-full bg-black hover:bg-stone-800"
         >
-          {step === 2 ? 'Confirm Booking' : 'Continue'}
+          {submitting ? 'Confirming…' : step === 2 ? 'Confirm Booking' : 'Continue'}
         </Button>
       </div>
     </motion.div>

@@ -80,22 +80,6 @@ export function createFlowCompletionHandlers(deps) {
   };
 
   const handleTourComplete = async (data) => {
-    setActiveFlow(null);
-
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      text: `Tour scheduled for ${data.tourDate} at ${data.tourTime}`,
-      isBot: false
-    }]);
-
-    if (data.weddingDate) leadWeddingDateRef.current = data.weddingDate;
-    if (data.guestCount) leadGuestCountRef.current = parseInt(data.guestCount) || null;
-    flowsCompletedRef.current = Array.from(new Set([...(flowsCompletedRef.current || []), 'tour_scheduler']));
-    flowResultsRef.current = {
-      ...flowResultsRef.current,
-      tour_scheduler: { tour_date: data.tourDate, tour_time: data.tourTime }
-    };
-
     const submissionData = {
       name: data.name,
       email: data.email,
@@ -109,6 +93,9 @@ export function createFlowCompletionHandlers(deps) {
     };
 
     await base44.entities.ContactSubmission.create(submissionData);
+    setLeadName(data.name);
+    setLeadEmail(data.email);
+    setLeadPhone(data.phone);
 
     // Attempt the HighLevel sync. If the appointment fails, we must NOT tell the
     // bride her tour is scheduled — HL is the source of truth for the planner's
@@ -116,17 +103,8 @@ export function createFlowCompletionHandlers(deps) {
     let appointmentBooked = false;
     let appointmentError = null;
     try {
-      const contactRes = await base44.functions.invoke('createHighLevelContact', {
-        email: data.email,
-        name: data.name,
-        phone: data.phone,
-        wedding_date: data.weddingDate,
-        guest_count: data.guestCount,
-        source: 'tour_scheduler'
-      });
-      console.log('Contact created:', contactRes.data);
-
       const appointmentRes = await base44.functions.invoke('createHighLevelAppointment', {
+        venue_id: venueId,
         email: data.email,
         name: data.name,
         phone: data.phone,
@@ -163,10 +141,17 @@ export function createFlowCompletionHandlers(deps) {
     }
 
     if (appointmentBooked) {
+      if (data.weddingDate) leadWeddingDateRef.current = data.weddingDate;
+      if (data.guestCount) leadGuestCountRef.current = parseInt(data.guestCount) || null;
+      flowsCompletedRef.current = Array.from(new Set([...(flowsCompletedRef.current || []), 'tour_scheduler']));
+      flowResultsRef.current = { ...flowResultsRef.current, tour_scheduler: { tour_date: data.tourDate, tour_time: data.tourTime } };
+      setActiveFlow(null);
       addBotMessage(`Wonderful! Your tour is scheduled for ${data.tourDate} at ${data.tourTime}. We'll send you a confirmation shortly. Looking forward to meeting you! 🎉`);
     } else {
+      setActiveFlow(null);
       addBotMessage(`Thanks so much, ${data.name.split(' ')[0]}! I've passed your tour request along to our team — someone will reach out shortly to confirm your ${data.tourDate} at ${data.tourTime} visit. If you don't hear back within a business day, just reply here and I'll follow up.`);
     }
+    return appointmentBooked;
   };
 
   const handlePackageTour = (packageName) => {
