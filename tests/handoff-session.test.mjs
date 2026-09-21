@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const source=fs.readFileSync('src/components/hooks/useChatFlow.jsx','utf8');
+const snippet=source.slice(source.indexOf('  const ensureChatSession = useCallback'),source.indexOf('\n\n  // Debounced sync'));
+let creates=0, fail=true, saved;
+const ctx=vm.createContext({useCallback:f=>f,chatSessionIdRef:{current:null},sessionCreationRef:{current:null},venueId:'conrad',messagesRef:{current:[{isBot:false,text:'Talk to Jeff'}]},setChatSessionId:id=>saved=id,console:{error(){}},base44:{entities:{ChatSession:{create:async data=>{creates++;await Promise.resolve();if(fail)throw Error('temporary');assert.equal(data.venue_id,'conrad');assert.equal(data.messages[0].content,'Talk to Jeff');return {id:'session'};}}}}});
+vm.runInContext(snippet+'\nthis.ensure=ensureChatSession;',ctx);
+assert.equal(await ctx.ensure(),null);fail=false;
+const results=await Promise.all([ctx.ensure(),ctx.ensure()]);assert.deepEqual(results,['session','session']);assert.equal(creates,2);assert.equal(saved,'session');assert.equal(await ctx.ensure(),'session');assert.equal(creates,2);
+console.log('PASS: failed session creation retries; concurrent requests share one session; recovered transcript preserved.');
