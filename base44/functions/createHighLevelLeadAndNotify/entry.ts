@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   try {
     let { venueId, chatSessionId, leadName, leadPhone, leadEmail, topicSummary, originalQuestion } = await req.json();
 
-    const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID } = highLevelConfig(venueId);
+    const { apiKey: HIGHLEVEL_API_KEY, locationId: HIGHLEVEL_LOCATION_ID, fromNumber } = highLevelConfig(venueId);
     if (!HIGHLEVEL_API_KEY || !HIGHLEVEL_LOCATION_ID) return Response.json({ success: false, error: 'Planner texting is not connected for this venue yet.' }, { status: 503 });
 
     // Entry sanitizer: strip any invisible/control chars from phone before validation or downstream use.
@@ -47,11 +47,6 @@ Deno.serve(async (req) => {
           phone: cleanPhone,
           email: leadEmail || undefined,
           source: `${venueName} Virtual Planner`,
-          tags: [
-            'Virtual Planner Lead',
-            'Planner_Contact_Requested',
-            `topic_${(String(topicSummary || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30)) || 'general'}`
-          ],
           // Sugar Lake already has these fields. Other accounts receive details in the note.
           ...(venueId === '696c4539ef1c68d790d9c6a0' ? { customFields: [
             { key: 'wedding_date', field_value: chatSession?.lead_wedding_date || '' },
@@ -71,6 +66,18 @@ Deno.serve(async (req) => {
       const upsertData = JSON.parse(upsertText);
       leadContactId = upsertData.contact?.id || upsertData.id;
       if (!leadContactId) throw new Error('No contact id in upsert response');
+      // Add tags without replacing an existing contact's other tags.
+      const tagResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${leadContactId}/tags`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${HIGHLEVEL_API_KEY}`, Version: '2021-07-28', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [
+          'virtual planner lead',
+          'Planner_Contact_Requested',
+          `topic_${(String(topicSummary || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30)) || 'general'}`,
+        ] }),
+      });
+      if (!tagResponse.ok) throw new Error(`Lead tagging failed (${tagResponse.status})`);
+
     } catch (upsertError) {
       console.error('Contact upsert error:', upsertError.message);
       await base44.asServiceRole.entities.HandoffRequest.create({
@@ -148,6 +155,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           type: 'SMS',
           contactId: leadContactId,
+          ...(fromNumber ? { fromNumber } : {}),
           message: smsBody
         })
       });
@@ -228,5 +236,6 @@ function highLevelConfig(venueId) {
     apiKey: Deno.env.get(`${prefix}HIGHLEVEL_API_KEY`),
     locationId: Deno.env.get(`${prefix}HIGHLEVEL_LOCATION_ID`),
     calendarId: Deno.env.get(`${prefix}HIGHLEVEL_TOUR_CALENDAR_ID`),
+    fromNumber: venueId === '6aac0d32b262b9e75ba4515d' ? '+15155376420' : undefined,
   };
 }

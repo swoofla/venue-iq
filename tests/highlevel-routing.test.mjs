@@ -16,6 +16,14 @@ for(const fn of ['getHighLevelAvailability','createHighLevelAppointment','create
   const r=await run(fn,venue);assert.equal(r.response.status,200,fn);assert.ok(r.calls.length);
   const prefix=venue===conrad?'conrad':'sugar';for(const c of r.calls)assert.equal(c.headers.Authorization,`Bearer ${prefix}-key`);
   for(const c of r.calls.filter(c=>c.body)){const b=JSON.parse(c.body);if(b.locationId)assert.equal(b.locationId,`${prefix}-location`);if(b.calendarId)assert.equal(b.calendarId,`${prefix}-calendar`);}
+  if(fn==='createHighLevelLeadAndNotify'){
+    const tags=JSON.parse(r.calls.find(c=>c.url.endsWith('/tags')).body).tags;
+    assert.ok(tags.includes('virtual planner lead'));
+    assert.equal(JSON.parse(r.calls.find(c=>c.url.endsWith('/contacts/upsert')).body).tags,undefined);
+    const sms=JSON.parse(r.calls.find(c=>c.url.endsWith('/conversations/messages')).body);
+    assert.equal(sms.fromNumber,venue===conrad?'+15155376420':undefined);
+    assert.match(sms.message,/Jeff/);
+  }
   if(fn==='getHighLevelAvailability'){assert.match(r.calls[0].url,new RegExp(`${prefix}-calendar`));assert.equal(r.payload.slots[0].times[0],'10:00 AM');}
   if(fn==='createHighLevelAppointment'){const b=JSON.parse(r.calls.at(-1).body);assert.match(b.startTime,/-05:00$/);assert.equal(b.endTime,undefined);assert.equal(b.ignoreFreeSlotValidation,false);}
  }
