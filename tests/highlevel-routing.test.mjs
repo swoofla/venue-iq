@@ -48,3 +48,17 @@ assert.equal(smsFailure.payload.success,false);
 assert.ok(smsFailure.payload.handoffId);
 assert.ok(smsFailure.writes.some(w=>w.status==='intro_failed' && w.error_message.includes('401')));
 console.log('PASS: SMS scope rejection is recorded as failed, despite saved handoff.');
+
+const month=await run('getHighLevelAvailability',conrad,{dates:{startDate:'2026-09-21',endDate:'2026-10-21'}});
+assert.equal(month.response.status,200);
+const ranges=month.calls.filter(c=>c.url.includes('/free-slots')).map(c=>{const u=new URL(c.url);return [+u.searchParams.get('startDate'),+u.searchParams.get('endDate')];});
+assert.equal(ranges.length,3);
+for(let i=0;i<ranges.length;i++){
+ assert.ok(ranges[i][1]-ranges[i][0]<=14*86400000);
+ if(i)assert.equal(ranges[i][0],ranges[i-1][1]);
+}
+assert.equal(ranges[0][0],Date.parse('2026-09-20T00:00:00Z'));
+assert.equal(ranges.at(-1)[1],Date.parse('2026-10-22T23:59:59Z'));
+assert.equal(month.payload.slots.length,1);
+assert.equal(month.payload.slots[0].times.length,1);
+console.log('PASS: padded month split below API limit, continuous coverage, duplicate slots merged.');
