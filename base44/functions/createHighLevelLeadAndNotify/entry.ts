@@ -20,14 +20,6 @@ Deno.serve(async (req) => {
     const venue = await base44.asServiceRole.entities.Venue.get(venueId);
     const headPlannerName = venue?.head_planner_name || 'our head planner';
     const venueName = venue?.name || 'the venue';
-    // No cross-venue fallback. This previously defaulted to one specific
-    // venue's domain, so a venue with no domain set produced a transcript link
-    // pointing at a DIFFERENT venue's host.
-    const venueDomain = venue?.domain || null;
-    if (!venueDomain) {
-      console.warn(`[createHighLevelLeadAndNotify] Venue ${venue?.id} has no domain set — transcript link omitted from the planner note.`);
-    }
-
     // STEP B: Fetch chat session
     const chatSession = await base44.asServiceRole.entities.ChatSession.get(chatSessionId);
 
@@ -96,9 +88,7 @@ Deno.serve(async (req) => {
     }
 
     // STEP D: Transcript URL
-    const transcriptUrl = venueDomain
-      ? `https://myvirtualplanner.app/ChatTranscript?id=${chatSessionId}`
-      : null;
+    const transcriptUrl = `https://myvirtualplanner.app/ChatTranscript?id=${chatSessionId}`;
 
     // STEP E: Add note to contact
     let noteId = null;
