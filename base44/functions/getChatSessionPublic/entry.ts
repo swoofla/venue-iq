@@ -9,6 +9,9 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing id' }, { status: 400 });
     }
 
+    let user;
+    try { user = await base44.auth.me(); } catch { /* unauthenticated */ }
+    if (!user) return Response.json({ error: 'Sign in to view this transcript' }, { status: 401 });
     let session;
     try {
       session = await base44.asServiceRole.entities.ChatSession.get(id);
@@ -17,6 +20,10 @@ Deno.serve(async (req) => {
     }
 
     if (!session) {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    if (user.role !== 'admin' && (!user.venue_id || user.venue_id !== session.venue_id)) {
       return Response.json({ error: 'Not found' }, { status: 404 });
     }
 

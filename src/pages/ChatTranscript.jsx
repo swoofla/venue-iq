@@ -70,6 +70,8 @@ export default function ChatTranscript() {
       return;
     }
     setLoading(true);
+    setError(false);
+    setSession(null);
     base44.functions.invoke('getChatSessionPublic', { id })
       .then((res) => {
         if (res?.data?.session) {
@@ -78,7 +80,10 @@ export default function ChatTranscript() {
           setError(true);
         }
       })
-      .catch(() => setError(true))
+      .catch(err => {
+        if (err?.response?.status === 401) base44.auth.redirectToLogin(window.location.href);
+        else setError(true);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 

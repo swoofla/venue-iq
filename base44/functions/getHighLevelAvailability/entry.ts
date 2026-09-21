@@ -16,43 +16,19 @@ Deno.serve(async (req) => {
     const venue = await base44.asServiceRole.entities.Venue.get(venueId);
     const timezone = venue.timezone || 'America/New_York';
 
-    // Get timezone offset string for date range query
-    const getTimezoneOffsetString = (tz) => {
-      const raw = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date(`${startDate}T12:00:00Z`)).find(p => p.type === 'timeZoneName').value;
-      return raw === 'GMT' ? '+00:00' : raw.replace('GMT', '');
-    };
+    const formatTimeFromISO = (slot) => new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, hour: 'numeric', minute: '2-digit', hour12: true,
+    }).format(new Date(typeof slot === 'string' && slot.includes('T') ? slot : Number(slot)));
 
-    // Parse ISO 8601 string and extract formatted time
-    const formatTimeFromISO = (isoString) => {
-      let hours, minutes;
-      
-      if (typeof isoString === 'string' && isoString.includes('T')) {
-        // ISO 8601 string: "2026-02-15T12:00:00-05:00"
-        const timePart = isoString.split('T')[1];
-        const timeOnly = timePart.split(/[-+]/)[0];
-        const [h, m] = timeOnly.split(':');
-        hours = parseInt(h, 10);
-        minutes = parseInt(m, 10);
-      } else {
-        // Fallback: Unix timestamp (milliseconds)
-        const ts = Number(isoString);
-        if (isNaN(ts)) return 'Invalid Time';
-        const date = new Date(ts);
-        hours = date.getUTCHours();
-        minutes = date.getUTCMinutes();
-      }
-      
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
-    };
+    // Pad UTC boundaries so a DST transition cannot omit the first/last local slot.
+    const startDateTime = new Date(`${startDate}T00:00:00Z`);
+    const endDateTime = new Date(`${endDate}T23:59:59Z`);
+    startDateTime.setUTCDate(startDateTime.getUTCDate() - 1);
+    endDateTime.setUTCDate(endDateTime.getUTCDate() + 1);
+    if (!Number.isFinite(startDateTime.getTime()) || !Number.isFinite(endDateTime.getTime()) || startDate > endDate) {
+      return Response.json({ error: 'Invalid date range' }, { status: 400 });
+    }
 
-    const tzOffsetString = getTimezoneOffsetString(timezone);
-    
-    // Convert date strings to Unix milliseconds for API request
-    const startDateTime = new Date(`${startDate}T00:00:00${tzOffsetString}`);
-    const endDateTime = new Date(`${endDate}T23:59:59${tzOffsetString}`);
-    
     // Call HighLevel V2 API
     const url = `https://services.leadconnectorhq.com/calendars/${HIGHLEVEL_TOUR_CALENDAR_ID}/free-slots?startDate=${startDateTime.getTime()}&endDate=${endDateTime.getTime()}&timezone=${encodeURIComponent(timezone)}`;
     
@@ -81,7 +57,7 @@ Deno.serve(async (req) => {
     const transformedSlots = [];
     
     for (const [dateKey, dateData] of Object.entries(rawData)) {
-      if (dateKey === 'traceId' || !dateData || !Array.isArray(dateData.slots)) {
+      if (dateKey < startDate || dateKey > endDate || dateKey === 'traceId' || !dateData || !Array.isArray(dateData.slots)) {
         continue;
       }
       
