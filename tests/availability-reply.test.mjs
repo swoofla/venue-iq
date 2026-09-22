@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { composeAvailabilityReply as compose } from '../src/components/hooks/composeAvailabilityReply.js';
+const verdict = "I'm so sorry — Saturday, September 4, 2027 is already booked. The closest open dates are Saturday, August 21, Saturday, July 24, and Sunday, September 5.";
+const follow = "September is one of our most popular months, so it books up fast! Do you have a rough guest count in mind — that'll help me get you real pricing for one of those open dates.";
+assert.equal(compose(verdict, verdict + follow), verdict + '\n\n' + follow);
+assert.equal(compose(verdict, verdict + ' ' + verdict + follow), verdict + '\n\n' + follow);
+assert.equal(compose(verdict, "I'm so sorry — Saturday, September 4, 2027 is already booked. " + follow), verdict + '\n\n' + follow);
+assert.equal(compose(verdict, verdict.replace("I'm", "I’m").replace(' — ', ' – ') + follow), verdict + '\n\n' + follow);
+assert.equal(compose(verdict, ''), verdict);
+assert.equal(compose(verdict, verdict), verdict);
+const price = "The price is $6,500.50.\n\nWould you like a tour?";
+assert.equal(compose(verdict, price), verdict + '\n\n' + price);
+assert.equal(compose('', price), price);
+assert.equal(compose('Good news — September 4 is open!', 'Good news — September 4 is open! How many guests?'), 'Good news — September 4 is open!\n\nHow many guests?');
+console.log('PASS: reported duplication, repeated/partial verdict, punctuation variants, empty follow-up, pricing and paragraph preservation.');
