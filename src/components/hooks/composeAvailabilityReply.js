@@ -15,6 +15,6 @@ export function composeAvailabilityReply(verdict, followUp) {
   const owned = new Set(sentences(lead).map(normalize));
   const remainder = sentences(tail)
     .filter(sentence => !owned.has(normalize(sentence)))
-    .map(sentence => sentence.trim()).filter(Boolean).join(' ');
+    .join('').trim();
   return remainder ? `${lead}\n\n${remainder}` : lead;
 }
