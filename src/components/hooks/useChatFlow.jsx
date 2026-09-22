@@ -1,4 +1,5 @@
 import { isDirectPlannerRequest } from './handoffIntent';
+import { composeAvailabilityReply } from './composeAvailabilityReply';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import parseDateFromText from './parseDateFromText';
@@ -1252,9 +1253,7 @@ ${pendingActionRef.current === 'awaiting_quote_details' ? '- You previously aske
       let answer;
       if (verdictSentence) {
         // Compose in code so the verdict is ALWAYS present, regardless of LLM output
-        answer = generatorFollowUp
-          ? `${verdictSentence} ${generatorFollowUp}`
-          : verdictSentence;
+        answer = composeAvailabilityReply(verdictSentence, generatorFollowUp);
       } else {
         if (!generatorFollowUp) {
           console.error('Falling back to generic reply — generator produced no answer text. Raw payload:', JSON.stringify(generatorRaw));
