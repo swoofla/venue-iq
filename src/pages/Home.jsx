@@ -385,7 +385,11 @@ function VenueHome() {
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {showEmptyState ? (
-            <ChatEmptyState venueName={venueName} />
+            <ChatEmptyState
+              venueName={venueName}
+              venueSlug={venueSlug}
+              onSuggestion={chat.handleUserMessage}
+            />
           ) : (
             <>
               {chat.messages.map((message) => (
